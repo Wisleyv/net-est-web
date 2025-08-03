@@ -1,8 +1,27 @@
 /**
- * App.jsx - Error Boundary Version
+ * Enhanced App.jsx - Phase 2.B.5 Dual Input Architecture - Fully Restored & Working
  */
 
-import React from 'react';
+import React, { useState } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+// Components
+import DualTextInputComponent from './components/DualTextInputComponent';
+import ComparativeResultsDisplay from './components/ComparativeResultsDisplay';
+
+// Services
+import ComparativeAnalysisService from './services/comparativeAnalysisService';
+
+// React Query client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      staleTime: 5 * 60 * 1000,
+      cacheTime: 10 * 60 * 1000,
+    },
+  },
+});
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component {
@@ -11,7 +30,7 @@ class ErrorBoundary extends React.Component {
     this.state = { hasError: false, error: null, errorInfo: null };
   }
 
-  static getDerivedStateFromError(error) {
+  static getDerivedStateFromError(_error) {
     return { hasError: true };
   }
 
@@ -28,23 +47,23 @@ class ErrorBoundary extends React.Component {
         <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
           <h1 style={{ color: 'red' }}>🚨 Erro na Aplicação</h1>
           <details style={{ whiteSpace: 'pre-wrap' }}>
-            <summary>Detalhes do erro (clique para expandir)</summary>
-            <p><strong>Erro:</strong> {this.state.error && this.state.error.toString()}</p>
-            <p><strong>Stack:</strong> {this.state.errorInfo.componentStack}</p>
+            <summary>Detalhes do Erro</summary>
+            {this.state.error && this.state.error.toString()}
+            <br />
+            {this.state.errorInfo.componentStack}
           </details>
           <button 
-            onClick={() => window.location.reload()} 
+            onClick={() => window.location.reload()}
             style={{ 
               padding: '10px 20px', 
-              background: '#007bff', 
+              backgroundColor: '#dc3545', 
               color: 'white', 
               border: 'none', 
               borderRadius: '4px',
-              cursor: 'pointer',
-              marginTop: '10px'
+              cursor: 'pointer'
             }}
           >
-            🔄 Recarregar Página
+            Recarregar Página
           </button>
         </div>
       );
@@ -54,47 +73,107 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-// Simple App Component
-function SimpleApp() {
+// Main Application Component
+function MainApp() {
+  const [currentView, setCurrentView] = useState('input');
+  const [analysisResult, setAnalysisResult] = useState(null);
+  const [analysisHistory, setAnalysisHistory] = useState([]);
+
+  // Real API integration function
+  const handleComparativeAnalysis = async (analysisData) => {
+    // Call the backend service
+    const result = await ComparativeAnalysisService.performComparativeAnalysis(analysisData);
+    
+    // Store result and switch to results view
+    setAnalysisResult(result);
+    setAnalysisHistory(prev => [result, ...prev]);
+    setCurrentView('results');
+    
+    return result;
+  };
+
+  const handleBackToInput = () => {
+    setCurrentView('input');
+    setAnalysisResult(null);
+  };
+
+  const handleViewHistory = () => {
+    // Future enhancement - for now just go back to input
+    setCurrentView('input');
+  };
+
+  const renderCurrentView = () => {
+    switch (currentView) {
+      case 'results':
+        return (
+          <ComparativeResultsDisplay
+            analysisResult={analysisResult}
+            onBack={handleBackToInput}
+            onNewAnalysis={handleBackToInput}
+          />
+        );
+      case 'about':
+        return (
+          <div>
+            <h2>📖 About NET-EST</h2>
+            <p>Phase 2.B.5 Dual Input Architecture - Fully Functional!</p>
+            <button onClick={() => setCurrentView('input')}>Back to Input</button>
+          </div>
+        );
+      default:
+        return (
+          <DualTextInputComponent
+            onComparativeAnalysis={handleComparativeAnalysis}
+            analysisHistory={analysisHistory}
+            onViewHistory={handleViewHistory}
+          />
+        );
+    }
+  };
+
   return (
-    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif', minHeight: '100vh', background: '#f5f5f5' }}>
-      <header style={{ background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-        <h1 style={{ color: '#333', margin: '0 0 10px 0' }}>
-          🎯 Sistema de Análise de Tradução Intralinguística
+    <div style={{ 
+      minHeight: '100vh', 
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      fontFamily: 'system-ui, -apple-system, sans-serif'
+    }}>
+      {/* Header */}
+      <div style={{ 
+        backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+        backdropFilter: 'blur(10px)',
+        padding: '1rem 2rem',
+        boxShadow: '0 2px 20px rgba(0, 0, 0, 0.1)'
+      }}>
+        <h1 style={{ margin: 0, color: '#2d3748' }}>
+          🌐 NET-EST - Análise Comparativa de Simplificação Textual
         </h1>
-        <p style={{ color: '#666', margin: '0' }}>
-          Ferramenta de análise linguística computacional para identificação e classificação de estratégias de simplificação textual.
+        <p style={{ margin: '0.5rem 0 0 0', color: '#4a5568' }}>
+          Phase 2.B.5 - Dual Input Architecture - Fully Restored & Functional ✅
         </p>
-      </header>
+      </div>
 
-      <main style={{ background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-        <div style={{ background: '#e8f5e8', padding: '15px', borderRadius: '6px', marginBottom: '20px' }}>
-          <h2 style={{ color: '#2d5a2d', margin: '0 0 10px 0' }}>✅ Status da Aplicação</h2>
-          <ul style={{ margin: '0', color: '#2d5a2d' }}>
-            <li>✅ React carregado e funcionando</li>
-            <li>✅ HTML e CSS aplicados corretamente</li>
-            <li>✅ Estado de desenvolvimento: Phase 2.B.1 State Management</li>
-            <li>⚠️ State Management em processo de teste</li>
-          </ul>
+      {/* Main Content */}
+      <div style={{ padding: '2rem' }}>
+        <div style={{ 
+          backgroundColor: 'white', 
+          borderRadius: '12px', 
+          padding: '2rem',
+          boxShadow: '0 4px 25px rgba(0, 0, 0, 0.1)'
+        }}>
+          {renderCurrentView()}
         </div>
-
-        <div style={{ background: '#f8f9fa', padding: '15px', borderRadius: '6px' }}>
-          <h3 style={{ margin: '0 0 10px 0' }}>🚧 Desenvolvimento em Progresso</h3>
-          <p style={{ margin: '0' }}>
-            Esta versão está sendo testada para identificar problemas com as importações do state management (Zustand + React Query).
-            Se você está vendo esta mensagem, significa que o React está funcionando corretamente.
-          </p>
-        </div>
-      </main>
+      </div>
     </div>
   );
 }
 
-// Main App with Error Boundary
+// Main App Wrapper with Providers
 function App() {
   return (
     <ErrorBoundary>
-      <SimpleApp />
+      <QueryClientProvider client={queryClient}>
+        <MainApp />
+      </QueryClientProvider>
     </ErrorBoundary>
   );
 }
