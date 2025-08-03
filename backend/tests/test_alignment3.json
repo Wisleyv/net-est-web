@@ -1,0 +1,13 @@
+{
+  "source_paragraphs": [
+    "O gato subiu no telhado.",
+    "A menina foi à escola."
+  ],
+  "target_paragraphs": [
+    "O felino escalou a cobertura.",
+    "A criança se dirigiu ao colégio."
+  ],
+  "similarity_threshold": 0.85,
+  "alignment_method": "cosine_similarity",
+  "max_alignments_per_source": 1
+}

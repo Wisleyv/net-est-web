@@ -1,0 +1,19 @@
+# NET-EST Backend - Development Dependencies
+# Development and testing tools
+
+# Testing
+pytest
+pytest-cov
+pytest-asyncio
+
+# Code Quality & Formatting
+ruff
+black
+isort
+
+# Type Checking
+mypy
+types-psutil  # Type stubs for psutil
+
+# Additional development tools
+pip-tools

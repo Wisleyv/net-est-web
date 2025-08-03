@@ -1,0 +1,46 @@
+# NET-EST Backend - Core Dependencies
+# Production dependencies for the NET-EST API
+
+# Web Framework
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Configuration & Validation
+pydantic
+pydantic-settings
+python-dotenv
+
+# Logging & Monitoring
+structlog
+psutil
+
+# HTTP Client for testing/external calls
+httpx
+
+# Document Processing Dependencies for Text Input Core
+python-docx
+odfpy
+pypdf  # Migrated from PyPDF2 to pypdf (actively maintained successor)
+pdfplumber
+aiofiles
+
+# ML and NLP Dependencies (for semantic alignment features)
+torch
+transformers
+sentence-transformers
+scikit-learn
+
+# Database & ORM (Future Scalability - uncomment when needed)
+# sqlalchemy>=2.0.0
+# alembic>=1.13.0
+# asyncpg>=0.29.0  # For PostgreSQL async support
+# aiosqlite>=0.20.0  # For SQLite async support
+
+# Caching & Performance (Future - uncomment when needed)
+# redis>=5.0.0
+# hiredis>=2.3.0
+
+# Monitoring & Observability (Future - uncomment when needed)
+# prometheus-client>=0.18.0
+# sentry-sdk[fastapi]>=1.38.0
