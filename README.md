@@ -125,7 +125,7 @@ npm run test
 
 - **Coordenação:** Profa. Dra. Janine Pimentel (PIPGLA/UFRJ e Politécnico de Leiria)
 - **Analista de Sistemas/Desenvolvedor Principal:** Wisley Vilela (Doutorando em Linguistica Aplicada PIPGLA/UFRJ - bolsista CAPES)
-- **Especialista Linguística:** Luanny Matos de Lima (Mestranda em Linguística Aplicada PPGLEN/UFRJ)
+- **Especialista Linguística:** Luanny Matos de Lima (Mestranda em Linguística Aplicada PIPGLA/UFRJ)
 - **Agentes Técnicos de IA:** Claude Sonnet 4, ChatGPT-4o, Gemini 2.5 Pro
 
 ## 🏢 Instituições
@@ -154,12 +154,12 @@ MIT License - veja [LICENSE](LICENSE) para detalhes.
 **Equipe de Desenvolvimento:**
 - **Coordenação:** Profa. Dra. Janine Pimentel (PIPGLA/UFRJ e Politécnico de Leiria)
 - **Desenvolvedor Principal:** Wisley Vilela (Doutorando PIPGLA/UFRJ - bolsista CAPES)
-- **Especialista Linguística:** Luanny Matos de Lima (Mestranda PPGLEN/UFRJ)
+- **Especialista Linguística:** Luanny Matos de Lima (Mestranda PIPGLA/UFRJ)
 - **Agentes Técnicos de IA:** Claude Sonnet 3.5, ChatGPT-4o, Gemini 2.0 Flash (mediados por GitHub Copilot)
 
 **Instituições:** Núcleo de Estudos de Tradução - UFRJ | Politécnico de Leiria (PT)
 
-**Financiamento:** Bolsa de Doutorado CAPES (Coordenação de Aperfeiçoamento de Pessoal de Nível Superior)
+**Apoio:** CAPES (via bolsa de doutorado)
 
 **Licença:** MIT License | **Status:** Em Desenvolvimento
 
@@ -283,13 +283,16 @@ Este projeto está licenciado sob a [MIT License](LICENSE) - veja o arquivo LICE
 ## Contato
 
 ### Questões Acadêmicas
-- **Profa. Dra. Janine Pimentel:** [email institucional]
-- **Núcleo de Estudos de Tradução:** [contato do grupo]
+
+- **Profa. Dra. Janine Pimentel:** [janinepimentel@letras.ufrj.br](mailto:janinepimentel@letras.ufrj.br)
+- **Núcleo de Estudos de Tradução:** [https://net.letras.ufrj.br/pesquisadores/](https://net.letras.ufrj.br/pesquisadores/)
+- **Luanny Matos de Lima:** [lua.matoslima@letras.ufrj.br](mailto:lua.matoslima@letras.ufrj.br)
 
 ### Questões Técnicas
-- **Wisley Vilela:** wisley@wisley.net
-- **GitHub Issues:** [\[link para issues\]](https://github.com/Wisleyv/net-est-web/issues)
+
+- **Wisley Vilela:** [wisley@wisley.net](mailto:wisley@wisley.net)
+- **GitHub Issues:** [Issues do Projeto](https://github.com/Wisleyv/net-est-web/issues)
 
 ---
 
-*Desenvolvido pelo Núcleo de Estudos de Tradução - UFRJ*
+**Desenvolvido pelo Núcleo de Estudos de Tradução - UFRJ**

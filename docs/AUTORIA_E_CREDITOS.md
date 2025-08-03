@@ -29,11 +29,11 @@ O **NET-EST (Núcleo de Estudos de Tradução - Análise de Simplificação Text
   - Arquitetura de sistema e performance
   - Integração de tecnologias de IA e NLP
 
-**Financiamento:** Este projeto é desenvolvido com apoio financeiro da CAPES (Coordenação de Aperfeiçoamento de Pessoal de Nível Superior) através de bolsa de doutorado.
+**Apoio:** CAPES (via bolsa de doutorado)
 
 ### Especialização Linguística
 **Luanny Matos de Lima**
-- Mestranda PPGLEN/UFRJ
+- Mestranda PIPGLA/UFRJ
 - Especialista em Análise Linguística
 - Foco em estratégias de simplificação textual
 - Expertise em tradução intralingual
@@ -85,13 +85,14 @@ O projeto será disponibilizado sob **Licença MIT**, permitindo:
 ```
 Vilela, W., Pimentel, J., & Lima, L. M. (2025). NET-EST: Sistema de Análise 
 Computacional para Estratégias de Simplificação em Tradução Intralingual. 
-Núcleo de Estudos de Tradução, UFRJ. Disponível em: https://github.com/[repositório]
+Núcleo de Estudos de Tradução, UFRJ. Disponível em: https://github.com/Wisleyv/net-est-web
 ```
 
 ### Agradecimentos Especiais
-- **UFRJ** - Suporte institucional e recursos de pesquisa
-- **PIPGLA/PPGLEN** - Ambiente acadêmico e orientação
+- **UFRJ** - Suporte institucional
+- **PIPGLA** - Ambiente acadêmico e orientação
 - **Politécnico de Leiria** - Colaboração internacional
+- **CAPES** - Apoio financeiro
 - **Comunidade Open Source** - Bibliotecas e ferramentas utilizadas
 
 ## Histórico de Versões
@@ -104,12 +105,15 @@ Núcleo de Estudos de Tradução, UFRJ. Disponível em: https://github.com/[repo
 ## Contato e Colaborações
 
 ### Para Questões Acadêmicas
-- **Profa. Dra. Janine Pimentel:** [email institucional]
-- **Núcleo de Estudos de Tradução:** [contato do grupo]
+
+- **Profa. Dra. Janine Pimentel:** [janinepimentel@letras.ufrj.br](mailto:janinepimentel@letras.ufrj.br)
+- **Núcleo de Estudos de Tradução:** [https://net.letras.ufrj.br/pesquisadores/](https://net.letras.ufrj.br/pesquisadores/)
+- **Luanny Matos de Lima:** [lua.matoslima@letras.ufrj.br](mailto:lua.matoslima@letras.ufrj.br)
 
 ### Para Questões Técnicas
-- **Wisley Vilela:** [wisley@wisley.net]
-- **Issues do GitHub:** [link para issues]
+
+- **Wisley Vilela:** [wisley@wisley.net](mailto:wisley@wisley.net)
+- **Issues do GitHub:** [Issues do Projeto](https://github.com/Wisleyv/net-est-web/issues)
 
 ### Para Contribuições
 Contribuições são bem-vindas através de:

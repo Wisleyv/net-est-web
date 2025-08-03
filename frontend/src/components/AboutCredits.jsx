@@ -24,7 +24,7 @@ const AboutCredits = () => {
       {
         role: 'Especialista Linguística',
         name: 'Luanny Matos de Lima',
-        affiliation: 'Mestranda PPGLEN/UFRJ',
+        affiliation: 'Mestranda PIPGLA/UFRJ',
       },
       {
         role: 'Agentes Técnicos de IA',

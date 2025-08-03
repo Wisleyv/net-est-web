@@ -7,12 +7,12 @@
 **Equipe de Desenvolvimento:**
 - **Coordenação:** Profa. Dra. Janine Pimentel (PIPGLA/UFRJ e Politécnico de Leiria)
 - **Desenvolvedor Principal:** Wisley Vilela (Doutorando PIPGLA/UFRJ - bolsista CAPES)
-- **Especialista Linguística:** Luanny Matos de Lima (Mestranda PPGLEN/UFRJ)
+- **Especialista Linguística:** Luanny Matos de Lima (Mestranda PIPGLA/UFRJ)
 - **Agentes Técnicos de IA:** Claude Sonnet 3.5, ChatGPT-4o, Gemini 2.0 Flash (mediados por GitHub Copilot)
 
 **Instituições:** Núcleo de Estudos de Tradução - UFRJ | Politécnico de Leiria (PT)
 
-**Financiamento:** Bolsa de Doutorado CAPES (Coordenação de Aperfeiçoamento de Pessoal de Nível Superior)
+**Apoio:** CAPES (via bolsa de doutorado)
 
 ---
 

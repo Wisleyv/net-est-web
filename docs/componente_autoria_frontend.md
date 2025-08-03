@@ -61,7 +61,7 @@ const AboutCredits = () => {
                 <div className="credit-item">
                   <h4>Especialização Linguística</h4>
                   <p><strong>Luanny Matos de Lima</strong></p>
-                  <p>Mestranda PPGLEN/UFRJ</p>
+                  <p>Mestranda PIPGLA/UFRJ</p>
                   <p>Especialista em Análise de Simplificação Textual</p>
                 </div>
 
