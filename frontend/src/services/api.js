@@ -71,12 +71,25 @@ export const textInputAPI = {
 
 // Semantic Alignment API
 export const semanticAlignmentAPI = {
+  // Core alignment processing
+  processAlignment: (data) => api.post('/api/v1/semantic-alignment/process', data),
+  processBatch: (data) => api.post('/api/v1/semantic-alignment/process-batch', data),
+  
+  // Analysis and validation
   analyze: (data) => api.post('/api/v1/semantic-alignment/analyze', data),
+  validateComplexity: (data) => api.post('/api/v1/semantic-alignment/validate-complexity', data),
+  
+  // Results and data retrieval
   getResults: (analysisId) => api.get(`/api/v1/semantic-alignment/results/${analysisId}`),
   getAlignment: (analysisId) => api.get(`/api/v1/semantic-alignment/alignment/${analysisId}`),
   getMetrics: (analysisId) => api.get(`/api/v1/semantic-alignment/metrics/${analysisId}`),
   getConfidence: (analysisId) => api.get(`/api/v1/semantic-alignment/confidence/${analysisId}`),
-  getHistory: () => api.get('/api/v1/semantic-alignment/history'),
+  getHistory: (options = {}) => api.get('/api/v1/semantic-alignment/history', { params: options }),
+  
+  // Configuration and metadata
+  getEducationLevels: () => api.get('/api/v1/semantic-alignment/education-levels'),
+  
+  // Updates and management
   updateAlignment: (analysisId, data) => api.put(`/api/v1/semantic-alignment/alignment/${analysisId}`, data),
   deleteAnalysis: (analysisId) => api.delete(`/api/v1/semantic-alignment/${analysisId}`),
 };
