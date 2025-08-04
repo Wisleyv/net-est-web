@@ -59,6 +59,11 @@ def main():
     print("🚀 NET-est Backend Server (Versão Consolidada)")
     print("=" * 55)
     
+    # Ensure we're in the correct directory
+    script_dir = Path(__file__).parent
+    os.chdir(script_dir)
+    print(f"📁 Working directory: {os.getcwd()}")
+    
     # Determinar porta disponível
     port = get_available_port()
     if not port:
@@ -72,7 +77,8 @@ def main():
     print("🛑 Para parar: Ctrl+C")
     print("-" * 55)
     
-    # Iniciar servidor
+    # Iniciar servidor com path absoluto
+    app_path = f"{script_dir}/src/main:app"
     uvicorn.run(
         "src.main:app",
         host=settings.HOST,

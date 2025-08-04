@@ -13,6 +13,9 @@ import TextInputFieldIntegrated from './components/TextInputFieldIntegrated';
 import SemanticAlignmentIntegrated from './components/SemanticAlignmentIntegrated';
 import ProcessedTextDisplayIntegrated from './components/ProcessedTextDisplayIntegrated';
 
+// Testing components
+import ErrorTestComponent from './components/ErrorTestComponent';
+
 // Common components
 import ErrorBoundary from './components/common/ErrorBoundary';
 import NotificationCenter from './components/common/NotificationCenter';
@@ -191,6 +194,22 @@ const AppContent = () => {
                     e componentes modulares independentes. Todos os componentes agora utilizam hooks centralizados e 
                     notificações unificadas.
                   </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Testing Component for Phase 2.B.4 */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 bg-yellow-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-white text-xs font-bold">🧪</span>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-medium text-yellow-900 mb-2">Fase 2.B.4 - Testes Sistemáticos</h3>
+                  <p className="text-sm text-yellow-800 mb-3">
+                    Componente de teste para validação do sistema de tratamento de erros (ErrorBoundary).
+                  </p>
+                  <ErrorTestComponent />
                 </div>
               </div>
             </div>

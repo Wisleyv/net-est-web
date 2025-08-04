@@ -32,15 +32,30 @@ const DualTextInputComponent = ({ onComparativeAnalysis, className = "" }) => {
       
       const data = response.data;
       
-      if (type === 'source') {
-        setSourceText(data.content);
-        setSourceFile(file);
+      if (data.success) {
+        if (type === 'source') {
+          setSourceText(data.content);
+          setSourceFile(file);
+        } else {
+          setTargetText(data.content);
+          setTargetFile(file);
+        }
+        
+        // Show validation information if available
+        if (data.validation && data.validation.warnings.length > 0) {
+          handleSuccess(
+            `Arquivo ${type} carregado com sucesso! ` +
+            `${data.validation.warnings.length} avisos encontrados.`
+          );
+        } else {
+          handleSuccess(
+            `Arquivo ${type} carregado com sucesso! ` +
+            `${data.extracted_words} palavras extraídas.`
+          );
+        }
       } else {
-        setTargetText(data.content);
-        setTargetFile(file);
+        throw new Error('Upload failed');
       }
-      
-      handleSuccess(`Arquivo ${type} carregado com sucesso!`);
     } catch (error) {
       handleError(error, {
         component: 'DualTextInput',
@@ -49,10 +64,11 @@ const DualTextInputComponent = ({ onComparativeAnalysis, className = "" }) => {
     }
   };
 
-  // Validation
-  const validateInputs = () => {
+  // Enhanced validation using comparative analysis validation
+  const validateInputs = async () => {
     const errors = {};
     
+    // Basic required field validation
     if (!sourceText.trim()) {
       errors.source = 'Texto fonte é obrigatório';
     } else if (sourceText.trim().length < 50) {
@@ -65,13 +81,52 @@ const DualTextInputComponent = ({ onComparativeAnalysis, className = "" }) => {
       errors.target = 'Texto simplificado deve ter pelo menos 20 caracteres';
     }
     
+    // If both texts are provided, do comprehensive validation
+    if (sourceText.trim() && targetText.trim() && Object.keys(errors).length === 0) {
+      try {
+        const formData = new URLSearchParams();
+        formData.append('source_text', sourceText.trim());
+        formData.append('target_text', targetText.trim());
+        
+        const response = await api.post('/api/v1/comparative-analysis/validate-texts', formData, {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        });
+        
+        const validation = response.data;
+        
+        // Add warnings from comprehensive validation
+        if (!validation.source_validation.is_valid) {
+          errors.source = validation.source_validation.errors.join(', ');
+        }
+        
+        if (!validation.target_validation.is_valid) {
+          errors.target = validation.target_validation.errors.join(', ');
+        }
+        
+        // Show comparative analysis warnings (but don't block submission)
+        if (validation.comparative_analysis.warnings.length > 0) {
+          handleSuccess(
+            `Validação concluída. ${validation.comparative_analysis.warnings.length} recomendações encontradas: ` +
+            validation.comparative_analysis.warnings[0]
+          );
+        }
+        
+      } catch (validationError) {
+        console.warn('Enhanced validation failed, using basic validation:', validationError);
+        // Fall back to basic validation only
+      }
+    }
+    
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   // Handle comparative analysis
   const handleSubmit = async () => {
-    if (!validateInputs()) {
+    const isValid = await validateInputs();
+    if (!isValid) {
       handleError(new Error('Por favor, corrija os erros de validação'), {
         component: 'DualTextInput',
         operation: 'validation',

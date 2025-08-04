@@ -30,6 +30,8 @@ torch
 transformers
 sentence-transformers
 scikit-learn
+textstat
+spacy  # Portuguese language model: python -m spacy download pt_core_news_sm
 
 # Database & ORM (Future Scalability - uncomment when needed)
 # sqlalchemy>=2.0.0

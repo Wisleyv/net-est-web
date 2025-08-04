@@ -82,7 +82,7 @@ const useAppStore = create(
             notifications: [
               ...state.notifications,
               {
-                id: Date.now(),
+                id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                 timestamp: new Date().toISOString(),
                 ...notification,
               },
