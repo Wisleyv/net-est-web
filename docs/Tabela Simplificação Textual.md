@@ -34,3 +34,15 @@
 | **SL+**   | Adequação de Vocabulário             | Substituição de termos difíceis, técnicos ou raros por sinônimos mais simples, comuns ou hiperônimos. Também envolve evitar polissemia, jargões e repetições desnecessárias.                                                   |
 | **TA+**   | Clareza Referencial                  | Estratégias para garantir que pronomes e outras referências anafóricas sejam facilmente compreendidos. Inclui evitar catáforas e uso de sinônimos distantes ou ambíguos.                                                       |
 | **MV+**   | Alteração da Voz Verbal              | Mudança da voz passiva para ativa (ou vice-versa) para garantir maior clareza, fluência e naturalidade. A escolha depende da necessidade de destacar ou omitir agentes.                                                        |
+
+-------------------------------------------------------------------------------------------------------
+---
+
+
+Usos especiais: As tags OM+ e PRO+ seguem regras de uso distantas, conforme instrução abaixo:
+
+OM+ - Por padrão, a análise dessa estratégia de simplificação permanece desativada. Visto que a tradução intralingual com objetivo de simplificação textual invariavelmente implica redução no número de palavras, OM+ sempre ocorrerá. Essa tag ficará disponível para ativação pelo humano no circuito de análise, caso este julgue necessária a implementação dela em circunstâncias específicas.
+
+PRO+ - Essa tag nunca será marcada pelo sistema computacional de análise. Ela permanecerá disponível em um menu de contexto, ativo na caixa do "Texto Alvo", permitindo ao humano no circuito que a selecione para marcar ocorrências específicas.
+
+Todas as tags estarão disponíveis em um menu de contexto na caixa "Texto Alvo" para alteração de tag pelo humano no circuito. As alterações efetuadas pelo agente humano serão armazenadas com o objetivo de refinar os métodos de análise computacional.

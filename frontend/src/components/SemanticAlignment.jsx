@@ -7,12 +7,14 @@ import {
   ArrowRightLeft,
   Settings,
 } from 'lucide-react';
-import TextInputField from './TextInputField';
+import FileUploadTextInput from './FileUploadTextInput';
+import ComparativeAnalysisService from '../services/comparativeAnalysisService';
 
 const SemanticAlignment = () => {
   const [sourceText, setSourceText] = useState('');
   const [targetText, setTargetText] = useState('');
   const [alignmentResult, setAlignmentResult] = useState(null);
+  const [comparativeResult, setComparativeResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [config, setConfig] = useState({
@@ -80,6 +82,41 @@ const SemanticAlignment = () => {
       }
     } catch (err) {
       setError(`Erro na requisição: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleComparativeAnalysis = async () => {
+    if (!sourceText.trim() || !targetText.trim()) {
+      setError('Por favor, forneça tanto o texto fonte quanto o texto alvo.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const analysisData = {
+        sourceText: sourceText.trim(),
+        targetText: targetText.trim(),
+        metadata: {
+          source_length: sourceText.length,
+          target_length: targetText.length,
+          timestamp: new Date().toISOString(),
+        }
+      };
+
+      const result = await ComparativeAnalysisService.performComparativeAnalysis(analysisData);
+      
+      if (result.success) {
+        setComparativeResult(result);
+        setAlignmentResult(null); // Clear previous alignment results
+      } else {
+        setError(result.message || 'Erro na análise comparativa');
+      }
+    } catch (err) {
+      setError(`Erro na análise: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -194,19 +231,17 @@ const SemanticAlignment = () => {
 
         {/* Input Areas */}
         <div className='grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6'>
-          <TextInputField
+          <FileUploadTextInput
             label='Texto Fonte (Original)'
             placeholder='Digite ou carregue o texto original aqui. Separe parágrafos com quebras de linha.'
-            required={true}
             value={sourceText}
             onChange={setSourceText}
             disabled={loading}
           />
 
-          <TextInputField
+          <FileUploadTextInput
             label='Texto Alvo (Simplificado)'
             placeholder='Digite ou carregue o texto simplificado aqui. Separe parágrafos com quebras de linha.'
-            required={true}
             value={targetText}
             onChange={setTargetText}
             disabled={loading}
@@ -225,27 +260,163 @@ const SemanticAlignment = () => {
           </div>
         )}
 
-        {/* Action Button */}
-        <button
-          onClick={handleAlignment}
-          disabled={loading || !sourceText.trim() || !targetText.trim()}
-          className='w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2'
-        >
-          {loading ? (
-            <>
-              <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-white'></div>
-              Processando Alinhamento...
-            </>
-          ) : (
-            <>
-              <Zap className='w-4 h-4' />
-              Realizar Alinhamento Semântico
-            </>
-          )}
-        </button>
+        {/* Action Buttons */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button
+            onClick={handleAlignment}
+            disabled={loading || !sourceText.trim() || !targetText.trim()}
+            className='bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2'
+          >
+            {loading ? (
+              <>
+                <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-white'></div>
+                Processando Alinhamento...
+              </>
+            ) : (
+              <>
+                <Zap className='w-4 h-4' />
+                Realizar Alinhamento Semântico
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={handleComparativeAnalysis}
+            disabled={loading || !sourceText.trim() || !targetText.trim()}
+            className='bg-green-600 text-white py-3 px-4 rounded-md hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2'
+          >
+            {loading ? (
+              <>
+                <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-white'></div>
+                Analisando Comparação...
+              </>
+            ) : (
+              <>
+                <ArrowRightLeft className='w-4 h-4' />
+                Análise Comparativa Completa
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
-      {/* Results */}
+      {/* Comparative Analysis Results */}
+      {comparativeResult && (
+        <div className='bg-white rounded-lg shadow-lg p-6 mb-6'>
+          <h3 className='text-xl font-bold text-gray-800 mb-4'>
+            Análise Comparativa Completa
+          </h3>
+
+          {/* Analysis Statistics */}
+          <div className='grid grid-cols-2 md:grid-cols-4 gap-4 mb-6'>
+            <div className='bg-blue-50 p-4 rounded-lg'>
+              <div className='text-2xl font-bold text-blue-600'>
+                {comparativeResult.statistics?.word_reduction_percentage?.toFixed(1) || 0}%
+              </div>
+              <div className='text-sm text-blue-600'>Redução de Palavras</div>
+            </div>
+            <div className='bg-green-50 p-4 rounded-lg'>
+              <div className='text-2xl font-bold text-green-600'>
+                {comparativeResult.statistics?.readability_improvement?.toFixed(2) || 0}
+              </div>
+              <div className='text-sm text-green-600'>Melhoria de Legibilidade</div>
+            </div>
+            <div className='bg-purple-50 p-4 rounded-lg'>
+              <div className='text-2xl font-bold text-purple-600'>
+                {comparativeResult.statistics?.complexity_reduction?.toFixed(1) || 0}%
+              </div>
+              <div className='text-sm text-purple-600'>Redução de Complexidade</div>
+            </div>
+            <div className='bg-orange-50 p-4 rounded-lg'>
+              <div className='text-2xl font-bold text-orange-600'>
+                {comparativeResult.statistics?.semantic_similarity?.toFixed(2) || 0}
+              </div>
+              <div className='text-sm text-orange-600'>Similaridade Semântica</div>
+            </div>
+          </div>
+
+          {/* Simplification Strategies */}
+          {comparativeResult.simplification_strategies && (
+            <div className='mb-6'>
+              <h4 className='text-lg font-semibold text-gray-800 mb-3'>
+                Estratégias de Simplificação Identificadas
+              </h4>
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                {comparativeResult.simplification_strategies.map((strategy, index) => (
+                  <div key={index} className='bg-gray-50 p-4 rounded-lg'>
+                    <h5 className='font-medium text-gray-800 mb-2'>{strategy.name}</h5>
+                    <p className='text-sm text-gray-600 mb-2'>{strategy.description}</p>
+                    <div className='flex items-center justify-between text-xs'>
+                      <span className='text-gray-500'>
+                        Confiança: {(strategy.confidence * 100).toFixed(1)}%
+                      </span>
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        strategy.impact === 'high' ? 'bg-red-100 text-red-700' :
+                        strategy.impact === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-green-100 text-green-700'
+                      }`}>
+                        {strategy.impact} impacto
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Detailed Analysis */}
+          {comparativeResult.analysis && (
+            <div className='space-y-4'>
+              <div className='border-t pt-4'>
+                <h4 className='text-lg font-semibold text-gray-800 mb-3'>
+                  Análise Detalhada
+                </h4>
+                <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+                  <div>
+                    <h5 className='font-medium text-gray-700 mb-2'>Métricas Lexicais</h5>
+                    <div className='space-y-2 text-sm'>
+                      <div className='flex justify-between'>
+                        <span>Palavras únicas fonte:</span>
+                        <span>{comparativeResult.analysis.lexical?.source_unique_words || 0}</span>
+                      </div>
+                      <div className='flex justify-between'>
+                        <span>Palavras únicas alvo:</span>
+                        <span>{comparativeResult.analysis.lexical?.target_unique_words || 0}</span>
+                      </div>
+                      <div className='flex justify-between'>
+                        <span>Palavras compartilhadas:</span>
+                        <span>{comparativeResult.analysis.lexical?.shared_words || 0}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <h5 className='font-medium text-gray-700 mb-2'>Métricas de Legibilidade</h5>
+                    <div className='space-y-2 text-sm'>
+                      <div className='flex justify-between'>
+                        <span>Flesch Reading Ease (fonte):</span>
+                        <span>{comparativeResult.analysis.readability?.source_flesch?.toFixed(1) || 0}</span>
+                      </div>
+                      <div className='flex justify-between'>
+                        <span>Flesch Reading Ease (alvo):</span>
+                        <span>{comparativeResult.analysis.readability?.target_flesch?.toFixed(1) || 0}</span>
+                      </div>
+                      <div className='flex justify-between'>
+                        <span>Melhoria:</span>
+                        <span className='text-green-600'>
+                          +{((comparativeResult.analysis.readability?.target_flesch || 0) - 
+                              (comparativeResult.analysis.readability?.source_flesch || 0)).toFixed(1)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Alignment Results */}
       {alignmentResult && (
         <div className='bg-white rounded-lg shadow-lg p-6'>
           <h3 className='text-xl font-bold text-gray-800 mb-4'>

@@ -1,0 +1,11 @@
+{
+  "source_text": "A modernização das tecnologias de comunicação digital tem proporcionado um significativo avanço na disseminação de informações científicas complexas para o público em geral. Contudo, a complexidade inerente aos textos acadêmicos constitui uma barreira substancial para a compreensão popular. Os pesquisadores enfrentam o desafio de traduzir descobertas especializadas em linguagem acessível, mantendo simultaneamente a precisão técnica. Este processo demanda não apenas competência linguística, mas também profundo conhecimento das audiências-alvo e suas necessidades específicas.",
+  "target_text": "As novas tecnologias de comunicação ajudaram muito na divulgação de informações científicas para todas as pessoas. Mas os textos científicos são difíceis de entender. Isso cria problemas para o público comum. Os cientistas precisam explicar suas descobertas de forma simples. Ao mesmo tempo, não podem perder a precisão. Para fazer isso bem, eles precisam conhecer seu público e suas necessidades.",
+  "analysis_options": {
+    "include_strategy_identification": true,
+    "include_lexical_analysis": true,
+    "include_syntactic_analysis": false,
+    "include_semantic_analysis": false,
+    "include_readability_metrics": false
+  }
+}

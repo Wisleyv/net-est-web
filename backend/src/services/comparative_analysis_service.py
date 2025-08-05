@@ -29,7 +29,11 @@ from ..models.comparative_analysis import (
     SemanticAnalysis,
     AnalysisHistoryItem
 )
+
+# Import the strategy detector
+from .strategy_detector import StrategyDetector
 from .semantic_alignment_service import SemanticAlignmentService
+from ..models.strategy_models import SimplificationStrategyType as StrategyType
 
 logger = logging.getLogger(__name__)
 
@@ -314,15 +318,87 @@ class ComparativeAnalysisService:
     def _identify_simplification_strategies(
         self, source_text: str, target_text: str
     ) -> List[SimplificationStrategy]:
-        """Identify simplification strategies used"""
+        """
+        Identify simplification strategies used.
+        Now uses the strategy_detector module which implements all strategies
+        from Tabela Simplificação Textual.
+        """
+        try:
+            # Use the new StrategyDetector for proper Portuguese strategies
+            strategy_detector = StrategyDetector()
+            
+            # Get strategies based on Tabela Simplificação Textual
+            detected_strategies = strategy_detector.identify_strategies(
+                source_text=source_text,
+                target_text=target_text
+            )
+            
+            # Debug log
+            logging.info(f"Detected strategies: {len(detected_strategies)}")
+            for strategy in detected_strategies:
+                logging.info(f"Strategy: {getattr(strategy, 'sigla', 'UNKNOWN')} - {getattr(strategy, 'nome', 'UNKNOWN')}")
+            
+            # Convert to the format expected by the frontend
+            strategies = []
+            for strategy in detected_strategies:
+                # Map sigla (SL+, AS+, etc.) to type
+                strategy_type = None
+                sigla = getattr(strategy, 'sigla', '')
+                
+                if sigla in ["SL+", "MOD+"]:
+                    strategy_type = SimplificationStrategyType.LEXICAL
+                elif sigla in ["RP+", "MV+"]:
+                    strategy_type = SimplificationStrategyType.SYNTACTIC
+                elif sigla in ["DL+", "RF+", "RD+", "OM+"]:
+                    strategy_type = SimplificationStrategyType.STRUCTURAL
+                else:
+                    strategy_type = SimplificationStrategyType.SEMANTIC
+                
+                # Convert impact
+                impact_map = {
+                    "baixo": "low",
+                    "médio": "medium",
+                    "alto": "high"
+                }
+                
+                impacto = getattr(strategy, 'impacto', 'médio')
+                nome = getattr(strategy, 'nome', 'Estratégia')
+                descricao = getattr(strategy, 'descricao', '')
+                confianca = getattr(strategy, 'confianca', 0.7)
+                exemplos = getattr(strategy, 'exemplos', [])
+                
+                # Create SimplificationStrategy object in the format expected by frontend
+                strategies.append(SimplificationStrategy(
+                    name=nome,
+                    type=strategy_type,
+                    description=descricao,
+                    impact=impact_map.get(impacto, "medium"),
+                    confidence=confianca,
+                    examples=[{"original": ex.original if hasattr(ex, 'original') else "", 
+                              "simplified": ex.simplified if hasattr(ex, 'simplified') else ""} 
+                              for ex in exemplos]
+                ))
+            
+            return strategies
+            
+        except Exception as e:
+            logging.error(f"Error in strategy identification: {str(e)}")
+            logging.exception("Exception details:")
+            # Fallback to basic strategies if the new detector fails
+            return self._identify_basic_strategies(source_text, target_text)
+    
+    def _identify_basic_strategies(
+        self, source_text: str, target_text: str
+    ) -> List[SimplificationStrategy]:
+        """Legacy fallback for strategy identification"""
         strategies = []
         
         # Lexical simplification
         if self._has_lexical_simplification(source_text, target_text):
             strategies.append(SimplificationStrategy(
-                name="Lexical Simplification",
+                name="Adequação de Vocabulário",
                 type=SimplificationStrategyType.LEXICAL,
-                description="Complex words replaced with simpler alternatives",
+                description="Substituição de termos difíceis, técnicos ou raros por sinônimos mais simples.",
                 impact="high",
                 confidence=0.8,
                 examples=self._find_word_substitutions(source_text, target_text)[:3]
@@ -331,24 +407,16 @@ class ComparativeAnalysisService:
         # Syntactic simplification
         if self._has_syntactic_simplification(source_text, target_text):
             strategies.append(SimplificationStrategy(
-                name="Sentence Shortening",
+                name="Fragmentação Sintática",
                 type=SimplificationStrategyType.SYNTACTIC,
-                description="Long sentences broken into shorter ones",
+                description="Divisão de períodos extensos ou complexos em sentenças mais curtas e diretas.",
                 impact="medium",
                 confidence=0.7,
                 examples=[]
             ))
         
-        # Content reduction
-        if len(target_text) < len(source_text) * 0.8:
-            strategies.append(SimplificationStrategy(
-                name="Content Reduction",
-                type=SimplificationStrategyType.STRUCTURAL,
-                description="Non-essential information removed",
-                impact="medium",
-                confidence=0.6,
-                examples=[]
-            ))
+        # NOTE: OM+ (Supressão Seletiva) is excluded by default as per Tabela documentation
+        # It should only be activated manually by human-in-loop element
         
         return strategies
 

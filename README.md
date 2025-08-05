@@ -81,12 +81,19 @@ Acesse: http://localhost:3000
 - **Logging:** Estruturado com structlog
 - **Testes:** pytest com cobertura
 - **Containerização:** Docker ready
+- **IA/ML:** Hybrid strategy detection com modelo multilíngue leve
 
 ### Frontend (React)
 - **Framework:** React 18 + Vite
 - **Styling:** Tailwind CSS
 - **HTTP Client:** Axios com interceptors
 - **Estado:** React hooks
+
+### Processamento de Linguagem Natural
+- **Modelo Principal:** `paraphrase-multilingual-MiniLM-L12-v2` (118MB)
+- **Abordagem:** Híbrida (ML semântico + heurísticas linguísticas)
+- **Análise Semântica:** Similarity scoring para validação acadêmica
+- **Performance:** Otimizado para textos de até 50k caracteres
 
 ### Infraestrutura
 - **CI/CD:** GitHub Actions
@@ -172,8 +179,10 @@ O NET-EST é uma ferramenta de análise linguística computacional desenvolvida 
 ### Características Principais
 
 - **Análise Discursiva:** Foco no nível do parágrafo, não da sentença
-- **Alinhamento Semântico:** Usa BERTimbau para matching de conteúdo
+- **Detecção Híbrida:** Combina ML semântico (`paraphrase-multilingual-MiniLM-L12-v2`) + heurísticas linguísticas
+- **Análise Semântica:** Similarity scoring com thresholds acadêmicos rigorosos (≥0.8 alta confiança)
 - **Human-in-the-Loop:** Controle humano sobre validação e correções
+- **Performance Otimizada:** 118MB modelo multilíngue para análise eficiente de textos longos
 - **Modular:** Arquitetura flexível e intercambiável
 - **Evolução por Feedback:** Aprendizado contínuo através de correções
 

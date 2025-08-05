@@ -13,7 +13,7 @@ const config = {
   MAX_FILE_SIZE_MB: 10,
 
   // Timeouts
-  API_TIMEOUT: 30000, // 30 segundos
+  API_TIMEOUT: 120000, // 120 segundos (increased for large text analysis)
 
   // URLs de documentação
   DOCS_URL: 'https://github.com/net-est/docs',

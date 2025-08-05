@@ -45,6 +45,11 @@ async def perform_comparative_analysis(
         
         result = await service.perform_comparative_analysis(request)
         
+        # Debug log
+        logger.info("Strategy count",
+                   count=len(result.simplification_strategies),
+                   strategies=str(result.simplification_strategies))
+        
         logger.info("Comparative analysis completed", 
                    analysis_id=result.analysis_id,
                    overall_score=result.overall_score)

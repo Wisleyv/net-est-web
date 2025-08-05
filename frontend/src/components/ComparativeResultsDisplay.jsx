@@ -21,17 +21,29 @@ import {
 
 const ComparativeResultsDisplay = ({ 
   analysisResult, 
-  onExport, 
+  onExport = () => {}, 
   isExporting = false,
   className = "" 
 }) => {
   const [activeSection, setActiveSection] = useState('overview');
+  const [isLocalExporting, setIsLocalExporting] = useState(false);
   const [expandedSections, setExpandedSections] = useState({
     lexical: true,
     syntactic: false,
     strategies: true,
     readability: false,
   });
+
+  const handleExport = async (format) => {
+    setIsLocalExporting(true);
+    try {
+      await onExport(format);
+    } catch (error) {
+      console.error('Export failed:', error);
+    } finally {
+      setIsLocalExporting(false);
+    }
+  };
 
   if (!analysisResult) {
     return (
@@ -82,20 +94,31 @@ const ComparativeResultsDisplay = ({
                 Análise realizada em {new Date(analysisResult.timestamp).toLocaleString('pt-BR')}
               </p>
               <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                <span>Texto fonte: {analysisResult.sourceLength} caracteres</span>
-                <span>Texto simplificado: {analysisResult.targetLength} caracteres</span>
-                <span>Redução: {analysisResult.compressionRatio}%</span>
+                {(() => {
+                  // Calculate word counts from the text
+                  const sourceWords = analysisResult.source_text?.split(/\s+/).filter(word => word.length > 0).length || 0;
+                  const targetWords = analysisResult.target_text?.split(/\s+/).filter(word => word.length > 0).length || 0;
+                  const wordReduction = sourceWords > 0 ? ((sourceWords - targetWords) / sourceWords * 100).toFixed(1) : 0;
+                  
+                  return (
+                    <>
+                      <span>Texto fonte: {sourceWords} palavras</span>
+                      <span>Texto simplificado: {targetWords} palavras</span>
+                      <span>Redução: {wordReduction}%</span>
+                    </>
+                  );
+                })()}
               </div>
             </div>
           </div>
           
           <div className="flex items-center gap-2">
             <button
-              onClick={() => onExport('pdf')}
-              disabled={isExporting}
+              onClick={() => handleExport('pdf')}
+              disabled={isExporting || isLocalExporting}
               className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1"
             >
-              {isExporting ? (
+              {(isExporting || isLocalExporting) ? (
                 <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <Download className="w-3 h-3" />
@@ -144,11 +167,11 @@ const ComparativeResultsDisplay = ({
                 <h5 className="font-medium text-gray-900">Qualidade da Simplificação</h5>
                 <div className="flex items-center gap-2">
                   <div className={`px-2 py-1 rounded text-sm font-medium ${
-                    analysisResult.overallScore >= 80 ? 'bg-green-100 text-green-800' :
-                    analysisResult.overallScore >= 60 ? 'bg-yellow-100 text-yellow-800' :
+                    analysisResult.overall_score >= 80 ? 'bg-green-100 text-green-800' :
+                    analysisResult.overall_score >= 60 ? 'bg-yellow-100 text-yellow-800' :
                     'bg-red-100 text-red-800'
                   }`}>
-                    {analysisResult.overallScore}/100
+                    {analysisResult.overall_score}/100
                   </div>
                 </div>
               </div>
@@ -156,16 +179,16 @@ const ComparativeResultsDisplay = ({
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div 
                   className={`h-2 rounded-full ${
-                    analysisResult.overallScore >= 80 ? 'bg-green-500' :
-                    analysisResult.overallScore >= 60 ? 'bg-yellow-500' :
+                    analysisResult.overall_score >= 80 ? 'bg-green-500' :
+                    analysisResult.overall_score >= 60 ? 'bg-yellow-500' :
                     'bg-red-500'
                   }`}
-                  style={{ width: `${analysisResult.overallScore}%` }}
+                  style={{ width: `${analysisResult.overall_score}%` }}
                 />
               </div>
               
               <p className="text-sm text-gray-600 mt-2">
-                {analysisResult.overallAssessment}
+                {analysisResult.overall_assessment}
               </p>
             </div>
 
@@ -174,19 +197,19 @@ const ComparativeResultsDisplay = ({
               {[
                 {
                   label: 'Preservação Semântica',
-                  value: `${analysisResult.semanticPreservation}%`,
-                  color: analysisResult.semanticPreservation >= 90 ? 'green' : 
-                         analysisResult.semanticPreservation >= 70 ? 'yellow' : 'red'
+                  value: `${analysisResult.semantic_preservation?.toFixed(1)}%`,
+                  color: analysisResult.semantic_preservation >= 90 ? 'green' : 
+                         analysisResult.semantic_preservation >= 70 ? 'yellow' : 'red'
                 },
                 {
                   label: 'Melhoria da Legibilidade',
-                  value: `+${analysisResult.readabilityImprovement}pts`,
-                  color: analysisResult.readabilityImprovement >= 10 ? 'green' : 
-                         analysisResult.readabilityImprovement >= 5 ? 'yellow' : 'red'
+                  value: `+${analysisResult.readability_improvement?.toFixed(1)}pts`,
+                  color: analysisResult.readability_improvement >= 10 ? 'green' : 
+                         analysisResult.readability_improvement >= 5 ? 'yellow' : 'red'
                 },
                 {
                   label: 'Estratégias Identificadas',
-                  value: analysisResult.strategiesCount,
+                  value: analysisResult.strategies_count,
                   color: 'blue'
                 }
               ].map((metric, index) => (
@@ -265,7 +288,7 @@ const ComparativeResultsDisplay = ({
             <h4 className="font-medium text-gray-900">Estratégias de Simplificação Identificadas</h4>
             
             <div className="space-y-3">
-              {analysisResult.simplificationStrategies?.map((strategy, index) => (
+              {analysisResult.simplification_strategies?.map((strategy, index) => (
                 <div key={index} className="bg-white border border-gray-200 rounded-lg p-4">
                   <div className="flex items-start gap-3">
                     <div className={`p-2 rounded-full ${getSeverityColor(strategy.impact)}`}>
@@ -313,7 +336,7 @@ const ComparativeResultsDisplay = ({
             <div className="bg-white border border-gray-200 rounded-lg p-4">
               <h5 className="font-medium text-gray-900 mb-4">Métricas de Legibilidade</h5>
               <div className="space-y-3">
-                {analysisResult.readabilityMetrics && Object.entries(analysisResult.readabilityMetrics).map(([metric, data]) => (
+                {analysisResult.readability_metrics && Object.entries(analysisResult.readability_metrics).map(([metric, data]) => (
                   <div key={metric} className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">{data.label}</span>
                     <div className="flex items-center gap-3">
@@ -344,23 +367,23 @@ const ComparativeResultsDisplay = ({
                 }
               </button>
               
-              {expandedSections.lexical && analysisResult.lexicalAnalysis && (
+              {expandedSections.lexical && analysisResult.lexical_analysis && (
                 <div className="mt-4 space-y-3">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <div className="text-sm text-gray-600">Vocabulário Único</div>
                       <div className="flex items-center gap-2">
-                        <span className="text-red-600">{analysisResult.lexicalAnalysis.sourceUniqueWords}</span>
+                        <span className="text-red-600">{analysisResult.lexical_analysis.source_unique_words}</span>
                         <span className="text-gray-400">→</span>
-                        <span className="text-green-600">{analysisResult.lexicalAnalysis.targetUniqueWords}</span>
+                        <span className="text-green-600">{analysisResult.lexical_analysis.target_unique_words}</span>
                       </div>
                     </div>
                     <div>
                       <div className="text-sm text-gray-600">Complexidade Média</div>
                       <div className="flex items-center gap-2">
-                        <span className="text-red-600">{analysisResult.lexicalAnalysis.sourceComplexity}</span>
+                        <span className="text-red-600">{analysisResult.lexical_analysis.source_complexity?.toFixed(2)}</span>
                         <span className="text-gray-400">→</span>
-                        <span className="text-green-600">{analysisResult.lexicalAnalysis.targetComplexity}</span>
+                        <span className="text-green-600">{analysisResult.lexical_analysis.target_complexity?.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
