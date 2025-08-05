@@ -227,3 +227,12 @@ Esta estratégia é totalmente funcional para uma ferramenta de pesquisa e desen
 * **Cold Start (Partida a Frio):** O serviço do Hugging Face Spaces pode "hibernar" após um período de inatividade. A primeira requisição após a hibernação pode levar de 30 a 60 segundos para ser respondida (tempo necessário para "acordar" o contêiner). As requisições subsequentes serão rápidas. A interface do usuário deve ser projetada para lidar com este atraso inicial com uma mensagem de carregamento clara.
 * **Desempenho da CPU:** A análise será executada em uma CPU compartilhada. Para os textos de até 2000 palavras, a análise completa (embedding + classificação) pode levar de 15 a 45 segundos. Isso é perfeitamente aceitável para um uso acadêmico, mas não para uma aplicação comercial em tempo real.
 * **Persistência de Dados (Módulo 5 - Feedback):** O sistema de arquivos do Hugging Face Spaces é efêmero (os dados são perdidos quando o Space reinicia). Para salvar o feedback dos usuários, o **Módulo 5** deve ser configurado para se conectar a um banco de dados externo. Existem excelentes opções com tiers gratuitos, como o **Neon (PostgreSQL Serverless)** ou o **Supabase**, que se integram facilmente com aplicações Python.
+
+/*
+Contains AI-generated code.
+Desenvolvido com ❤️ pelo Núcleo de Estudos de Tradução - PIPGLA/UFRJ
+Projeto: NET-EST - Sistema de Análise de Estratégias de Simplificação Textual em Tradução Intralingual
+Equipe: Coord.: Profa. Dra. Janine Pimentel; Dev. Principal: Wisley Vilela; Especialista Linguística: Luanny Matos de Lima; Agentes IA: Claude Sonnet 3.5, ChatGPT-4o, Gemini 2.0 Flash
+Instituições: PIPGLA/UFRJ | Politécnico de Leiria
+Apoio: CAPES | Licença: MIT
+*/

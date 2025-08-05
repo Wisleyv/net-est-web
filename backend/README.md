@@ -28,6 +28,30 @@ python -m uvicorn src.main:app --host 127.0.0.1 --port 8000 --reload
 - **`start_optimized.bat`** ⭐ **PRIMARY**: Windows batch version with comprehensive checks
 - **`start_backend.bat`**: Simple backup batch script
 - **`start_server.py`**: Simple backup Python script
+
+## Documentation
+
+For comprehensive documentation on the backend architecture, API endpoints, and development guidelines, please refer to:
+
+- [Central Documentation Hub](../DOCUMENTATION.md)
+- [Architecture Documentation](../ARCHITECTURE.md)
+- [Development Guide](../DEVELOPMENT.md)
+
+## API Documentation
+
+Once the server is running, you can access the interactive API documentation at:
+
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
+
+/*
+Contains AI-generated code.
+Desenvolvido com ❤️ pelo Núcleo de Estudos de Tradução - PIPGLA/UFRJ
+Projeto: NET-EST - Sistema de Análise de Estratégias de Simplificação Textual em Tradução Intralingual
+Equipe: Coord.: Profa. Dra. Janine Pimentel; Dev. Principal: Wisley Vilela; Especialista Linguística: Luanny Matos de Lima; Agentes IA: Claude Sonnet 3.5, ChatGPT-4o, Gemini 2.0 Flash
+Instituições: PIPGLA/UFRJ | Politécnico de Leiria
+Apoio: CAPES | Licença: MIT
+*/
 - **`diagnose_fixed.py`**: Environment diagnostic tool
 
 ## Directory Structure
