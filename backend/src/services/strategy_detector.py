@@ -24,6 +24,9 @@ except ImportError:
     util = None
     np = None
 
+# Set up logger for strategy detection
+logger = logging.getLogger(__name__)
+
 # Global model cache for performance
 _model_cache = {
     'nlp': None,
@@ -253,6 +256,63 @@ class StrategyDetector:
         
         return features
     
+    def _get_adaptive_thresholds(self, length_reduction_ratio: float, features: Dict[str, float]) -> tuple:
+        """
+        Calculate adaptive thresholds based on text length disparity for academic validity.
+        
+        For 65% reduction scenarios, we need stricter semantic similarity requirements
+        to ensure academically sound strategy detection, but not so strict that we miss
+        legitimate simplification strategies.
+        
+        Args:
+            length_reduction_ratio: Ratio of text reduction (0.0-1.0)
+            features: Extracted features for context-aware adjustment
+            
+        Returns:
+            Tuple of (HIGH_CONFIDENCE_THRESHOLD, MEDIUM_CONFIDENCE_THRESHOLD, SEMANTIC_PRESERVATION_MIN)
+        """
+        # Base thresholds (Step 2.5 values) - balanced for academic rigor
+        high_base = 0.85
+        medium_base = 0.72
+        semantic_base = 0.65
+        
+        # Length-aware adjustments - more balanced approach
+        if length_reduction_ratio >= 0.70:  # 70%+ reduction - strict but not impossible
+            high_threshold = min(0.92, high_base + 0.05)      # 0.90
+            medium_threshold = min(0.82, medium_base + 0.08)  # 0.80
+            semantic_min = min(0.75, semantic_base + 0.08)    # 0.73
+            
+        elif length_reduction_ratio >= 0.50:  # 50%+ reduction - moderately strict
+            high_threshold = min(0.89, high_base + 0.03)      # 0.88
+            medium_threshold = min(0.78, medium_base + 0.05)  # 0.77
+            semantic_min = min(0.70, semantic_base + 0.04)    # 0.69
+            
+        elif length_reduction_ratio >= 0.30:  # 30%+ reduction - slightly strict
+            high_threshold = min(0.87, high_base + 0.02)      # 0.87
+            medium_threshold = min(0.74, medium_base + 0.02)  # 0.74
+            semantic_min = min(0.67, semantic_base + 0.02)    # 0.67
+            
+        else:  # Light editing - standard thresholds
+            high_threshold = high_base      # 0.85
+            medium_threshold = medium_base  # 0.72
+            semantic_min = semantic_base    # 0.65
+        
+        # Context-aware fine-tuning based on semantic similarity
+        semantic_similarity = features.get('semantic_similarity', 0.7)
+        
+        # If semantic similarity is already very low, be more lenient
+        if semantic_similarity < 0.65 and length_reduction_ratio >= 0.40:
+            high_threshold = max(high_base - 0.02, high_threshold - 0.03)      # Allow lower thresholds
+            medium_threshold = max(medium_base - 0.02, medium_threshold - 0.03)
+            semantic_min = max(0.55, semantic_min - 0.05)                      # More lenient semantic requirement
+        
+        # If semantic similarity is very high despite heavy reduction, be slightly more strict
+        elif semantic_similarity > 0.88 and length_reduction_ratio >= 0.50:
+            high_threshold = min(0.92, high_threshold + 0.02)
+            medium_threshold = min(0.82, medium_threshold + 0.02)
+        
+        return high_threshold, medium_threshold, semantic_min
+    
     def _detect_strategies_with_evidence(
         self, 
         source_text: str, 
@@ -267,15 +327,23 @@ class StrategyDetector:
         """
         strategies = []
         
-        # Stricter evidence thresholds for academic rigor and proper differentiation
-        HIGH_CONFIDENCE_THRESHOLD = 0.85   # Raised from 0.82
-        MEDIUM_CONFIDENCE_THRESHOLD = 0.72  # Raised from 0.65
-        SEMANTIC_PRESERVATION_MIN = 0.65    # Raised from 0.6
+        # Calculate length disparity for adaptive thresholds
+        source_length = len(source_text.split())
+        target_length = len(target_text.split())
+        length_reduction_ratio = (source_length - target_length) / source_length if source_length > 0 else 0
+        
+        # Length-aware adaptive thresholds for academic validity with 65% reduction support
+        HIGH_CONFIDENCE_THRESHOLD, MEDIUM_CONFIDENCE_THRESHOLD, SEMANTIC_PRESERVATION_MIN = self._get_adaptive_thresholds(
+            length_reduction_ratio, features
+        )
+        
+        logger.info(f"Length analysis - Source: {source_length} words, Target: {target_length} words, Reduction: {length_reduction_ratio:.1%}")
+        logger.info(f"Adaptive thresholds - High: {HIGH_CONFIDENCE_THRESHOLD:.3f}, Medium: {MEDIUM_CONFIDENCE_THRESHOLD:.3f}, Semantic Min: {SEMANTIC_PRESERVATION_MIN:.3f}")
         
         # Text complexity factor - longer texts need stronger evidence
-        text_complexity_factor = min(1.2, 1.0 + (len(source_text.split()) / 1000) * 0.1)
+        text_complexity_factor = min(1.2, 1.0 + (source_length / 1000) * 0.1)
         
-        # SL+ (Adequação de Vocabulário) - Stricter lexical simplification detection
+        # SL+ (Adequação de Vocabulário) - Balanced lexical simplification detection
         lexical_evidence = (
             features['word_complexity_reduction'] * 0.4 +  
             features['complex_word_reduction'] * 0.3 +     
@@ -283,16 +351,23 @@ class StrategyDetector:
             features['semantic_preservation'] * 0.1        
         )
         
-        # Stricter thresholds for lexical simplification
-        if (features['word_complexity_reduction'] > 0.18 * text_complexity_factor and  # Raised from 0.12
-            features['complex_word_reduction'] > 0.08 * text_complexity_factor and     # Raised from 0.05
+        # More balanced thresholds for lexical simplification after spaCy installation
+        word_complexity_threshold = 0.15 * text_complexity_factor  # Reduced from 0.18
+        complex_word_threshold = 0.06 * text_complexity_factor     # Reduced from 0.08
+        
+        if (features['word_complexity_reduction'] > word_complexity_threshold and
+            features['complex_word_reduction'] > complex_word_threshold and
             features['semantic_similarity'] > SEMANTIC_PRESERVATION_MIN):
-            confidence = min(0.92, lexical_evidence + features['semantic_similarity'] * 0.2)
+            # More balanced confidence calculation that considers individual thresholds passed
+            base_confidence = lexical_evidence * 0.6  # Reduced weight on evidence score
+            semantic_bonus = features['semantic_similarity'] * 0.4  # Increased semantic weight
+            threshold_bonus = 0.20  # Increased bonus for meeting all criteria (was 0.15)
+            confidence = min(0.92, base_confidence + semantic_bonus + threshold_bonus)
             if confidence > MEDIUM_CONFIDENCE_THRESHOLD:
                 strategies.append(self._create_strategy("SL+", 
                     "alto" if confidence > HIGH_CONFIDENCE_THRESHOLD else "médio", confidence))
         
-        # RP+ (Fragmentação Sintática) - Much stricter sentence fragmentation detection
+        # RP+ (Fragmentação Sintática) - More balanced sentence fragmentation detection
         fragmentation_evidence = (
             features['sentence_fragmentation'] * 0.35 +    
             features['sentence_simplification'] * 0.25 +   
@@ -300,10 +375,14 @@ class StrategyDetector:
             features['semantic_preservation'] * 0.2        
         )
         
-        # Much stricter thresholds for fragmentation
-        if (features['sentence_count_ratio'] > 1.35 * text_complexity_factor and     # Raised from 1.15
-            features['sentence_fragmentation'] > 0.25 * text_complexity_factor and  # Raised from 0.1
-            features['sentence_simplification'] > 0.25 * text_complexity_factor and # Raised from 0.15
+        # More balanced thresholds for fragmentation after spaCy installation
+        sentence_ratio_threshold = 1.25 * text_complexity_factor      # Reduced from 1.35
+        fragmentation_threshold = 0.15 * text_complexity_factor       # Reduced from 0.25  
+        simplification_threshold = 0.12 * text_complexity_factor      # Reduced from 0.25
+        
+        if (features['sentence_count_ratio'] > sentence_ratio_threshold and
+            features['sentence_fragmentation'] > fragmentation_threshold and  
+            features['sentence_simplification'] > simplification_threshold and
             features['semantic_similarity'] > SEMANTIC_PRESERVATION_MIN):
             confidence = min(0.90, fragmentation_evidence + features['semantic_similarity'] * 0.15)
             if confidence > MEDIUM_CONFIDENCE_THRESHOLD:

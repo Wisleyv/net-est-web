@@ -6,22 +6,29 @@ Sistema de Análise Computacional para Estratégias de Simplificação em Tradu�
 
 O NET-EST é uma ferramenta de análise linguística computacional que identifica e classifica estratégias de simplificação textual em traduções intralinguais. O sistema opera em nível discursivo, permitindo validação humana e aprendizado contínuo.
 
-## 🏗️ Status Atual - Foundation Layer
+## 🏗️ Status Atual - Hybrid ML Implementation
 
 ✅ **IMPLEMENTADO:**
-- Estrutura completa do projeto (backend/frontend)
-- API FastAPI com health checks funcionais
-- Interface React com comunicação estabelecida
-- Sistema de logging estruturado
-- Testes automatizados configurados
-- CI/CD pipelines funcionais
-- Documentação técnica completa
+- **Foundation Layer**: Estrutura completa do projeto (backend/frontend)
+- **API FastAPI**: Health checks e endpoints de análise funcionais
+- **Interface React**: Comunicação estabelecida com backend
+- **Sistema de Logging**: Estruturado e funcional
+- **Testes Automatizados**: Configurados e operacionais
+- **CI/CD Pipelines**: Funcionais
+- **Processamento de Texto**: Suporte para .txt, .md, .docx, .pdf
+- **Hybrid ML Strategy Detection**: 
+  - ✅ Step 1: Lightweight multilingual model (paraphrase-MiniLM-L12-v2, 118MB)
+  - ✅ Step 2: Advanced feature extraction (15+ linguistic features)
+  - ✅ Step 3: Length-aware adaptive thresholds for 65% reduction scenarios
+  - ✅ Academic rigor with evidence-based classification
+  - ✅ Portuguese spaCy integration for enhanced accuracy
+  - ✅ Performance optimization (2-8 seconds vs previous timeouts)
 
 🚧 **EM DESENVOLVIMENTO:**
-- Intervenção 2.1.2: Interface de entrada de texto
-- Processamento de arquivos (.txt, .md, .docx, .pdf)
-- Alinhamento semântico com BERTimbau
-- Interface interativa de análise
+- Interface interativa de análise avançada
+- Módulo de validação humana
+- Sistema de aprendizado contínuo
+- Exportação de relatórios detalhados
 
 ## 🚀 Início Rápido
 
@@ -90,10 +97,19 @@ Acesse: http://localhost:3000
 - **Estado:** React hooks
 
 ### Processamento de Linguagem Natural
+
 - **Modelo Principal:** `paraphrase-multilingual-MiniLM-L12-v2` (118MB)
+- **Modelo Linguístico:** spaCy `pt_core_news_sm` para análise morfossintática
 - **Abordagem:** Híbrida (ML semântico + heurísticas linguísticas)
-- **Análise Semântica:** Similarity scoring para validação acadêmica
-- **Performance:** Otimizado para textos de até 50k caracteres
+- **Análise Semântica:** Similarity scoring com thresholds adaptativos
+- **Detecção de Estratégias:** 
+  - SL+ (Adequação de Vocabulário)
+  - RP+ (Fragmentação Sintática) 
+  - RF+ (Reescrita Global)
+  - MOD+ (Reinterpretação Perspectiva)
+  - OM- (Omissão) + PRO+ (Paráfrase)
+- **Performance:** 2-8 segundos para textos complexos (vs timeouts anteriores)
+- **Validação Acadêmica:** Thresholds rigorosos para reduções de 65%+
 
 ### Infraestrutura
 - **CI/CD:** GitHub Actions

@@ -103,6 +103,9 @@ if (features['word_complexity_reduction'] > 0.15 and
 - ✅ **OM+ Controlado**: Detecção apenas quando `enable_om_detection=True`
 - ✅ **PRO+ Reservado**: Implementação para estratégias experimentais
 - ✅ **Confidence Scoring**: Scores calibrados por tipo de estratégia
+- ✅ **Step 3 - Length-Aware Thresholds**: Adaptive confidence for 65%+ text reductions
+- ✅ **Portuguese spaCy Integration**: Enhanced linguistic analysis accuracy
+- ✅ **Academic Rigor**: Evidence-based classification with balanced thresholds
 
 ## Considerações Futuras
 
