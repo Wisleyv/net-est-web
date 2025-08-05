@@ -10,12 +10,6 @@
 - **Especialista Linguística:** Luanny Matos de Lima (Mestranda PIPGLA/UFRJ)
 - **Agentes Técnicos de IA:** Claude Sonnet 3.5, ChatGPT-4o, Gemini 2.0 Flash (mediados por GitHub Copilot)
 
-**Tecnologias-Chave:**
-- **Modelo de Linguagem:** `paraphrase-multilingual-MiniLM-L12-v2` (118MB)
-- **Estratégia:** Detecção híbrida (ML semântico + heurísticas especializadas)
-- **Performance:** Otimizado para análise de textos longos (até 50k caracteres)
-- **Precisão Acadêmica:** Thresholds rigorosos para validação científica
-
 **Instituições:** Núcleo de Estudos de Tradução - UFRJ | Politécnico de Leiria (PT)
 
 ## 📁 Estrutura Após Consolidação

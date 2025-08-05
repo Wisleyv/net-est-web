@@ -82,7 +82,7 @@ class SemanticAlignmentService:
 
     def __init__(self, config: AlignmentConfiguration | None = None):
         self.config = config or AlignmentConfiguration(
-            bertimbau_model="neuralmind/bert-base-portuguese-cased",
+            bertimbau_model="paraphrase-multilingual-MiniLM-L12-v2",
             similarity_threshold=0.7,
             max_sequence_length=512,
             batch_size=8,

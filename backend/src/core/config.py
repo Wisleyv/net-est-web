@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE_MB: int = 10
 
     # Futuros - Modelos e API
-    BERTIMBAU_MODEL: str = "neuralmind/bert-base-portuguese-cased"
+    BERTIMBAU_MODEL: str = "paraphrase-multilingual-MiniLM-L12-v2"
     SIMILARITY_THRESHOLD: float = 0.5
 
     model_config = SettingsConfigDict(

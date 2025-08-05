@@ -133,23 +133,14 @@ class TextInputService:
         if not text:
             return ""
 
-        # First normalize line breaks to \n
+        # Remove excessive whitespace
+        text = re.sub(r"\s+", " ", text)
+
+        # Normalize line breaks
         text = re.sub(r"\r\n|\r", "\n", text)
 
         # Remove excessive line breaks but preserve paragraph structure
         text = re.sub(r"\n{3,}", "\n\n", text)
-
-        # Remove excessive whitespace within lines, but preserve line breaks
-        # Split by lines, clean each line individually, then rejoin
-        lines = text.split('\n')
-        cleaned_lines = []
-        for line in lines:
-            # Remove excessive whitespace within the line, but keep the line structure
-            cleaned_line = re.sub(r"[ \t]+", " ", line).strip()
-            cleaned_lines.append(cleaned_line)
-        
-        # Rejoin lines with newlines
-        text = '\n'.join(cleaned_lines)
 
         # Strip leading/trailing whitespace
         text = text.strip()

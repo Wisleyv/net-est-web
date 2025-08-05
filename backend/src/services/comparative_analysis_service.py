@@ -465,14 +465,14 @@ class ComparativeAnalysisService:
         semantic understanding in Portuguese.
         """
         try:
-            # Use BERTimbau through sentence-transformers for semantic similarity
+            # Use lightweight multilingual model for semantic similarity
             # This provides much better semantic understanding than word overlap
-            model_name = "neuralmind/bert-base-portuguese-cased"
+            model_name = "paraphrase-multilingual-MiniLM-L12-v2"
             
             if self.model is None:
-                logger.info(f"Loading BERTimbau model: {model_name}")
+                logger.info(f"Loading lightweight semantic model: {model_name}")
                 self.model = SentenceTransformer(model_name)
-                logger.info("BERTimbau model loaded successfully")
+                logger.info("Lightweight semantic model loaded successfully")
             
             # Generate embeddings for both texts
             embedding1 = self.model.encode(text1, convert_to_tensor=True)
