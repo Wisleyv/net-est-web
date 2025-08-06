@@ -161,34 +161,56 @@ const ComparativeResultsDisplay = ({
           <div className="space-y-4">
             <h4 className="font-medium text-gray-900">Resumo Executivo</h4>
             
-            {/* Overall Score */}
+            {/* Text Characteristics */}
             <div className="bg-white border border-gray-200 rounded-lg p-4">
               <div className="flex items-center justify-between mb-4">
-                <h5 className="font-medium text-gray-900">Qualidade da Simplificação</h5>
-                <div className="flex items-center gap-2">
-                  <div className={`px-2 py-1 rounded text-sm font-medium ${
-                    analysisResult.overall_score >= 80 ? 'bg-green-100 text-green-800' :
-                    analysisResult.overall_score >= 60 ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
-                  }`}>
-                    {analysisResult.overall_score}/100
+                <h5 className="font-medium text-gray-900">Características Textuais</h5>
+              </div>
+              
+              {(() => {
+                // Calculate word counts instead of character counts
+                const sourceWords = analysisResult.source_text ? 
+                  analysisResult.source_text.trim().split(/\s+/).filter(word => word.length > 0).length : 0;
+                const targetWords = analysisResult.target_text ? 
+                  analysisResult.target_text.trim().split(/\s+/).filter(word => word.length > 0).length : 0;
+                const reduction = sourceWords > 0 ? ((sourceWords - targetWords) / sourceWords) * 100 : 0;
+                const reductionRounded = Math.round(reduction * 10) / 10;
+                
+                return (
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Redução de palavras:</span>
+                      <span className={`text-sm font-medium ${
+                        reductionRounded > 0 ? 'text-green-600' : 
+                        reductionRounded < 0 ? 'text-orange-600' : 'text-gray-600'
+                      }`}>
+                        {reductionRounded > 0 ? `-${reductionRounded}%` : 
+                         reductionRounded < 0 ? `+${Math.abs(reductionRounded)}%` : '0%'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Palavras fonte:</span>
+                      <span className="text-sm font-medium">{sourceWords.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Palavras alvo:</span>
+                      <span className="text-sm font-medium">{targetWords.toLocaleString()}</span>
+                    </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
               
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className={`h-2 rounded-full ${
-                    analysisResult.overall_score >= 80 ? 'bg-green-500' :
-                    analysisResult.overall_score >= 60 ? 'bg-yellow-500' :
-                    'bg-red-500'
-                  }`}
-                  style={{ width: `${analysisResult.overall_score}%` }}
-                />
-              </div>
-              
-              <p className="text-sm text-gray-600 mt-2">
-                {analysisResult.overall_assessment}
+              <p className="text-sm text-gray-600 mt-3">
+                {(() => {
+                  const strategiesCount = analysisResult.strategies?.length || 0;
+                  if (strategiesCount === 0) {
+                    return "Nenhuma estratégia de simplificação específica foi identificada automaticamente.";
+                  } else if (strategiesCount === 1) {
+                    return `Foi identificada 1 estratégia de simplificação principal.`;
+                  } else {
+                    return `Foram identificadas ${strategiesCount} estratégias de simplificação.`;
+                  }
+                })()}
               </p>
             </div>
 

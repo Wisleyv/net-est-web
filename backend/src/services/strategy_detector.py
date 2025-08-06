@@ -1,17 +1,451 @@
 """
-Strategy Detection Implementation for NET-EST
-
-This file contains example implementation of strategy detection based on
-the "Tabela de Estratégias de Simplificação Textual" document.
+Enhanced Strategy Detection Implementation for NET-EST
+Implementation of Steps 2-3 of Hybrid Model approach with feature extraction and evidence-based classification
 """
 
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple, Any
 import re
 from ..models.strategy_models import SimplificationStrategy, SimplificationStrategyType, STRATEGY_DESCRIPTIONS, StrategyExample
 import spacy
 import numpy as np
 from sentence_transformers import SentenceTransformer, util
 import logging
+from dataclasses import dataclass
+
+# Enhanced feature extraction classes
+@dataclass
+class StrategyFeatures:
+    """Container for extracted features used in strategy detection"""
+    # Text-level features
+    length_ratio: float
+    word_count_ratio: float
+    sentence_count_ratio: float
+    avg_word_length_ratio: float
+    
+    # Semantic features
+    semantic_similarity: float
+    lexical_overlap: float
+    
+    # Syntactic features
+    complexity_reduction: float
+    voice_change_score: float
+    
+    # Content features
+    explicitness_score: float
+    structure_change_score: float
+    pronoun_reduction_score: float
+    
+    # Position tracking
+    strategy_positions: List[Tuple[int, int]]  # (start, end) positions in target text
+
+@dataclass
+class StrategyEvidence:
+    """Evidence supporting a detected strategy"""
+    strategy_code: str
+    confidence: float
+    impact_level: str
+    features: StrategyFeatures
+    examples: List[Dict[str, str]]
+    positions: List[Tuple[int, int]]
+
+class FeatureExtractor:
+    """Extracts features for strategy detection"""
+    
+    def __init__(self, nlp_model=None, semantic_model=None):
+        self.nlp = nlp_model
+        self.semantic_model = semantic_model
+    
+    def extract_features(self, source_text: str, target_text: str) -> StrategyFeatures:
+        """Extract all relevant features from text pair"""
+        # Basic text metrics
+        length_ratio = len(target_text) / max(len(source_text), 1)
+        
+        source_words = self._tokenize_text(source_text)
+        target_words = self._tokenize_text(target_text)
+        word_count_ratio = len(target_words) / max(len(source_words), 1)
+        
+        source_sentences = self._split_into_sentences(source_text)
+        target_sentences = self._split_into_sentences(target_text)
+        sentence_count_ratio = len(target_sentences) / max(len(source_sentences), 1)
+        
+        # Word length analysis
+        source_avg_len = float(np.mean([len(w) for w in source_words])) if source_words else 0.0
+        target_avg_len = float(np.mean([len(w) for w in target_words])) if target_words else 0.0
+        avg_word_length_ratio = target_avg_len / max(source_avg_len, 1.0)
+        
+        # Semantic features
+        semantic_similarity = self._calculate_semantic_similarity(source_text, target_text)
+        lexical_overlap = self._calculate_lexical_overlap(source_words, target_words)
+        
+        # Syntactic complexity
+        complexity_reduction = self._calculate_complexity_reduction(source_text, target_text)
+        voice_change_score = self._calculate_voice_change(source_text, target_text)
+        
+        # Content features
+        explicitness_score = self._calculate_explicitness(source_text, target_text)
+        structure_change_score = self._calculate_structure_change(source_text, target_text)
+        pronoun_reduction_score = self._calculate_pronoun_reduction(source_text, target_text)
+        
+        # Position tracking (placeholder for now)
+        strategy_positions = []
+        
+        return StrategyFeatures(
+            length_ratio=length_ratio,
+            word_count_ratio=word_count_ratio,
+            sentence_count_ratio=sentence_count_ratio,
+            avg_word_length_ratio=avg_word_length_ratio,
+            semantic_similarity=semantic_similarity,
+            lexical_overlap=lexical_overlap,
+            complexity_reduction=complexity_reduction,
+            voice_change_score=voice_change_score,
+            explicitness_score=explicitness_score,
+            structure_change_score=structure_change_score,
+            pronoun_reduction_score=pronoun_reduction_score,
+            strategy_positions=strategy_positions
+        )
+    
+    def _calculate_semantic_similarity(self, text1: str, text2: str) -> float:
+        """Calculate semantic similarity using transformer model"""
+        if not self.semantic_model:
+            return self._calculate_lexical_overlap(
+                self._tokenize_text(text1), 
+                self._tokenize_text(text2)
+            )
+        
+        try:
+            embeddings = self.semantic_model.encode([text1, text2], convert_to_tensor=True)
+            similarity = util.pytorch_cos_sim(embeddings[0], embeddings[1]).item()
+            return max(0.0, min(1.0, similarity))
+        except Exception as e:
+            logging.warning(f"Error calculating semantic similarity: {e}")
+            return self._calculate_lexical_overlap(
+                self._tokenize_text(text1), 
+                self._tokenize_text(text2)
+            )
+    
+    def _calculate_lexical_overlap(self, words1: List[str], words2: List[str]) -> float:
+        """Calculate lexical overlap between word lists"""
+        set1, set2 = set(words1), set(words2)
+        intersection = len(set1.intersection(set2))
+        union = len(set1.union(set2))
+        return intersection / max(union, 1)
+    
+    def _calculate_complexity_reduction(self, source_text: str, target_text: str) -> float:
+        """Calculate syntactic complexity reduction"""
+        complexity_markers = ['que', 'quando', 'porque', 'embora', 'ainda que', 'foi', 'foram']
+        
+        source_complexity = sum(1 for marker in complexity_markers if marker in source_text.lower())
+        target_complexity = sum(1 for marker in complexity_markers if marker in target_text.lower())
+        
+        if source_complexity == 0:
+            return 0.0
+        
+        reduction = (source_complexity - target_complexity) / source_complexity
+        return max(0.0, min(1.0, reduction))
+    
+    def _calculate_voice_change(self, source_text: str, target_text: str) -> float:
+        """Calculate voice change (passive to active or vice versa)"""
+        passive_markers = ['foi', 'foram', 'será', 'serão', 'sendo', 'sido']
+        
+        source_passive = sum(1 for marker in passive_markers if marker in source_text.lower())
+        target_passive = sum(1 for marker in passive_markers if marker in target_text.lower())
+        
+        # Normalize by text length
+        source_len = len(self._tokenize_text(source_text))
+        target_len = len(self._tokenize_text(target_text))
+        
+        source_passive_ratio = source_passive / max(source_len, 1)
+        target_passive_ratio = target_passive / max(target_len, 1)
+        
+        return abs(source_passive_ratio - target_passive_ratio)
+    
+    def _calculate_explicitness(self, source_text: str, target_text: str) -> float:
+        """Calculate explicitness increase (addition of clarifying phrases)"""
+        explicit_markers = ['por exemplo', 'isto é', 'ou seja', 'em outras palavras', 'quer dizer']
+        
+        source_explicit = sum(1 for marker in explicit_markers if marker in source_text.lower())
+        target_explicit = sum(1 for marker in explicit_markers if marker in target_text.lower())
+        
+        # Check for length increase with explicit markers
+        length_increase = len(target_text) / max(len(source_text), 1) - 1
+        marker_increase = target_explicit - source_explicit
+        
+        return min(1.0, max(0.0, (length_increase * 0.5 + marker_increase * 0.5)))
+    
+    def _calculate_structure_change(self, source_text: str, target_text: str) -> float:
+        """Calculate structural reorganization"""
+        structure_markers = ['primeiro', 'segundo', 'depois', 'em seguida', 'finalmente', 'por fim']
+        
+        source_structure = sum(1 for marker in structure_markers if marker in source_text.lower())
+        target_structure = sum(1 for marker in structure_markers if marker in target_text.lower())
+        
+        # Check for paragraph breaks
+        source_breaks = source_text.count('\n')
+        target_breaks = target_text.count('\n')
+        
+        structure_score = (target_structure - source_structure) / max(1, len(self._tokenize_text(target_text)))
+        break_score = (target_breaks - source_breaks) / max(1, len(target_text))
+        
+        return min(1.0, max(0.0, structure_score + break_score))
+    
+    def _calculate_pronoun_reduction(self, source_text: str, target_text: str) -> float:
+        """Calculate pronoun to noun substitution"""
+        pronouns = ['ele', 'ela', 'eles', 'elas', 'isso', 'isto', 'aquilo', 'aquele', 'aquela']
+        
+        source_pronouns = sum(1 for pronoun in pronouns if pronoun in source_text.lower())
+        target_pronouns = sum(1 for pronoun in pronouns if pronoun in target_text.lower())
+        
+        if source_pronouns == 0:
+            return 0.0
+        
+        reduction = (source_pronouns - target_pronouns) / source_pronouns
+        return max(0.0, min(1.0, reduction))
+    
+    def _tokenize_text(self, text: str) -> List[str]:
+        """Tokenize text into words"""
+        if self.nlp:
+            doc = self.nlp(text)
+            return [token.text.lower() for token in doc if not token.is_punct and not token.is_space]
+        else:
+            return re.findall(r'\b\w+\b', text.lower())
+    
+    def _split_into_sentences(self, text: str) -> List[str]:
+        """Split text into sentences"""
+        if self.nlp:
+            doc = self.nlp(text)
+            return [sent.text for sent in doc.sents]
+        else:
+            return re.split(r'(?<=[.!?])\s+', text)
+
+class EvidenceBasedClassifier:
+    """Evidence-based classifier for strategy detection"""
+    
+    def __init__(self):
+        # Strategy detection thresholds and rules
+        self.strategy_rules = {
+            'SL+': self._classify_lexical_simplification,
+            'RP+': self._classify_sentence_fragmentation,
+            'RF+': self._classify_global_rewriting,
+            'AS+': self._classify_meaning_change,
+            'DL+': self._classify_positional_reorganization,
+            'EXP+': self._classify_explicitness,
+            'IN+': self._classify_insertion_handling,
+            'MOD+': self._classify_perspective_reinterpretation,
+            'MT+': self._classify_title_optimization,
+            'RD+': self._classify_content_structuring,
+            'TA+': self._classify_referential_clarity,
+            'MV+': self._classify_voice_change
+        }
+    
+    def classify_strategies(self, features: StrategyFeatures, source_text: str, target_text: str) -> List[StrategyEvidence]:
+        """Classify strategies based on extracted features"""
+        evidences = []
+        
+        for strategy_code, classifier_func in self.strategy_rules.items():
+            evidence = classifier_func(features, source_text, target_text)
+            if evidence and evidence.confidence > 0.5:  # Threshold for acceptance
+                evidences.append(evidence)
+        
+        # Sort by confidence
+        evidences.sort(key=lambda x: x.confidence, reverse=True)
+        return evidences
+    
+    def _classify_lexical_simplification(self, features: StrategyFeatures, source_text: str, target_text: str) -> Optional[StrategyEvidence]:
+        """SL+ - Adequação de Vocabulário"""
+        if features.avg_word_length_ratio < 0.9 and features.semantic_similarity > 0.7:
+            confidence = (1 - features.avg_word_length_ratio) * features.semantic_similarity
+            impact = "alto" if confidence > 0.8 else "médio"
+            
+            return StrategyEvidence(
+                strategy_code='SL+',
+                confidence=confidence,
+                impact_level=impact,
+                features=features,
+                examples=[{"original": "palavra complexa", "simplified": "palavra simples"}],
+                positions=[]
+            )
+        return None
+    
+    def _classify_sentence_fragmentation(self, features: StrategyFeatures, source_text: str, target_text: str) -> Optional[StrategyEvidence]:
+        """RP+ - Fragmentação Sintática"""
+        if features.sentence_count_ratio > 1.2 and features.semantic_similarity > 0.6:
+            confidence = (features.sentence_count_ratio - 1) * features.semantic_similarity
+            impact = "alto" if confidence > 0.5 else "médio"
+            
+            return StrategyEvidence(
+                strategy_code='RP+',
+                confidence=min(confidence, 1.0),
+                impact_level=impact,
+                features=features,
+                examples=[{"original": "Frase longa complexa.", "simplified": "Frase curta. Outra frase."}],
+                positions=[]
+            )
+        return None
+    
+    def _classify_global_rewriting(self, features: StrategyFeatures, source_text: str, target_text: str) -> Optional[StrategyEvidence]:
+        """RF+ - Reescrita Global"""
+        if features.lexical_overlap < 0.4 and features.semantic_similarity > 0.6:
+            confidence = features.semantic_similarity * (1 - features.lexical_overlap)
+            impact = "alto"
+            
+            return StrategyEvidence(
+                strategy_code='RF+',
+                confidence=confidence,
+                impact_level=impact,
+                features=features,
+                examples=[{"original": source_text[:50] + "...", "simplified": target_text[:50] + "..."}],
+                positions=[]
+            )
+        return None
+    
+    def _classify_meaning_change(self, features: StrategyFeatures, source_text: str, target_text: str) -> Optional[StrategyEvidence]:
+        """AS+ - Alteração de Sentido"""
+        if 0.3 < features.semantic_similarity < 0.7:
+            confidence = 1 - abs(features.semantic_similarity - 0.5) * 2
+            impact = "médio"
+            
+            return StrategyEvidence(
+                strategy_code='AS+',
+                confidence=confidence,
+                impact_level=impact,
+                features=features,
+                examples=[{"original": "sentido original", "simplified": "sentido alterado"}],
+                positions=[]
+            )
+        return None
+    
+    def _classify_positional_reorganization(self, features: StrategyFeatures, source_text: str, target_text: str) -> Optional[StrategyEvidence]:
+        """DL+ - Reorganização Posicional"""
+        if features.structure_change_score > 0.3 and features.semantic_similarity > 0.7:
+            confidence = features.structure_change_score * features.semantic_similarity
+            impact = "médio"
+            
+            return StrategyEvidence(
+                strategy_code='DL+',
+                confidence=confidence,
+                impact_level=impact,
+                features=features,
+                examples=[{"original": "A depois B", "simplified": "B antes A"}],
+                positions=[]
+            )
+        return None
+    
+    def _classify_explicitness(self, features: StrategyFeatures, source_text: str, target_text: str) -> Optional[StrategyEvidence]:
+        """EXP+ - Explicitação e Detalhamento"""
+        if features.explicitness_score > 0.3 and features.length_ratio > 1.1:
+            confidence = features.explicitness_score * min(features.length_ratio - 1, 0.5) * 2
+            impact = "médio"
+            
+            return StrategyEvidence(
+                strategy_code='EXP+',
+                confidence=confidence,
+                impact_level=impact,
+                features=features,
+                examples=[{"original": "conceito", "simplified": "conceito, ou seja, explicação"}],
+                positions=[]
+            )
+        return None
+    
+    def _classify_insertion_handling(self, features: StrategyFeatures, source_text: str, target_text: str) -> Optional[StrategyEvidence]:
+        """IN+ - Manejo de Inserções"""
+        source_parens = source_text.count('(') + source_text.count('[')
+        target_parens = target_text.count('(') + target_text.count('[')
+        
+        if source_parens > target_parens and features.semantic_similarity > 0.6:
+            confidence = (source_parens - target_parens) / max(source_parens, 1) * features.semantic_similarity
+            impact = "baixo"
+            
+            return StrategyEvidence(
+                strategy_code='IN+',
+                confidence=confidence,
+                impact_level=impact,
+                features=features,
+                examples=[{"original": "texto (inserção)", "simplified": "texto"}],
+                positions=[]
+            )
+        return None
+    
+    def _classify_perspective_reinterpretation(self, features: StrategyFeatures, source_text: str, target_text: str) -> Optional[StrategyEvidence]:
+        """MOD+ - Reinterpretação Perspectiva"""
+        if features.semantic_similarity > 0.75 and features.lexical_overlap < 0.5:
+            confidence = features.semantic_similarity * (1 - features.lexical_overlap)
+            impact = "alto"
+            
+            return StrategyEvidence(
+                strategy_code='MOD+',
+                confidence=confidence,
+                impact_level=impact,
+                features=features,
+                examples=[{"original": "perspectiva A", "simplified": "perspectiva B"}],
+                positions=[]
+            )
+        return None
+    
+    def _classify_title_optimization(self, features: StrategyFeatures, source_text: str, target_text: str) -> Optional[StrategyEvidence]:
+        """MT+ - Otimização de Títulos"""
+        has_title = target_text.strip().endswith(':') or any(line.isupper() for line in target_text.split('\n'))
+        
+        if has_title:
+            confidence = 0.8
+            impact = "baixo"
+            
+            return StrategyEvidence(
+                strategy_code='MT+',
+                confidence=confidence,
+                impact_level=impact,
+                features=features,
+                examples=[{"original": "texto", "simplified": "TÍTULO:\ntexto"}],
+                positions=[]
+            )
+        return None
+    
+    def _classify_content_structuring(self, features: StrategyFeatures, source_text: str, target_text: str) -> Optional[StrategyEvidence]:
+        """RD+ - Estruturação de Conteúdo"""
+        if features.structure_change_score > 0.4:
+            confidence = features.structure_change_score
+            impact = "médio"
+            
+            return StrategyEvidence(
+                strategy_code='RD+',
+                confidence=confidence,
+                impact_level=impact,
+                features=features,
+                examples=[{"original": "texto sem estrutura", "simplified": "1. Primeiro\n2. Segundo"}],
+                positions=[]
+            )
+        return None
+    
+    def _classify_referential_clarity(self, features: StrategyFeatures, source_text: str, target_text: str) -> Optional[StrategyEvidence]:
+        """TA+ - Clareza Referencial"""
+        if features.pronoun_reduction_score > 0.3:
+            confidence = features.pronoun_reduction_score
+            impact = "médio"
+            
+            return StrategyEvidence(
+                strategy_code='TA+',
+                confidence=confidence,
+                impact_level=impact,
+                features=features,
+                examples=[{"original": "ele fez isso", "simplified": "João fez a tarefa"}],
+                positions=[]
+            )
+        return None
+    
+    def _classify_voice_change(self, features: StrategyFeatures, source_text: str, target_text: str) -> Optional[StrategyEvidence]:
+        """MV+ - Alteração da Voz Verbal"""
+        if features.voice_change_score > 0.2:
+            confidence = features.voice_change_score
+            impact = "médio"
+            
+            return StrategyEvidence(
+                strategy_code='MV+',
+                confidence=confidence,
+                impact_level=impact,
+                features=features,
+                examples=[{"original": "foi feito", "simplified": "fez"}],
+                positions=[]
+            )
+        return None
 
 # Global model cache for performance
 _model_cache = {
@@ -52,18 +486,22 @@ def _initialize_models():
 
 
 class StrategyDetector:
-    """Class for detecting simplification strategies in text pairs"""
+    """Enhanced class for detecting simplification strategies using feature extraction and evidence-based classification"""
     
     def __init__(self):
         # Use cached models for performance
         self.nlp, self.semantic_model = _initialize_models()
+        
+        # Initialize feature extractor and classifier
+        self.feature_extractor = FeatureExtractor(self.nlp, self.semantic_model)
+        self.classifier = EvidenceBasedClassifier()
         
         # Special flags for OM+ and PRO+
         self.enable_om_detection = False  # Disabled by default as per documentation
         self.pro_tag_allowed = False  # PRO+ is for human annotation only
     
     def identify_strategies(self, source_text: str, target_text: str) -> List[SimplificationStrategy]:
-        """Identify simplification strategies used in text transformation"""
+        """Enhanced strategy identification using feature extraction and evidence-based classification"""
         strategies = []
         if not source_text or not target_text:
             return strategies
@@ -78,18 +516,64 @@ class StrategyDetector:
             logging.info(f"📊 Large target text detected ({len(target_text)} chars), using first {MAX_TEXT_LENGTH} chars for analysis")
             target_text = target_text[:MAX_TEXT_LENGTH]
         
-        # Create docs once for efficiency
-        source_doc = self.nlp(source_text) if self.nlp else None
-        target_doc = self.nlp(target_text) if self.nlp else None
-
-        # Quick heuristic checks first (no ML models needed)
+        try:
+            # Step 1: Extract features from text pair
+            features = self.feature_extractor.extract_features(source_text, target_text)
+            
+            # Step 2: Use evidence-based classifier to detect strategies
+            evidences = self.classifier.classify_strategies(features, source_text, target_text)
+            
+            # Step 3: Convert evidence to SimplificationStrategy objects
+            for evidence in evidences:
+                strategy = self._evidence_to_strategy(evidence)
+                if strategy:
+                    strategies.append(strategy)
+            
+            logging.info(f"✅ Detected {len(strategies)} strategies using enhanced feature-based approach")
+            
+        except Exception as e:
+            logging.error(f"❌ Error in enhanced strategy detection: {e}")
+            # Fallback to quick heuristic detection
+            strategies = self._fallback_detection(source_text, target_text)
+        
+        return strategies
+    
+    def _evidence_to_strategy(self, evidence: StrategyEvidence) -> Optional[SimplificationStrategy]:
+        """Convert StrategyEvidence to SimplificationStrategy"""
+        strategy_info = STRATEGY_DESCRIPTIONS.get(evidence.strategy_code, {})
+        
+        # Convert examples to StrategyExample objects
+        exemplos_objs = []
+        for ex in evidence.examples:
+            if isinstance(ex, dict):
+                exemplos_objs.append(
+                    StrategyExample(
+                        original=ex.get("original", ""),
+                        simplified=ex.get("simplified", ex.get("fragmentado", ""))
+                    )
+                )
+        
+        # Ensure impacto is a valid literal
+        impacto_literal = evidence.impact_level if evidence.impact_level in ("baixo", "médio", "alto") else "médio"
+        
+        return SimplificationStrategy(
+            sigla=evidence.strategy_code,
+            nome=strategy_info.get("nome", "Estratégia Desconhecida"),
+            descricao=strategy_info.get("descricao", ""),
+            tipo=strategy_info.get("tipo", SimplificationStrategyType.SEMANTIC),
+            impacto=impacto_literal,
+            confianca=float(evidence.confidence),
+            exemplos=exemplos_objs
+        )
+    
+    def _fallback_detection(self, source_text: str, target_text: str) -> List[SimplificationStrategy]:
+        """Fallback to original heuristic detection if enhanced approach fails"""
+        logging.info("🔄 Using fallback heuristic detection")
+        strategies = []
+        
+        # Quick heuristic checks
         quick_strategies = self._detect_quick_strategies(source_text, target_text)
         strategies.extend(quick_strategies)
-        
-        # Only run expensive ML-based checks if we have fewer than 3 strategies
-        if len(strategies) < 3 and self.semantic_model:
-            ml_strategies = self._detect_ml_strategies(source_text, target_text)
-            strategies.extend(ml_strategies)
         
         return strategies
     

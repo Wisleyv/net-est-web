@@ -72,14 +72,29 @@ const TextInputField = ({
 
           if (processResponse.ok) {
             const result = await processResponse.json();
+            console.log('🔍 File processing result:', {
+              success: result.success,
+              sourceTextLength: result.processed_text?.source_text?.length || result.source_text?.length || 0,
+              sourceTextPreview: (result.processed_text?.source_text || result.source_text || '').substring(0, 100) + '...',
+              warnings: result.warnings,
+              errors: result.errors,
+              hasProcessedText: !!result.processed_text,
+              keys: Object.keys(result)
+            });
+            
             if (result.success) {
-              onChange(result.source_text || '');
+              const sourceText = result.processed_text?.source_text || result.source_text || '';
+              console.log('📤 Calling onChange with extracted text:', sourceText?.length, 'characters');
+              onChange(sourceText);
               setWarnings(result.warnings || []);
             } else {
+              console.error('❌ File processing failed:', result.errors);
               setWarnings(
                 result.errors || ['Erro no processamento do arquivo']
               );
             }
+          } else {
+            console.error('❌ Process response not ok:', processResponse.status);
           }
         }
       } catch (error) {

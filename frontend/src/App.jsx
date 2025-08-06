@@ -1,18 +1,14 @@
 /**
- * Enhanced App.jsx - Phase 2.B.5 Dual Input Architecture - Fully Restored & Working
+ * NET-EST Text Simplification Analysis System
+ * Enhanced for strategy detection and visual analysis
  */
 
 import React, { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Components
-import DualTextInputComponent from './components/DualTextInputComponent';
-import ComparativeResultsDisplay from './components/ComparativeResultsDisplay';
-import FileUploadTestPage from './components/FileUploadTestPage';
-import SemanticAlignment from './components/SemanticAlignment';
-
-// Services
-import ComparativeAnalysisService from './services/comparativeAnalysisService';
+import EnhancedTextInput from './components/EnhancedTextInput';
+import AboutCredits from './components/AboutCredits';
 
 // React Query client
 const queryClient = new QueryClient({
@@ -78,78 +74,26 @@ class ErrorBoundary extends React.Component {
 // Main Application Component
 function MainApp() {
   const [currentView, setCurrentView] = useState('input');
-  const [analysisResult, setAnalysisResult] = useState(null);
-  const [analysisHistory, setAnalysisHistory] = useState([]);
 
-  // Navigation
-  const navigateTo = (view) => {
-    setCurrentView(view);
-    setAnalysisResult(null);
+  const handleTextProcessed = (_result) => {
+    // Analysis completed successfully
+    // The EnhancedTextInput component handles the display
   };
 
-  // Real API integration function
-  const handleComparativeAnalysis = async (analysisData) => {
-    // Call the backend service
-    const result = await ComparativeAnalysisService.performComparativeAnalysis(analysisData);
-    
-    // Store result and switch to results view
-    setAnalysisResult(result);
-    setAnalysisHistory(prev => [result, ...prev]);
-    setCurrentView('results');
-    
-    return result;
-  };
-
-  const handleBackToInput = () => {
-    setCurrentView('input');
-    setAnalysisResult(null);
-  };
-
-  const handleViewHistory = () => {
-    // Future enhancement - for now just go back to input
-    setCurrentView('input');
+  const handleError = (_error) => {
+    // Error handling is managed by the EnhancedTextInput component
+    // This could be extended to show app-level notifications if needed
   };
 
   const renderCurrentView = () => {
     switch (currentView) {
-      case 'results':
-        return (
-          <ComparativeResultsDisplay
-            analysisResult={analysisResult}
-            onBack={handleBackToInput}
-            onNewAnalysis={handleBackToInput}
-          />
-        );
-      case 'file-upload-test':
-        return <FileUploadTestPage />;
-      case 'semantic-alignment':
-        return <SemanticAlignment />;
       case 'about':
-        return (
-          <div className="max-w-4xl mx-auto p-6">
-            <div className="bg-white rounded-lg shadow-lg p-8">
-              <h2 className="text-3xl font-bold text-gray-800 mb-4">📖 About NET-EST</h2>
-              <p className="text-gray-600 mb-4">
-                Phase 2.B.5 Dual Input Architecture - Fully Functional with File Upload Integration!
-              </p>
-              <p className="text-gray-600 mb-6">
-                Sistema de análise comparativa de textos com suporte a upload de arquivos PDF, DOCX, TXT e mais.
-              </p>
-              <button 
-                onClick={() => setCurrentView('input')}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-              >
-                Voltar ao Input
-              </button>
-            </div>
-          </div>
-        );
+        return <AboutCredits onBack={() => setCurrentView('input')} />;
       default:
         return (
-          <DualTextInputComponent
-            onComparativeAnalysis={handleComparativeAnalysis}
-            analysisHistory={analysisHistory}
-            onViewHistory={handleViewHistory}
+          <EnhancedTextInput
+            onTextProcessed={handleTextProcessed}
+            onError={handleError}
           />
         );
     }
@@ -166,79 +110,61 @@ function MainApp() {
         backgroundColor: 'rgba(255, 255, 255, 0.95)', 
         backdropFilter: 'blur(10px)',
         padding: '1rem 2rem',
-        boxShadow: '0 2px 20px rgba(0, 0, 0, 0.1)'
+        boxShadow: '0 2px 20px rgba(0, 0, 0, 0.1)',
+        borderBottom: '1px solid rgba(0, 0, 0, 0.1)'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h1 style={{ margin: 0, color: '#2d3748' }}>
-              🌐 NET-EST - Análise Comparativa de Simplificação Textual
+            <h1 style={{ 
+              margin: 0, 
+              color: '#2d3748',
+              fontSize: '1.5rem',
+              fontWeight: '600'
+            }}>
+              🌐 NET-EST - Análise de Estratégias de Simplificação Textual
             </h1>
-            <p style={{ margin: '0.5rem 0 0 0', color: '#4a5568' }}>
-              Phase 2.B.5 - File Upload Integration Testing ✅
+            <p style={{ 
+              margin: '0.25rem 0 0 0', 
+              color: '#4a5568',
+              fontSize: '0.875rem'
+            }}>
+              Sistema de análise comparativa para tradução intralingual
             </p>
           </div>
           
           {/* Navigation Buttons */}
-          <div style={{ display: 'flex', gap: '1rem' }}>
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
             <button
               onClick={() => setCurrentView('input')}
               style={{
-                padding: '0.5rem 1rem',
-                backgroundColor: currentView === 'input' ? '#3182ce' : '#e2e8f0',
-                color: currentView === 'input' ? 'white' : '#4a5568',
+                padding: '0.625rem 1.25rem',
+                backgroundColor: currentView === 'input' || currentView === 'results' ? '#3182ce' : '#e2e8f0',
+                color: currentView === 'input' || currentView === 'results' ? 'white' : '#4a5568',
                 border: 'none',
-                borderRadius: '0.375rem',
+                borderRadius: '0.5rem',
                 cursor: 'pointer',
                 fontSize: '0.875rem',
-                fontWeight: '500'
+                fontWeight: '500',
+                transition: 'all 0.2s ease'
               }}
             >
-              📝 Input
-            </button>
-            <button
-              onClick={() => setCurrentView('file-upload-test')}
-              style={{
-                padding: '0.5rem 1rem',
-                backgroundColor: currentView === 'file-upload-test' ? '#3182ce' : '#e2e8f0',
-                color: currentView === 'file-upload-test' ? 'white' : '#4a5568',
-                border: 'none',
-                borderRadius: '0.375rem',
-                cursor: 'pointer',
-                fontSize: '0.875rem',
-                fontWeight: '500'
-              }}
-            >
-              📄 File Upload Test
-            </button>
-            <button
-              onClick={() => setCurrentView('semantic-alignment')}
-              style={{
-                padding: '0.5rem 1rem',
-                backgroundColor: currentView === 'semantic-alignment' ? '#3182ce' : '#e2e8f0',
-                color: currentView === 'semantic-alignment' ? 'white' : '#4a5568',
-                border: 'none',
-                borderRadius: '0.375rem',
-                cursor: 'pointer',
-                fontSize: '0.875rem',
-                fontWeight: '500'
-              }}
-            >
-              🔗 Semantic Alignment
+              � Análise de Textos
             </button>
             <button
               onClick={() => setCurrentView('about')}
               style={{
-                padding: '0.5rem 1rem',
+                padding: '0.625rem 1.25rem',
                 backgroundColor: currentView === 'about' ? '#3182ce' : '#e2e8f0',
                 color: currentView === 'about' ? 'white' : '#4a5568',
                 border: 'none',
-                borderRadius: '0.375rem',
+                borderRadius: '0.5rem',
                 cursor: 'pointer',
                 fontSize: '0.875rem',
-                fontWeight: '500'
+                fontWeight: '500',
+                transition: 'all 0.2s ease'
               }}
             >
-              ℹ️ About
+              ℹ️ Sobre
             </button>
           </div>
         </div>
@@ -271,3 +197,12 @@ function App() {
 }
 
 export default App;
+
+/*
+Contains AI-generated code.
+Desenvolvido com ❤️ pelo Núcleo de Estudos de Tradução - PIPGLA/UFRJ
+Projeto: NET-EST - Sistema de Análise de Estratégias de Simplificação Textual em Tradução Intralingual
+Equipe: Coord.: Profa. Dra. Janine Pimentel; Dev. Principal: Wisley Vilela; Especialista Linguística: Luanny Matos de Lima; Agentes IA: Claude Sonnet 3.5, ChatGPT-4o, Gemini 2.0 Flash
+Instituições: PIPGLA/UFRJ | Politécnico de Leiria
+Apoio: CAPES | Licença: MIT
+*/
