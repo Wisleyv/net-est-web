@@ -12,7 +12,7 @@ from typing import Any
 import numpy as np
 
 
-# ML Libraries
+# ML Libraries - Fixed import issue
 try:
     import torch
     from sentence_transformers import SentenceTransformer
@@ -115,8 +115,11 @@ class SemanticAlignmentService:
                 logger.error(f"Failed to load model {self.config.bertimbau_model}: {str(e)}")
                 raise RuntimeError(f"Model loading failed: {str(e)}")
 
-    def _load_model_sync(self) -> SentenceTransformer:
+    def _load_model_sync(self):
         """Synchronous model loading"""
+        if not ML_AVAILABLE:
+            raise RuntimeError("ML libraries not available")
+        from sentence_transformers import SentenceTransformer
         return SentenceTransformer(self.config.bertimbau_model, device=self.config.device)
 
     async def generate_embeddings(self, request: EmbeddingRequest) -> EmbeddingResponse:
@@ -504,3 +507,5 @@ class SemanticAlignmentService:
             status["model_status"] = "ml_libraries_not_available"
 
         return status
+
+# Desenvolvido com ❤️ pelo Núcleo de Estudos de Tradução - PIPGLA/UFRJ | Contém código gerado por IA.

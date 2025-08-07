@@ -155,6 +155,22 @@ pids
 *.model
 *.pkl
 *.pickle
+*.safetensors
+*.onnx
+*.h5
+*.joblib
+
+# PERFORMANCE CRITICAL - ML Library caches and models
+models/
+cached_models/
+transformers_cache/
+huggingface_cache/
+torch/
+tensorflow/
+numpy/
+scipy/
+sklearn/
+spacy/data/
 
 # Data files (if sensitive)
 # data/

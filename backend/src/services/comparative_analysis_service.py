@@ -43,6 +43,8 @@ class ComparativeAnalysisService:
     
     def __init__(self):
         self.analysis_history: List[AnalysisHistoryItem] = []
+        # Store full analysis responses for export functionality
+        self.full_analysis_cache: Dict[str, ComparativeAnalysisResponse] = {}
         # Initialize the semantic model
         self.model = None
         self.semantic_alignment_service = SemanticAlignmentService()
@@ -139,6 +141,9 @@ class ComparativeAnalysisService:
                 readability_improvement=response.readability_improvement
             )
             self.analysis_history.append(history_item)
+            
+            # Cache full response for export functionality
+            self.full_analysis_cache[analysis_id] = response
             
             logger.info(f"Comparative analysis completed: {analysis_id}")
             return response
@@ -853,10 +858,43 @@ class ComparativeAnalysisService:
         if not analysis:
             raise ValueError(f"Analysis {analysis_id} not found")
         
-        # For now, return basic export data
-        return {
-            "analysis_id": analysis_id,
-            "format": format,
-            "export_url": f"/exports/{analysis_id}.{format}",
-            "created_at": datetime.now().isoformat()
-        }
+        if format == "pdf":
+            # For PDF, return structured data that frontend can use
+            # In a real implementation, this would generate actual PDF content
+            return {
+                "success": True,
+                "analysis_id": analysis_id,
+                "format": format,
+                "export_type": "comparative_analysis_report",
+                "title": "Relatório de Análise Comparativa",
+                "timestamp": datetime.now().isoformat(),
+                "data": {
+                    "source_text": analysis.source_text[:500] + "..." if len(analysis.source_text) > 500 else analysis.source_text,
+                    "target_text": analysis.target_text[:500] + "..." if len(analysis.target_text) > 500 else analysis.target_text,
+                    "overall_score": analysis.overall_score,
+                    "analysis_date": analysis.timestamp.isoformat() if hasattr(analysis, 'timestamp') else datetime.now().isoformat(),
+                    "readability_improvement": getattr(analysis, 'readability_improvement', 0),
+                    "semantic_preservation": getattr(analysis, 'semantic_preservation', 0),
+                    "strategies_count": len(getattr(analysis, 'simplification_strategies', []))
+                },
+                "message": "Relatório exportado com sucesso. Em uma implementação completa, isso geraria um arquivo PDF."
+            }
+        elif format == "json":
+            # Return the full analysis data as JSON
+            return {
+                "success": True,
+                "analysis_id": analysis_id,
+                "format": format,
+                "data": analysis.__dict__ if hasattr(analysis, '__dict__') else str(analysis),
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            # Basic response for other formats
+            return {
+                "success": True,
+                "analysis_id": analysis_id,
+                "format": format,
+                "export_url": f"/exports/{analysis_id}.{format}",
+                "created_at": datetime.now().isoformat(),
+                "message": f"Export em formato {format} solicitado com sucesso."
+            }

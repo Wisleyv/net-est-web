@@ -1,8 +1,0 @@
-{
-  "source_text": "A implementação de estratégias de simplificação textual constitui um processo complexo que demanda consideração cuidadosa dos elementos linguísticos, semânticos e estruturais do texto original, visando à produção de uma versão mais acessível sem comprometer a integridade das informações essenciais.",
-  "target_text": "Simplificar textos é um processo que precisa de atenção aos aspectos da linguagem, do significado e da estrutura do texto original. O objetivo é criar uma versão mais fácil de entender, mantendo as informações importantes.",
-  "analysis_options": {
-    "enable_om_detection": false,
-    "pro_tag_allowed": false
-  }
-}

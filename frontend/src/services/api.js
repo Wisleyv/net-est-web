@@ -94,17 +94,30 @@ export const semanticAlignmentAPI = {
   deleteAnalysis: (analysisId) => api.delete(`/api/v1/semantic-alignment/${analysisId}`),
 };
 
-// Analytics API
+// Analytics API (Fixed to match backend implementation)
 export const analyticsAPI = {
-  createSession: (data) => api.post('/api/v1/analytics/sessions', data),
-  getSession: (sessionId) => api.get(`/api/v1/analytics/sessions/${sessionId}`),
-  updateSession: (sessionId, data) => api.put(`/api/v1/analytics/sessions/${sessionId}`, data),
-  deleteSession: (sessionId) => api.delete(`/api/v1/analytics/sessions/${sessionId}`),
-  recordAnalysis: (data) => api.post('/api/v1/analytics/analyses', data),
-  getAnalyses: (params = {}) => api.get('/api/v1/analytics/analyses', { params }),
-  submitFeedback: (data) => api.post('/api/v1/analytics/feedback', data),
-  getMetrics: (params = {}) => api.get('/api/v1/analytics/metrics', { params }),
-  exportData: (sessionId) => api.get(`/api/v1/analytics/export/${sessionId}`),
+  // Session Management
+  createSession: (data) => api.post('/analytics/session', data),
+  getSession: (sessionId) => api.get(`/analytics/session/${sessionId}`),
+  getSessionAnalyses: (sessionId) => api.get(`/analytics/session/${sessionId}/analyses`),
+  getSessionFeedback: (sessionId) => api.get(`/analytics/session/${sessionId}/feedback`),
+  clearSession: (sessionId) => api.delete(`/analytics/session/${sessionId}`),
+  
+  // Analysis Recording
+  recordAnalysis: (data) => api.post('/analytics/analysis', data),
+  
+  // Feedback Collection (Phase 4 Implementation)
+  submitFeedback: (data) => api.post('/analytics/feedback', data),
+  
+  // System Metrics
+  getSystemMetrics: () => api.get('/analytics/system/metrics'),
+  getSystemSummary: () => api.get('/analytics/system/summary'),
+  
+  // Data Export
+  exportAnalytics: (data) => api.post('/analytics/export', data),
+  
+  // Health Check
+  healthCheck: () => api.get('/analytics/health'),
 };
 
 export default api;

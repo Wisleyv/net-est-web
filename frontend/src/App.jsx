@@ -7,8 +7,10 @@ import React, { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Components
-import EnhancedTextInput from './components/EnhancedTextInput';
+import DualTextInputComponent from './components/DualTextInputComponent';
+import ComparativeResultsDisplay from './components/ComparativeResultsDisplay';
 import AboutCredits from './components/AboutCredits';
+import api from './services/api';
 
 // React Query client
 const queryClient = new QueryClient({
@@ -74,14 +76,42 @@ class ErrorBoundary extends React.Component {
 // Main Application Component
 function MainApp() {
   const [currentView, setCurrentView] = useState('input');
+  const [analysisResult, setAnalysisResult] = useState(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const handleTextProcessed = (_result) => {
-    // Analysis completed successfully
-    // The EnhancedTextInput component handles the display
+  const handleTextProcessed = async (analysisData) => {
+    setIsAnalyzing(true);
+    try {
+      // Call the comparative analysis API
+      const response = await api.post('/api/v1/comparative-analysis/', {
+        source_text: analysisData.sourceText,
+        target_text: analysisData.targetText,
+        analysis_options: {
+          include_lexical_analysis: true,
+          include_syntactic_analysis: true,
+          include_semantic_analysis: true,
+          include_readability_metrics: true,
+          include_strategy_identification: true
+        },
+        metadata: analysisData.metadata
+      });
+
+      if (response.data && response.data.analysis_id) {
+        setAnalysisResult(response.data);
+        setCurrentView('results');
+      } else {
+        throw new Error('Invalid analysis response');
+      }
+    } catch (error) {
+      console.error('Analysis error:', error);
+      // Error is handled by the DualTextInputComponent's error handler
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handleError = (_error) => {
-    // Error handling is managed by the EnhancedTextInput component
+    // Error handling is managed by the DualTextInputComponent
     // This could be extended to show app-level notifications if needed
   };
 
@@ -89,11 +119,17 @@ function MainApp() {
     switch (currentView) {
       case 'about':
         return <AboutCredits onBack={() => setCurrentView('input')} />;
+      case 'results':
+        return analysisResult ? (
+          <ComparativeResultsDisplay 
+            analysisResult={analysisResult}
+            className="mt-4"
+          />
+        ) : null;
       default:
         return (
-          <EnhancedTextInput
-            onTextProcessed={handleTextProcessed}
-            onError={handleError}
+          <DualTextInputComponent
+            onComparativeAnalysis={handleTextProcessed}
           />
         );
     }
@@ -135,7 +171,11 @@ function MainApp() {
           {/* Navigation Buttons */}
           <div style={{ display: 'flex', gap: '0.75rem' }}>
             <button
-              onClick={() => setCurrentView('input')}
+              onClick={() => {
+                setCurrentView('input');
+                setAnalysisResult(null);
+              }}
+              title="Atenção: Ao clicar aqui, você perderá o conteúdo digitado/colado ou arquivos carregados e voltará à tela inicial"
               style={{
                 padding: '0.625rem 1.25rem',
                 backgroundColor: currentView === 'input' || currentView === 'results' ? '#3182ce' : '#e2e8f0',
@@ -148,7 +188,7 @@ function MainApp() {
                 transition: 'all 0.2s ease'
               }}
             >
-              � Análise de Textos
+              📊 Análise de Textos
             </button>
             <button
               onClick={() => setCurrentView('about')}

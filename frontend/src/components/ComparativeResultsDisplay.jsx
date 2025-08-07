@@ -1,6 +1,6 @@
 /**
- * ComparativeResultsDisplay.jsx - Phase 2.B.5 Implementation
- * Display component for comparative analysis results
+ * ComparativeResultsDisplay.jsx - Phase 2.B.5 + Phase 4 Implementation
+ * Display component for comparative analysis results with feedback collection
  */
 
 import React, { useState } from 'react';
@@ -9,24 +9,21 @@ import {
   TrendingUp, 
   BarChart3, 
   Target, 
-  Download, 
   Eye,
-  EyeOff,
   ChevronDown,
   ChevronRight,
   AlertCircle,
-  CheckCircle2,
   Info
 } from 'lucide-react';
+import SideBySideTextDisplay from './SideBySideTextDisplay';
+import FeedbackCollection from './FeedbackCollection';
 
 const ComparativeResultsDisplay = ({ 
   analysisResult, 
-  onExport = () => {}, 
-  isExporting = false,
+  sessionId = null,
   className = "" 
 }) => {
-  const [activeSection, setActiveSection] = useState('overview');
-  const [isLocalExporting, setIsLocalExporting] = useState(false);
+  const [activeSection, setActiveSection] = useState('visual');
   const [expandedSections, setExpandedSections] = useState({
     lexical: true,
     syntactic: false,
@@ -34,15 +31,9 @@ const ComparativeResultsDisplay = ({
     readability: false,
   });
 
-  const handleExport = async (format) => {
-    setIsLocalExporting(true);
-    try {
-      await onExport(format);
-    } catch (error) {
-      console.error('Export failed:', error);
-    } finally {
-      setIsLocalExporting(false);
-    }
+  const handleFeedbackSubmitted = (feedbackData) => {
+    console.log('Feedback submitted:', feedbackData);
+    // You can add additional logic here, like showing a success message
   };
 
   if (!analysisResult) {
@@ -83,88 +74,89 @@ const ComparativeResultsDisplay = ({
     <div className={`space-y-6 ${className}`}>
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-              <BarChart3 className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900">Resultados da Análise Comparativa</h3>
-              <p className="text-sm text-gray-600 mt-1">
-                Análise realizada em {new Date(analysisResult.timestamp).toLocaleString('pt-BR')}
-              </p>
-              <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                {(() => {
-                  // Calculate word counts from the text
-                  const sourceWords = analysisResult.source_text?.split(/\s+/).filter(word => word.length > 0).length || 0;
-                  const targetWords = analysisResult.target_text?.split(/\s+/).filter(word => word.length > 0).length || 0;
-                  const wordReduction = sourceWords > 0 ? ((sourceWords - targetWords) / sourceWords * 100).toFixed(1) : 0;
-                  
-                  return (
-                    <>
-                      <span>Texto fonte: {sourceWords} palavras</span>
-                      <span>Texto simplificado: {targetWords} palavras</span>
-                      <span>Redução: {wordReduction}%</span>
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
+        <div className="flex items-start gap-3">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+            <BarChart3 className="w-5 h-5 text-white" />
           </div>
-          
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handleExport('pdf')}
-              disabled={isExporting || isLocalExporting}
-              className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1"
-            >
-              {(isExporting || isLocalExporting) ? (
-                <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <Download className="w-3 h-3" />
-              )}
-              Exportar PDF
-            </button>
+          <div>
+            <h3 className="font-semibold text-gray-900">Resultados da Análise Comparativa</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Análise realizada em {new Date(analysisResult.timestamp || Date.now()).toLocaleString('pt-BR')}
+            </p>
           </div>
         </div>
       </div>
 
       {/* Navigation */}
-      <div className="border-b border-gray-200">
-        <nav className="flex space-x-8">
-          {[
-            { id: 'overview', label: 'Visão Geral', icon: BarChart3 },
-            { id: 'comparison', label: 'Comparação', icon: FileText },
-            { id: 'strategies', label: 'Estratégias', icon: Target },
-            { id: 'metrics', label: 'Métricas', icon: TrendingUp },
-          ].map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setActiveSection(id)}
-              className={`flex items-center gap-2 py-2 px-1 border-b-2 font-medium text-sm ${
-                activeSection === id
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              {label}
-            </button>
-          ))}
-        </nav>
+      <div className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="overflow-x-auto">
+          <nav className="flex space-x-1 min-w-max px-4 sm:px-0">
+            {[
+              { id: 'overview', label: 'Visão Geral', icon: BarChart3 },
+              { id: 'visual', label: 'Análise Visual', icon: Eye },
+              { id: 'comparison', label: 'Comparação', icon: FileText },
+              { id: 'strategies', label: 'Estratégias', icon: Target },
+              { id: 'metrics', label: 'Métricas', icon: TrendingUp },
+              { id: 'feedback', label: 'Feedback', icon: Info },
+            ].map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => setActiveSection(id)}
+                className={`flex items-center gap-2 py-3 px-4 rounded-t-lg border-b-2 font-medium text-sm whitespace-nowrap transition-all duration-200 ${
+                  activeSection === id
+                    ? 'border-blue-500 text-blue-600 bg-blue-50 shadow-sm'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 hover:border-gray-300 border border-gray-200 border-b-transparent bg-gray-25'
+                }`}
+              >
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                <span className="hidden sm:inline">{label}</span>
+                <span className="sm:hidden text-xs">{label.split(' ')[0]}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
       </div>
 
       {/* Content Sections */}
       <div className="space-y-6">
+        {/* Phase 4: Feedback Collection Section */}
+        {activeSection === 'feedback' && (
+          <div className="space-y-4">
+            <h4 className="font-medium text-gray-900">Feedback da Análise</h4>
+            <p className="text-sm text-gray-600">
+              Sua avaliação nos ajuda a melhorar a qualidade das análises comparativas.
+            </p>
+            
+            <FeedbackCollection
+              analysisId={analysisResult.analysis_id || `analysis_${Date.now()}`}
+              sessionId={sessionId}
+              expectedResult={null} // Could be populated with user expectations
+              actualResult={JSON.stringify({
+                source_text: analysisResult.source_text,
+                target_text: analysisResult.target_text,
+                strategies: analysisResult.simplification_strategies || []
+              })}
+              onFeedbackSubmitted={handleFeedbackSubmitted}
+              className="max-w-md"
+            />
+          </div>
+        )}
+
         {/* Overview Section */}
         {activeSection === 'overview' && (
           <div className="space-y-4">
-            <h4 className="font-medium text-gray-900">Resumo Executivo</h4>
+            <div className="flex items-center gap-2 mb-4">
+              <BarChart3 className="w-5 h-5 text-blue-600" />
+              <h4 className="font-medium text-gray-900">Resumo</h4>
+            </div>
             
             {/* Text Characteristics */}
             <div className="bg-white border border-gray-200 rounded-lg p-4">
               <div className="flex items-center justify-between mb-4">
-                <h5 className="font-medium text-gray-900">Características Textuais</h5>
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-gray-600" />
+                  <h5 className="font-medium text-gray-900">Estatísticas</h5>
+                </div>
               </div>
               
               {(() => {
@@ -219,23 +211,39 @@ const ComparativeResultsDisplay = ({
               {[
                 {
                   label: 'Preservação Semântica',
-                  value: `${analysisResult.semantic_preservation?.toFixed(1)}%`,
-                  color: analysisResult.semantic_preservation >= 90 ? 'green' : 
-                         analysisResult.semantic_preservation >= 70 ? 'yellow' : 'red'
+                  value: `${analysisResult.semantic_preservation?.toFixed(1) || '0.0'}%`,
+                  color: (analysisResult.semantic_preservation || 0) >= 90 ? 'green' : 
+                         (analysisResult.semantic_preservation || 0) >= 70 ? 'yellow' : 'red',
+                  tooltip: 'Porcentagem do significado original preservado na simplificação'
                 },
                 {
                   label: 'Melhoria da Legibilidade',
-                  value: `+${analysisResult.readability_improvement?.toFixed(1)}pts`,
-                  color: analysisResult.readability_improvement >= 10 ? 'green' : 
-                         analysisResult.readability_improvement >= 5 ? 'yellow' : 'red'
+                  value: `+${analysisResult.readability_improvement?.toFixed(1) || '0.0'}pts`,
+                  color: (analysisResult.readability_improvement || 0) >= 10 ? 'green' : 
+                         (analysisResult.readability_improvement || 0) >= 5 ? 'yellow' : 'red',
+                  tooltip: (() => {
+                    const improvement = analysisResult.readability_improvement || 0;
+                    if (improvement >= 15) return 'Melhoria excelente! Texto adequado para leitores do Ensino Fundamental (6-14 anos)';
+                    if (improvement >= 10) return 'Boa melhoria! Texto adequado para leitores do Ensino Médio (15-17 anos)';
+                    if (improvement >= 5) return 'Melhoria moderada. Texto adequado para leitores do Ensino Superior (18+ anos)';
+                    return 'Melhoria limitada detectada. Texto ainda pode apresentar dificuldades de compreensão';
+                  })(),
+                  description: (() => {
+                    const improvement = analysisResult.readability_improvement || 0;
+                    if (improvement >= 15) return 'Ensino Fundamental';
+                    if (improvement >= 10) return 'Ensino Médio';
+                    if (improvement >= 5) return 'Ensino Superior';
+                    return 'Limitado';
+                  })()
                 },
                 {
                   label: 'Estratégias Identificadas',
-                  value: analysisResult.strategies_count,
-                  color: 'blue'
+                  value: analysisResult.strategies_count || 0,
+                  color: 'blue',
+                  tooltip: 'Número de estratégias de simplificação detectadas automaticamente'
                 }
               ].map((metric, index) => (
-                <div key={index} className="bg-white border border-gray-200 rounded-lg p-4">
+                <div key={index} className="bg-white border border-gray-200 rounded-lg p-4 relative group">
                   <div className="text-sm text-gray-600">{metric.label}</div>
                   <div className={`text-2xl font-semibold mt-1 ${
                     metric.color === 'green' ? 'text-green-600' :
@@ -245,9 +253,39 @@ const ComparativeResultsDisplay = ({
                   }`}>
                     {metric.value}
                   </div>
+                  {metric.description && (
+                    <div className={`text-xs mt-2 font-medium ${
+                      metric.color === 'green' ? 'text-green-700' :
+                      metric.color === 'yellow' ? 'text-yellow-700' :
+                      metric.color === 'red' ? 'text-red-700' :
+                      'text-blue-700'
+                    }`}>
+                      Adequado para: {metric.description}
+                    </div>
+                  )}
+                  {metric.tooltip && (
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 whitespace-nowrap">
+                      {metric.tooltip}
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Visual Analysis Section */}
+        {activeSection === 'visual' && (
+          <div className="space-y-4">
+            <SideBySideTextDisplay
+              sourceText={analysisResult.source_text}
+              targetText={analysisResult.target_text}
+              analysisResults={analysisResult}
+              onTagChange={(changes) => {
+                void changes;
+              }}
+            />
           </div>
         )}
 
@@ -265,7 +303,7 @@ const ComparativeResultsDisplay = ({
                 </div>
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto">
                   <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans">
-                    {analysisResult.sourceText}
+                    {analysisResult.source_text}
                   </pre>
                 </div>
               </div>
@@ -278,7 +316,7 @@ const ComparativeResultsDisplay = ({
                 </div>
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4 max-h-96 overflow-y-auto">
                   <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans">
-                    {analysisResult.targetText}
+                    {analysisResult.target_text}
                   </pre>
                 </div>
               </div>

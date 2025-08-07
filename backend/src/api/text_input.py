@@ -6,7 +6,7 @@ import base64
 import logging
 import time
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, HTTPException, File, Form, UploadFile
 from fastapi.responses import JSONResponse
 
 from ..models.text_input import (
@@ -41,14 +41,11 @@ async def validate_text(text: str) -> TextValidationResult:
 async def get_file_info(file: UploadFile = File(...)) -> FileUploadInfo:
     """Get information about uploaded file without processing"""
     try:
-        # Read file size
-        file_content = await file.read()
-        file_size = len(file_content)
-
-        # Reset file position
-        await file.seek(0)
-
-        return text_input_service.get_file_info(file.filename or "unknown", file_size)
+        # Read file to get size
+        content = await file.read()
+        file_size = len(content)
+        
+        return text_input_service.get_file_info(file.filename or "unknown.txt", file_size)
     except Exception as e:
         logger.error(f"Error getting file info: {str(e)}")
         raise HTTPException(status_code=500, detail=f"File info error: {str(e)}")
@@ -56,25 +53,25 @@ async def get_file_info(file: UploadFile = File(...)) -> FileUploadInfo:
 
 @router.post("/process-typed", response_model=TextInputResponse)
 async def process_typed_text(
-    source_text: str = Form(...), target_text: str | None = Form(None)
+    source_text: str = Form(...),
+    target_text: str = Form(...),
+    user_config: str = Form("{}"),  # JSON string of user configuration
 ) -> TextInputResponse:
     """Process typed text input"""
     try:
-        start_time = time.time()
-
+        import json
+        config = json.loads(user_config) if user_config else {}
+        
         request = TextInputRequest(
-            input_type=InputType.TYPED, source_text=source_text, target_text=target_text
+            input_type=InputType.TYPED,
+            source_text=source_text,
+            target_text=target_text,
+            user_config=config
         )
-
-        response = await text_input_service.process_text_input(request)
-
-        # Add processing time to metadata
-        processing_time = time.time() - start_time
-        if response.metadata:
-            response.metadata["processing_time"] = f"{processing_time:.2f}s"
-
-        return response
-
+        
+        return await text_input_service.process_text_input(request)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid user_config JSON")
     except Exception as e:
         logger.error(f"Error processing typed text: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Processing error: {str(e)}")
@@ -82,62 +79,41 @@ async def process_typed_text(
 
 @router.post("/process-file", response_model=TextInputResponse)
 async def process_file_upload(
-    file: UploadFile = File(...), target_text: str | None = Form(None)
+    file: UploadFile = File(...),
+    user_config: str = Form("{}"),  # JSON string of user configuration
 ) -> TextInputResponse:
     """Process uploaded file"""
     try:
-        start_time = time.time()
-
+        import json
+        config = json.loads(user_config) if user_config else {}
+        
         # Read file content
-        file_content = await file.read()
-        file_size = len(file_content)
-
-        # Get file extension
-        if not file.filename:
-            raise HTTPException(status_code=400, detail="File name is required")
-
-        file_ext = file.filename.split(".")[-1].lower()
-
-        # Validate file type
+        content = await file.read()
+        file_content_b64 = base64.b64encode(content).decode('utf-8')
+        
+        # Determine file type from extension
+        file_ext = file.filename.split('.')[-1].lower() if file.filename else 'txt'
         try:
             file_type = FileType(file_ext)
         except ValueError:
-            raise HTTPException(status_code=400, detail=f"Unsupported file format: {file_ext}")
-
-        # Check file size
-        if file_size > text_input_service.MAX_FILE_SIZE:
-            raise HTTPException(
-                status_code=413,
-                detail=f"File too large. Maximum size: {text_input_service.MAX_FILE_SIZE:,} bytes",
-            )
-
-        # Encode file content to base64
-        file_content_b64 = base64.b64encode(file_content).decode("utf-8")
-
+            raise HTTPException(status_code=400, detail=f"Unsupported file type: {file_ext}")
+        
         request = TextInputRequest(
             input_type=InputType.FILE,
             file_content=file_content_b64,
             file_name=file.filename,
             file_type=file_type,
-            target_text=target_text,
+            user_config=config
         )
-
-        response = await text_input_service.process_text_input(request)
-
-        # Add processing time to metadata
-        processing_time = time.time() - start_time
-        if response.metadata:
-            response.metadata["processing_time"] = f"{processing_time:.2f}s"
-            response.metadata["file_size"] = file_size
-
-        return response
-
+        
+        return await text_input_service.process_text_input(request)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid user_config JSON")
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error processing file upload: {str(e)}")
         raise HTTPException(status_code=500, detail=f"File processing error: {str(e)}")
-
 
 @router.get("/supported-formats")
 async def get_supported_formats() -> JSONResponse:

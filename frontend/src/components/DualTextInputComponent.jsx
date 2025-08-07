@@ -106,10 +106,10 @@ const DualTextInputComponent = ({ onComparativeAnalysis, className = "" }) => {
         }
         
         // Show comparative analysis warnings (but don't block submission)
-        if (validation.comparative_analysis.warnings.length > 0) {
+        if (validation.combined_warnings && validation.combined_warnings.length > 0) {
           handleSuccess(
-            `Validação concluída. ${validation.comparative_analysis.warnings.length} recomendações encontradas: ` +
-            validation.comparative_analysis.warnings[0]
+            `Validação concluída. ${validation.combined_warnings.length} recomendações encontradas: ` +
+            validation.combined_warnings[0]
           );
         }
         
@@ -178,7 +178,7 @@ const DualTextInputComponent = ({ onComparativeAnalysis, className = "" }) => {
             <span className="text-white text-xs font-bold">2.5</span>
           </div>
           <div>
-            <h3 className="font-medium text-blue-900">Análise Comparativa - Dual Input</h3>
+            <h3 className="font-medium text-blue-900">Análise Comparativa</h3>
             <p className="text-sm text-blue-800 mt-1">
               Compare um texto fonte com sua tradução intralingual simplificada para identificar estratégias de simplificação utilizadas.
             </p>

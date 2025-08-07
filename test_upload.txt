@@ -1,0 +1,5 @@
+Este é um documento de teste para validar a funcionalidade de upload de arquivos. 
+
+O texto contém múltiplos parágrafos para testar a segmentação adequada do processamento.
+
+Este parágrafo demonstra a capacidade do sistema em processar documentos com diferentes níveis de complexidade textual.
