@@ -3,7 +3,7 @@
  * Handles text simplification and adaptation to different education levels
  */
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { semanticAlignmentAPI } from '../services/api';
 import useAnalysisStore from '../stores/useAnalysisStore';
 

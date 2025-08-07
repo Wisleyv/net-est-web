@@ -46,6 +46,45 @@ __pycache__/
 *$py.class
 *.so
 
+# ===== PROJECT SPECIFIC CLEANUP RULES =====
+# Development scripts (prevent future accumulation)
+debug_*.ps1
+optimize_*.ps1
+*_optimizer*.ps1
+vscode_*.ps1
+setup_*.ps1
+migrate_*.ps1
+cache_*.ps1
+workspace_*.ps1
+
+# Test files (development only)
+test_*.json
+test_*.txt
+teste_*.txt
+*_test_*.js
+*_debug_*.py
+
+# App component variants (prevent accumulation)
+frontend/src/App-*.jsx
+frontend/src/App.*.jsx
+frontend/src/AppIntegrated.jsx
+
+# Component development variants
+frontend/src/components/*Integrated.jsx
+frontend/src/components/Test*.jsx
+frontend/src/components/*Test*.jsx
+frontend/src/components/Error*.jsx
+frontend/src/components/*Debug*.jsx
+
+# Backup files
+*.bak
+*.backup
+*.bck
+*.old
+
+# Archive directories
+vscode_backup_*/
+
 # Distribution / packaging
 .Python
 build/
