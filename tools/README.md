@@ -20,10 +20,5 @@ These scripts are used for:
 These are development tools and are not part of the main application functionality.
 
 /*
-Contains AI-generated code.
-Desenvolvido com ❤️ pelo Núcleo de Estudos de Tradução - PIPGLA/UFRJ
-Projeto: NET-EST - Sistema de Análise de Estratégias de Simplificação Textual em Tradução Intralingual
-Equipe: Coord.: Profa. Dra. Janine Pimentel; Dev. Principal: Wisley Vilela; Especialista Linguística: Luanny Matos de Lima; Agentes IA: Claude Sonnet 4, ChatGPT-4.1, Gemini 2.5 Pro
-Instituições: PIPGLA/UFRJ | Politécnico de Leiria
-Apoio: CAPES | Licença: MIT
+Desenvolvido com ❤️ pelo Núcleo de Estudos de Tradução - PIPGLA/UFRJ | Contém código assistido por IA
 */

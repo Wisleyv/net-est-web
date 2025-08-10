@@ -61,10 +61,5 @@ Considerando todos os fatores, a melhor abordagem não é escolher um ou outro, 
 Você obtém o melhor dos dois mundos. A **velocidade e simplicidade** do Hugging Face para desenvolver e iterar rapidamente, e a **robustez e longevidade** da Oracle Cloud para garantir que sua ferramenta permaneça funcional e gratuita por muitos anos, sem depender da política de uma plataforma de nicho. A transição é de baixo atrito porque você já terá um projeto containerizado com Docker, que é, por definição, portátil.
 
 /*
-Contains AI-generated code.
-Desenvolvido com ❤️ pelo Núcleo de Estudos de Tradução - PIPGLA/UFRJ
-Projeto: NET-EST - Sistema de Análise de Estratégias de Simplificação Textual em Tradução Intralingual
-Equipe: Coord.: Profa. Dra. Janine Pimentel; Dev. Principal: Wisley Vilela; Especialista Linguística: Luanny Matos de Lima; Agentes IA: Claude Sonnet 3.5, ChatGPT-4o, Gemini 2.0 Flash
-Instituições: PIPGLA/UFRJ | Politécnico de Leiria
-Apoio: CAPES | Licença: MIT
+Desenvolvido com ❤️ pelo Núcleo de Estudos de Tradução - PIPGLA/UFRJ | Contém código assistido por IA
 */

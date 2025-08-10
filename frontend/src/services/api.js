@@ -94,7 +94,9 @@ export const semanticAlignmentAPI = {
   deleteAnalysis: (analysisId) => api.delete(`/api/v1/semantic-alignment/${analysisId}`),
 };
 
-// Analytics API
+// Analytics API (Fixed to match backend implementation)
+export const analyticsAPI = {
+  // Sess// Analytics API
 export const analyticsAPI = {
   createSession: (data) => api.post('/api/v1/analytics/sessions', data),
   getSession: (sessionId) => api.get(`/api/v1/analytics/sessions/${sessionId}`),
@@ -105,13 +107,7 @@ export const analyticsAPI = {
   submitFeedback: (data) => api.post('/api/v1/analytics/feedback', data),
   getMetrics: (params = {}) => api.get('/api/v1/analytics/metrics', { params }),
   exportData: (sessionId) => api.get(`/api/v1/analytics/export/${sessionId}`),
-};
-
-export default api;
-
-/*
-Contains AI-generated code.
-Desenvolvido com ❤️ pelo Núcleo de Estudos de Tradução - PIPGLA/UFRJ
+UFRJ
 Projeto: NET-EST - Sistema de Análise de Estratégias de Simplificação Textual em Tradução Intralingual
 Equipe: Coord.: Profa. Dra. Janine Pimentel; Dev. Principal: Wisley Vilela; Especialista Linguística: Luanny Matos de Lima; Agentes IA: Claude Sonnet 3.5, ChatGPT-4o, Gemini 2.0 Flash
 Instituições: PIPGLA/UFRJ | Politécnico de Leiria
