@@ -33,7 +33,9 @@ from ..models.comparative_analysis import (
 # Import the strategy detector
 from .strategy_detector import StrategyDetector
 from .semantic_alignment_service import SemanticAlignmentService
+from .sentence_alignment_service import SentenceAlignmentService, simple_sentence_split
 from ..models.strategy_models import SimplificationStrategyType as StrategyType
+from ..models.semantic_alignment import AlignmentRequest, AlignmentMethod
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +48,7 @@ class ComparativeAnalysisService:
         # Initialize the semantic model
         self.model = None
         self.semantic_alignment_service = SemanticAlignmentService()
+    self.sentence_alignment_service = SentenceAlignmentService()
         try:
             # Load spaCy model for advanced analysis
             self.nlp = spacy.load("pt_core_news_sm")
@@ -126,10 +129,9 @@ class ComparativeAnalysisService:
             # Hierarchical output (M2 partial integration)
             if getattr(request, "hierarchical_output", False):
                 try:
-                    response.hierarchical_analysis = self._build_hierarchy(request)
+                    response.hierarchical_analysis = await self._build_hierarchy_async(request)
                 except Exception as e:  # pragma: no cover - graceful degradation
                     logger.error(f"Failed to build hierarchical analysis: {e}")
-                    # keep response without hierarchy
             
             # Calculate processing time
             end_time = datetime.now()
@@ -450,75 +452,153 @@ class ComparativeAnalysisService:
         return differences[:10]  # Limit to first 10 differences
 
     # === Hierarchical assembly helpers (M2) ===
-    def _build_hierarchy(self, request: ComparativeAnalysisRequest) -> Dict[str, Any]:
-        """Construct minimal hierarchical structure (paragraphs→sentences) with naive sentence alignment.
-        This is a first incremental step: uses existing paragraph segmentation (single paragraph whole text)
-        and sentence splitting; future iterations will integrate paragraph alignment & sentence alignment service.
+    async def _build_hierarchy_async(self, request: ComparativeAnalysisRequest) -> Dict[str, Any]:
+        """Construct hierarchical structure using paragraph semantic alignment + sentence alignment.
+        Paragraph segmentation: split on two-or-more newlines; fallback to whole text.
+        For each aligned paragraph pair run sentence alignment service to capture relations.
+        Unaligned paragraphs are included without cross alignment.
         """
-        # For now treat entire texts as single paragraphs; later we can split by double newlines.
-        source_paragraphs = [request.source_text]
-        target_paragraphs = [request.target_text]
+        # Paragraph segmentation
+        def split_paragraphs(text: str) -> List[str]:
+            parts = [p.strip() for p in re.split(r"\n{2,}", text) if p.strip()]
+            return parts if parts else [text]
 
-        # Sentence splitting reuse existing method
-        source_sentences = self._split_sentences(request.source_text)
-        target_sentences = self._split_sentences(request.target_text)
+        source_paragraphs = split_paragraphs(request.source_text)
+        target_paragraphs = split_paragraphs(request.target_text)
 
-        # Naive 1:1 pairing up to min length; mark excess as unmatched
-        min_len = min(len(source_sentences), len(target_sentences))
-        aligned_pairs = []
-        for i in range(min_len):
-            aligned_pairs.append({
-                "source_index": i,
-                "target_index": i,
-                "relation": "aligned",
-                "similarity": None  # placeholder until sentence alignment service is wired
-            })
-        unmatched_source = list(range(min_len, len(source_sentences)))
-        unmatched_target = list(range(min_len, len(target_sentences)))
+        # Perform paragraph alignment via semantic service
+        alignment_req = AlignmentRequest(
+            source_paragraphs=source_paragraphs,
+            target_paragraphs=target_paragraphs,
+            similarity_threshold=0.5,
+            alignment_method=AlignmentMethod.COSINE_SIMILARITY,
+            max_alignments_per_source=1,
+        )
+        alignment_resp = await self.semantic_alignment_service.align_paragraphs(alignment_req)
+        aligned_map: Dict[int, int] = {}
+        paragraph_alignment_records = []
+        if alignment_resp.success and alignment_resp.alignment_result:
+            for pair in alignment_resp.alignment_result.aligned_pairs:
+                aligned_map[pair.source_index] = pair.target_index
+                paragraph_alignment_records.append(
+                    {
+                        "source_index": pair.source_index,
+                        "target_index": pair.target_index,
+                        "similarity": pair.similarity_score,
+                        "confidence": pair.confidence,
+                    }
+                )
 
-        source_sentence_nodes = [
-            {
-                "sentence_id": f"s-src-{i}",
-                "index": i,
-                "text": s,
-                "alignment": next((p for p in aligned_pairs if p["source_index"] == i), None),
+        # Build paragraph nodes
+        source_nodes = []
+        target_nodes = []
+        # Sentence alignment per aligned pair
+        for s_idx, s_para in enumerate(source_paragraphs):
+            sentences_s = self._split_sentences(s_para)
+            paragraph_node: Dict[str, Any] = {
+                "paragraph_id": f"p-src-{s_idx}",
+                "index": s_idx,
+                "role": "source",
+                "text": s_para,
+                "sentences": [],
             }
-            for i, s in enumerate(source_sentences)
-        ]
-        target_sentence_nodes = [
-            {
-                "sentence_id": f"s-tgt-{i}",
-                "index": i,
-                "text": s,
-                "alignment": next((p for p in aligned_pairs if p["target_index"] == i), None),
+            t_idx = aligned_map.get(s_idx)
+            sentence_alignment_result = None
+            if t_idx is not None:
+                t_para = target_paragraphs[t_idx]
+                sentences_t = self._split_sentences(t_para)
+                sentence_alignment_result = self.sentence_alignment_service.align(
+                    sentences_s, sentences_t, threshold=0.3
+                )
+            # Build sentence nodes
+            if sentence_alignment_result:
+                # Map relations per source sentence (may have multiple targets)
+                rel_map: Dict[int, List[Dict[str, Any]]] = {}
+                for rec in sentence_alignment_result.aligned:
+                    rel_map.setdefault(rec.source_index, []).append(
+                        {
+                            "target_index": rec.target_index,
+                            "relation": rec.relation,
+                            "similarity": rec.similarity,
+                        }
+                    )
+                for i, sent in enumerate(sentences_s):
+                    paragraph_node["sentences"].append(
+                        {
+                            "sentence_id": f"s-src-{s_idx}-{i}",
+                            "index": i,
+                            "text": sent,
+                            "alignment": rel_map.get(i),
+                        }
+                    )
+                paragraph_node["alignment"] = {
+                    "target_index": t_idx,
+                    "similarity": next(
+                        (r["similarity"] for r in paragraph_alignment_records if r["source_index"] == s_idx),
+                        None,
+                    ),
+                }
+            else:
+                for i, sent in enumerate(sentences_s):
+                    paragraph_node["sentences"].append(
+                        {
+                            "sentence_id": f"s-src-{s_idx}-{i}",
+                            "index": i,
+                            "text": sent,
+                            "alignment": None,
+                        }
+                    )
+            source_nodes.append(paragraph_node)
+
+        # Target paragraphs
+        for t_idx, t_para in enumerate(target_paragraphs):
+            sentences_t = self._split_sentences(t_para)
+            paragraph_node: Dict[str, Any] = {
+                "paragraph_id": f"p-tgt-{t_idx}",
+                "index": t_idx,
+                "role": "target",
+                "text": t_para,
+                "sentences": [],
             }
-            for i, s in enumerate(target_sentences)
-        ]
+            # Find if aligned from any source
+            s_idx = next((s for s, t in aligned_map.items() if t == t_idx), None)
+            # Build sentence nodes (alignment info already recorded under source perspective)
+            for i, sent in enumerate(sentences_t):
+                paragraph_node["sentences"].append(
+                    {
+                        "sentence_id": f"s-tgt-{t_idx}-{i}",
+                        "index": i,
+                        "text": sent,
+                        "alignment": None,  # could be populated in future with reverse map
+                    }
+                )
+            if s_idx is not None:
+                paragraph_node["alignment"] = {
+                    "source_index": s_idx,
+                    "similarity": next(
+                        (r["similarity"] for r in paragraph_alignment_records if r["source_index"] == s_idx),
+                        None,
+                    ),
+                }
+            target_nodes.append(paragraph_node)
 
         hierarchy = {
             "hierarchy_version": "1.1",
-            "source_paragraphs": [
-                {
-                    "paragraph_id": "p-src-0",
-                    "index": 0,
-                    "role": "source",
-                    "text": source_paragraphs[0],
-                    "sentences": source_sentence_nodes,
-                }
-            ],
-            "target_paragraphs": [
-                {
-                    "paragraph_id": "p-tgt-0",
-                    "index": 0,
-                    "role": "target",
-                    "text": target_paragraphs[0],
-                    "sentences": target_sentence_nodes,
-                }
-            ],
+            "source_paragraphs": source_nodes,
+            "target_paragraphs": target_nodes,
             "metadata": {
-                "unmatched_source_sentences": unmatched_source,
-                "unmatched_target_sentences": unmatched_target,
-                "alignment_mode": "naive_index_pairing",
+                "paragraph_alignment_count": len(paragraph_alignment_records),
+                "paragraph_unaligned_source": [
+                    i
+                    for i in range(len(source_paragraphs))
+                    if i not in aligned_map
+                ],
+                "paragraph_unaligned_target": [
+                    j
+                    for j in range(len(target_paragraphs))
+                    if j not in aligned_map.values()
+                ],
+                "alignment_mode": "semantic_paragraph + sentence_cosine",
             },
         }
         return hierarchy
