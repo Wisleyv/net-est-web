@@ -4,6 +4,7 @@ Service for analyzing differences between source and simplified texts
 """
 
 import re
+import os
 import uuid
 import math
 import logging
@@ -34,6 +35,7 @@ from ..models.comparative_analysis import (
 from .strategy_detector import StrategyDetector
 from .semantic_alignment_service import SemanticAlignmentService
 from .sentence_alignment_service import SentenceAlignmentService, simple_sentence_split
+from .salience_provider import SalienceProvider
 from ..models.strategy_models import SimplificationStrategyType as StrategyType
 from ..models.semantic_alignment import AlignmentRequest, AlignmentMethod
 
@@ -42,13 +44,18 @@ logger = logging.getLogger(__name__)
 
 class ComparativeAnalysisService:
     """Service for performing comparative text analysis"""
-    
+
     def __init__(self):
         self.analysis_history: List[AnalysisHistoryItem] = []
         # Initialize the semantic model
         self.model = None
         self.semantic_alignment_service = SemanticAlignmentService()
-    self.sentence_alignment_service = SentenceAlignmentService()
+        self.sentence_alignment_service = SentenceAlignmentService()
+        # M3: Salience provider (lazy/simple instantiation; frequency fallback if advanced libs absent)
+        try:
+            self.salience_provider = SalienceProvider(method=os.getenv('SALIENCE_METHOD', 'frequency'))
+        except Exception:  # pragma: no cover
+            self.salience_provider = None
         try:
             # Load spaCy model for advanced analysis
             self.nlp = spacy.load("pt_core_news_sm")
@@ -66,6 +73,15 @@ class ComparativeAnalysisService:
         analysis_id = str(uuid.uuid4())
         
         try:
+            # M4: propagate top-level override flags into nested analysis_options if present
+            if request.include_micro_spans is not None:
+                request.analysis_options.include_micro_spans = request.include_micro_spans
+            if request.include_visual_salience is not None:
+                request.analysis_options.include_visual_salience = request.include_visual_salience
+            if request.micro_span_mode is not None:
+                request.analysis_options.micro_span_mode = request.micro_span_mode
+            if request.salience_visual_mode is not None:
+                request.analysis_options.salience_visual_mode = request.salience_visual_mode
             # Basic metrics
             source_length = len(request.source_text)
             target_length = len(request.target_text)
@@ -453,12 +469,21 @@ class ComparativeAnalysisService:
 
     # === Hierarchical assembly helpers (M2) ===
     async def _build_hierarchy_async(self, request: ComparativeAnalysisRequest) -> Dict[str, Any]:
-        """Construct hierarchical structure using paragraph semantic alignment + sentence alignment.
-        Paragraph segmentation: split on two-or-more newlines; fallback to whole text.
-        For each aligned paragraph pair run sentence alignment service to capture relations.
-        Unaligned paragraphs are included without cross alignment.
-        """
-        # Paragraph segmentation
+        """Construct hierarchical structure with paragraph + sentence alignment and salience (M3)."""
+        include_micro = getattr(request.analysis_options, 'include_micro_spans', False)
+        micro_mode = getattr(request.analysis_options, 'micro_span_mode', 'ngram-basic') or 'ngram-basic'
+        micro_extractor = None
+        if include_micro:
+            try:
+                from .micro_span_extractor import MicroSpanExtractor  # local import to avoid startup cost
+                micro_extractor = MicroSpanExtractor(mode=micro_mode)
+            except Exception:
+                micro_extractor = None
+        def extract_micro_spans(sentence: str):
+            if not include_micro or not micro_extractor:
+                return []
+            return micro_extractor.extract(sentence)
+        # Paragraph segmentation helper
         def split_paragraphs(text: str) -> List[str]:
             parts = [p.strip() for p in re.split(r"\n{2,}", text) if p.strip()]
             return parts if parts else [text]
@@ -466,7 +491,40 @@ class ComparativeAnalysisService:
         source_paragraphs = split_paragraphs(request.source_text)
         target_paragraphs = split_paragraphs(request.target_text)
 
-        # Perform paragraph alignment via semantic service
+        # Paragraph salience aggregation (conditional by request options)
+        def paragraph_saliences(paragraphs: List[str]) -> List[float | None]:
+            if not request.analysis_options.include_salience:
+                return [None]*len(paragraphs)
+            provider = getattr(self, 'salience_provider', None)
+            if not provider:
+                return [None] * len(paragraphs)
+            raw: List[float | None] = []
+            for para in paragraphs:
+                try:
+                    res = provider.extract(para, max_units=12)
+                    if res.units:
+                        raw.append(sum(u['weight'] for u in res.units) / len(res.units))
+                    else:
+                        raw.append(0.0)
+                except Exception:
+                    raw.append(None)
+            numerics = [v for v in raw if isinstance(v, (int, float))]
+            if numerics and max(numerics) > 0:
+                mval = max(numerics)
+                raw = [ (v / mval) if isinstance(v, (int,float)) else None for v in raw ]
+            return raw
+
+        # Optional override of salience method at request level
+        if request.salience_method and getattr(self, 'salience_provider', None):
+            try:
+                self.salience_provider.method = request.salience_method.lower()
+            except Exception:
+                pass
+
+        source_para_sal = paragraph_saliences(source_paragraphs)
+        target_para_sal = paragraph_saliences(target_paragraphs)
+
+        # Paragraph alignment via semantic service
         alignment_req = AlignmentRequest(
             source_paragraphs=source_paragraphs,
             target_paragraphs=target_paragraphs,
@@ -476,7 +534,7 @@ class ComparativeAnalysisService:
         )
         alignment_resp = await self.semantic_alignment_service.align_paragraphs(alignment_req)
         aligned_map: Dict[int, int] = {}
-        paragraph_alignment_records = []
+        paragraph_alignment_records: List[Dict[str, Any]] = []
         if alignment_resp.success and alignment_resp.alignment_result:
             for pair in alignment_resp.alignment_result.aligned_pairs:
                 aligned_map[pair.source_index] = pair.target_index
@@ -489,10 +547,7 @@ class ComparativeAnalysisService:
                     }
                 )
 
-        # Build paragraph nodes
-        source_nodes = []
-        target_nodes = []
-        # Sentence alignment per aligned pair
+        source_nodes: List[Dict[str, Any]] = []
         for s_idx, s_para in enumerate(source_paragraphs):
             sentences_s = self._split_sentences(s_para)
             paragraph_node: Dict[str, Any] = {
@@ -501,56 +556,73 @@ class ComparativeAnalysisService:
                 "role": "source",
                 "text": s_para,
                 "sentences": [],
+                "salience": source_para_sal[s_idx] if s_idx < len(source_para_sal) else None,
             }
             t_idx = aligned_map.get(s_idx)
             sentence_alignment_result = None
             if t_idx is not None:
-                t_para = target_paragraphs[t_idx]
-                sentences_t = self._split_sentences(t_para)
-                sentence_alignment_result = self.sentence_alignment_service.align(
-                    sentences_s, sentences_t, threshold=0.3
-                )
-            # Build sentence nodes
+                sentences_t = self._split_sentences(target_paragraphs[t_idx])
+                sentence_alignment_result = self.sentence_alignment_service.align(sentences_s, sentences_t, threshold=0.3)
             if sentence_alignment_result:
-                # Map relations per source sentence (may have multiple targets)
                 rel_map: Dict[int, List[Dict[str, Any]]] = {}
                 for rec in sentence_alignment_result.aligned:
-                    rel_map.setdefault(rec.source_index, []).append(
-                        {
-                            "target_index": rec.target_index,
-                            "relation": rec.relation,
-                            "similarity": rec.similarity,
-                        }
-                    )
+                    rel_map.setdefault(rec.source_index, []).append({
+                        "target_index": rec.target_index,
+                        "relation": rec.relation,
+                        "similarity": rec.similarity,
+                    })
                 for i, sent in enumerate(sentences_s):
-                    paragraph_node["sentences"].append(
-                        {
-                            "sentence_id": f"s-src-{s_idx}-{i}",
-                            "index": i,
-                            "text": sent,
-                            "alignment": rel_map.get(i),
-                        }
-                    )
-                paragraph_node["alignment"] = {
+                    sent_sal = None
+                    if request.analysis_options.include_salience and getattr(self, 'salience_provider', None):
+                        try:
+                            s_res = self.salience_provider.extract(sent, max_units=6)
+                            sent_sal = max((u['weight'] for u in s_res.units), default=0.0)
+                        except Exception:
+                            sent_sal = None
+                    sentence_record = {
+                        "sentence_id": f"s-src-{s_idx}-{i}",
+                        "index": i,
+                        "text": sent,
+                        "alignment": rel_map.get(i),
+                        "salience": sent_sal,
+                    }
+                    if include_micro:
+                        sentence_record["micro_spans"] = extract_micro_spans(sent)
+                    paragraph_node['sentences'].append(sentence_record)
+                paragraph_node['alignment'] = {
                     "target_index": t_idx,
-                    "similarity": next(
-                        (r["similarity"] for r in paragraph_alignment_records if r["source_index"] == s_idx),
-                        None,
-                    ),
+                    "similarity": next((r['similarity'] for r in paragraph_alignment_records if r['source_index'] == s_idx), None),
                 }
             else:
                 for i, sent in enumerate(sentences_s):
-                    paragraph_node["sentences"].append(
-                        {
-                            "sentence_id": f"s-src-{s_idx}-{i}",
-                            "index": i,
-                            "text": sent,
-                            "alignment": None,
-                        }
-                    )
+                    sent_sal = None
+                    if request.analysis_options.include_salience and getattr(self, 'salience_provider', None):
+                        try:
+                            s_res = self.salience_provider.extract(sent, max_units=6)
+                            sent_sal = max((u['weight'] for u in s_res.units), default=0.0)
+                        except Exception:
+                            sent_sal = None
+                    sentence_record = {
+                        "sentence_id": f"s-src-{s_idx}-{i}",
+                        "index": i,
+                        "text": sent,
+                        "alignment": None,
+                        "salience": sent_sal,
+                    }
+                    if include_micro:
+                        sentence_record["micro_spans"] = extract_micro_spans(sent)
+                    paragraph_node['sentences'].append(sentence_record)
+            # Normalize sentence salience locally
+            if request.analysis_options.include_salience:
+                sal_values = [s.get('salience') for s in paragraph_node['sentences'] if isinstance(s.get('salience'), (int,float))]
+                if sal_values and max(sal_values) > 0:
+                    m = max(sal_values)
+                    for s in paragraph_node['sentences']:
+                        if isinstance(s.get('salience'), (int,float)):
+                            s['salience'] = s['salience'] / m
             source_nodes.append(paragraph_node)
 
-        # Target paragraphs
+        target_nodes: List[Dict[str, Any]] = []
         for t_idx, t_para in enumerate(target_paragraphs):
             sentences_t = self._split_sentences(t_para)
             paragraph_node: Dict[str, Any] = {
@@ -559,45 +631,50 @@ class ComparativeAnalysisService:
                 "role": "target",
                 "text": t_para,
                 "sentences": [],
+                "salience": target_para_sal[t_idx] if t_idx < len(target_para_sal) else None,
             }
-            # Find if aligned from any source
-            s_idx = next((s for s, t in aligned_map.items() if t == t_idx), None)
-            # Build sentence nodes (alignment info already recorded under source perspective)
+            source_pair = next((s for s, t in aligned_map.items() if t == t_idx), None)
             for i, sent in enumerate(sentences_t):
-                paragraph_node["sentences"].append(
-                    {
-                        "sentence_id": f"s-tgt-{t_idx}-{i}",
-                        "index": i,
-                        "text": sent,
-                        "alignment": None,  # could be populated in future with reverse map
-                    }
-                )
-            if s_idx is not None:
-                paragraph_node["alignment"] = {
-                    "source_index": s_idx,
-                    "similarity": next(
-                        (r["similarity"] for r in paragraph_alignment_records if r["source_index"] == s_idx),
-                        None,
-                    ),
+                sent_sal = None
+                if request.analysis_options.include_salience and getattr(self, 'salience_provider', None):
+                    try:
+                        t_res = self.salience_provider.extract(sent, max_units=6)
+                        sent_sal = max((u['weight'] for u in t_res.units), default=0.0)
+                    except Exception:
+                        sent_sal = None
+                sentence_record = {
+                    "sentence_id": f"s-tgt-{t_idx}-{i}",
+                    "index": i,
+                    "text": sent,
+                    "alignment": None,
+                    "salience": sent_sal,
                 }
+                if include_micro:
+                    sentence_record["micro_spans"] = extract_micro_spans(sent)
+                paragraph_node['sentences'].append(sentence_record)
+            if source_pair is not None:
+                paragraph_node['alignment'] = {
+                    "source_index": source_pair,
+                    "similarity": next((r['similarity'] for r in paragraph_alignment_records if r['source_index'] == source_pair), None),
+                }
+            if request.analysis_options.include_salience:
+                sal_values = [s.get('salience') for s in paragraph_node['sentences'] if isinstance(s.get('salience'), (int,float))]
+                if sal_values and max(sal_values) > 0:
+                    m = max(sal_values)
+                    for s in paragraph_node['sentences']:
+                        if isinstance(s.get('salience'), (int,float)):
+                            s['salience'] = s['salience'] / m
             target_nodes.append(paragraph_node)
 
+        hierarchy_version = "1.2" if include_micro else "1.1"
         hierarchy = {
-            "hierarchy_version": "1.1",
+            "hierarchy_version": hierarchy_version,
             "source_paragraphs": source_nodes,
             "target_paragraphs": target_nodes,
             "metadata": {
                 "paragraph_alignment_count": len(paragraph_alignment_records),
-                "paragraph_unaligned_source": [
-                    i
-                    for i in range(len(source_paragraphs))
-                    if i not in aligned_map
-                ],
-                "paragraph_unaligned_target": [
-                    j
-                    for j in range(len(target_paragraphs))
-                    if j not in aligned_map.values()
-                ],
+                "paragraph_unaligned_source": [i for i in range(len(source_paragraphs)) if i not in aligned_map],
+                "paragraph_unaligned_target": [j for j in range(len(target_paragraphs)) if j not in aligned_map.values()],
                 "alignment_mode": "semantic_paragraph + sentence_cosine",
             },
         }

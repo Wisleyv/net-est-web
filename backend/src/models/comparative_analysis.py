@@ -1,6 +1,13 @@
 """
-Comparative Analysis Models - Phase 2.B.5 Implementation
-Pydantic models for comparative analysis functionality
+Comparative Analysis Models
+
+Includes experimental M4 fields:
+ - include_visual_salience / salience_visual_mode (frontend hints only)
+ - include_micro_spans / micro_span_mode (activates MicroSpanExtractor; hierarchy_version -> 1.2 when present)
+
+Stability:
+ - Experimental flags default to False; response shape remains backward compatible (no micro_spans keys when disabled).
+ - Micro-span salience normalization is local per sentence (max=1.0) and may evolve; do not persist weights for long-term analytics yet.
 """
 
 from pydantic import BaseModel, Field
@@ -16,6 +23,27 @@ class AnalysisOptions(BaseModel):
     include_semantic_analysis: bool = True
     include_readability_metrics: bool = True
     include_strategy_identification: bool = True
+    include_salience: bool = Field(
+        True,
+        description="If true and hierarchical_output enabled, compute salience weights (paragraph/sentence).",
+    )
+    # M4 flags (visual salience + micro-spans)
+    include_visual_salience: bool = Field(
+        False,
+        description="Enable delivery of visual salience hints (gradient/bars) in hierarchical output.",
+    )
+    include_micro_spans: bool = Field(
+        False,
+        description="Enable experimental micro-span extraction (M4).",
+    )
+    salience_visual_mode: str | None = Field(
+        None,
+        description="Preferred visualization mode for salience: 'gradient' | 'bar' (frontend hint).",
+    )
+    micro_span_mode: str | None = Field(
+        None,
+        description="Micro-span extraction mode (e.g., 'ngram-basic').",
+    )
 
 
 class ComparativeAnalysisRequest(BaseModel):
@@ -27,6 +55,27 @@ class ComparativeAnalysisRequest(BaseModel):
     hierarchical_output: bool = Field(
         False,
         description="If true, include hierarchical analysis structure (paragraph→sentence).",
+    )
+    salience_method: Optional[str] = Field(
+        None,
+        description="Override salience method (e.g., 'frequency','keybert','yake'); defaults to env or provider fallback.",
+    )
+    # Pass-through experimental visualization / micro-span overrides (optional; duplicate of nested for convenience)
+    include_micro_spans: Optional[bool] = Field(
+        default=None,
+        description="Override analysis_options.include_micro_spans if provided.",
+    )
+    include_visual_salience: Optional[bool] = Field(
+        default=None,
+        description="Override analysis_options.include_visual_salience if provided.",
+    )
+    micro_span_mode: Optional[str] = Field(
+        default=None,
+        description="Override analysis_options.micro_span_mode if provided.",
+    )
+    salience_visual_mode: Optional[str] = Field(
+        default=None,
+        description="Override analysis_options.salience_visual_mode if provided.",
     )
 
 
