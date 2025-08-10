@@ -194,5 +194,15 @@ watchfiles==1.1.0
 websockets==15.0.1
     # via uvicorn
 
+# ---------------------------------------------------------------------------
+# Key Phrase / Salience Extraction (Module 3 hierarchical update)
+# The design references an external tool "LangExtract" (not available on PyPI).
+# To enable salience weighting you can optionally add one of the following to
+# requirements.in then re-run pip-compile:
+#   keybert        # Transformer-based keyword/keyphrase extraction
+#   yake           # Statistical unsupervised keyphrase extractor
+# After selection, pin versions via pip-compile to keep this file consistent.
+# ---------------------------------------------------------------------------
+
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools

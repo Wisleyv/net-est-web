@@ -33,6 +33,13 @@ scikit-learn
 textstat
 spacy  # Portuguese language model: python -m spacy download pt_core_news_sm
 
+# Key Phrase / Salience Extraction (Module 3 hierarchical update)
+# NOTE: "LangExtract" referenced in design is an external/non-PyPI tool placeholder.
+# Provide fallbacks for key phrase salience weighting:
+# Uncomment as needed and re-run pip-compile to lock versions.
+# keybert
+# yake
+
 # Database & ORM (Future Scalability - uncomment when needed)
 # sqlalchemy>=2.0.0
 # alembic>=1.13.0
