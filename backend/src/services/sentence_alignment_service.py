@@ -12,6 +12,7 @@ import logging
 import re
 
 import numpy as np
+import hashlib
 
 try:
     from sentence_transformers import SentenceTransformer  # type: ignore
@@ -98,9 +99,9 @@ class SentenceAlignmentService:
         # Fallback deterministic pseudo-embeddings based on hashing to keep tests stable
         vectors = []
         for s in sentences:
-            h = abs(hash(s)) % (10**6)
-            # Create simple 8-dim feature vector derived from characters
-            vec = [((h >> shift) & 0xFF) / 255.0 for shift in range(0, 64, 8)]
+            h_bytes = hashlib.md5(s.encode("utf-8")).digest()  # deterministic 16 bytes
+            # Use first 8 bytes -> 8 dims normalized
+            vec = [b / 255.0 for b in h_bytes[:8]]
             # Pad to 8 dims
             while len(vec) < 8:
                 vec.append(0.0)
