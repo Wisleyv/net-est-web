@@ -122,6 +122,14 @@ class ComparativeAnalysisService:
             response.overall_assessment = self._generate_assessment(response)
             response.semantic_preservation = self._calculate_semantic_preservation(response)
             response.readability_improvement = self._calculate_readability_improvement(response)
+
+            # Hierarchical output (M2 partial integration)
+            if getattr(request, "hierarchical_output", False):
+                try:
+                    response.hierarchical_analysis = self._build_hierarchy(request)
+                except Exception as e:  # pragma: no cover - graceful degradation
+                    logger.error(f"Failed to build hierarchical analysis: {e}")
+                    # keep response without hierarchy
             
             # Calculate processing time
             end_time = datetime.now()
@@ -440,6 +448,80 @@ class ComparativeAnalysisService:
                 })
         
         return differences[:10]  # Limit to first 10 differences
+
+    # === Hierarchical assembly helpers (M2) ===
+    def _build_hierarchy(self, request: ComparativeAnalysisRequest) -> Dict[str, Any]:
+        """Construct minimal hierarchical structure (paragraphs→sentences) with naive sentence alignment.
+        This is a first incremental step: uses existing paragraph segmentation (single paragraph whole text)
+        and sentence splitting; future iterations will integrate paragraph alignment & sentence alignment service.
+        """
+        # For now treat entire texts as single paragraphs; later we can split by double newlines.
+        source_paragraphs = [request.source_text]
+        target_paragraphs = [request.target_text]
+
+        # Sentence splitting reuse existing method
+        source_sentences = self._split_sentences(request.source_text)
+        target_sentences = self._split_sentences(request.target_text)
+
+        # Naive 1:1 pairing up to min length; mark excess as unmatched
+        min_len = min(len(source_sentences), len(target_sentences))
+        aligned_pairs = []
+        for i in range(min_len):
+            aligned_pairs.append({
+                "source_index": i,
+                "target_index": i,
+                "relation": "aligned",
+                "similarity": None  # placeholder until sentence alignment service is wired
+            })
+        unmatched_source = list(range(min_len, len(source_sentences)))
+        unmatched_target = list(range(min_len, len(target_sentences)))
+
+        source_sentence_nodes = [
+            {
+                "sentence_id": f"s-src-{i}",
+                "index": i,
+                "text": s,
+                "alignment": next((p for p in aligned_pairs if p["source_index"] == i), None),
+            }
+            for i, s in enumerate(source_sentences)
+        ]
+        target_sentence_nodes = [
+            {
+                "sentence_id": f"s-tgt-{i}",
+                "index": i,
+                "text": s,
+                "alignment": next((p for p in aligned_pairs if p["target_index"] == i), None),
+            }
+            for i, s in enumerate(target_sentences)
+        ]
+
+        hierarchy = {
+            "hierarchy_version": "1.1",
+            "source_paragraphs": [
+                {
+                    "paragraph_id": "p-src-0",
+                    "index": 0,
+                    "role": "source",
+                    "text": source_paragraphs[0],
+                    "sentences": source_sentence_nodes,
+                }
+            ],
+            "target_paragraphs": [
+                {
+                    "paragraph_id": "p-tgt-0",
+                    "index": 0,
+                    "role": "target",
+                    "text": target_paragraphs[0],
+                    "sentences": target_sentence_nodes,
+                }
+            ],
+            "metadata": {
+                "unmatched_source_sentences": unmatched_source,
+                "unmatched_target_sentences": unmatched_target,
+                "alignment_mode": "naive_index_pairing",
+            },
+        }
+        return hierarchy
 
     # Helper methods
     def _tokenize_text(self, text: str) -> List[str]:
