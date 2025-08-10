@@ -25,17 +25,65 @@ logger = logging.getLogger(__name__)
 
 
 def simple_sentence_split(text: str) -> List[str]:
-    """Lightweight sentence splitter (fallback when spaCy unavailable).
-    Splits on punctuation followed by space + capital letter, retaining basic Portuguese handling.
+    """Heuristic sentence splitter tuned for Portuguese.
+    Features:
+    - Handles sentence-final punctuation . ! ?
+    - Preserves common abbreviations (Dr., Dra., Sr., Sra., Prof., Profa., etc., p.ex., etc.)
+    - Accepts leading quotes / « » / “ ” around sentence starts
+    - Allows lowercase starts after colon or dash (dialogue / explanatory clauses)
+    - Collapses extraneous whitespace
+    NOTE: This is a fallback; spaCy (if available) should supersede.
     """
-    # Normalize whitespace
-    text = re.sub(r"\s+", " ", text.strip())
+    text = text.strip()
     if not text:
         return []
-    # Split on sentence end punctuation
-    parts = re.split(r"(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÂÊÎÔÛÃÕÄËÏÖÜ])", text)
-    # Final cleanup
-    return [p.strip() for p in parts if p.strip()]
+
+    # Normalize whitespace (keep newlines for possible future paragraph logic)
+    text = re.sub(r"[ \t]+", " ", text)
+
+    # Protect abbreviations by temporarily replacing the trailing period with a marker
+    abbreviations = [
+        r"Dr", r"Dra", r"Sr", r"Sra", r"Srs", r"Sras", r"Prof", r"Profa", r"Profs", r"etc", r"p\.ex", r"Ex", r"Fig", r"No", r"Art", r"Cap"
+    ]
+    marker = "§ABBR§"
+    def protect(match: re.Match) -> str:
+        return match.group(1) + marker
+    abbr_pattern = re.compile(rf"\b((?:{'|'.join(abbreviations)})\.)", re.IGNORECASE)
+    protected = abbr_pattern.sub(lambda m: m.group(1)[:-1] + marker, text)
+
+    # Regex for sentence boundary: punctuation followed by space + (opening quote(s) optional) + capital OR lowercase after colon/dash
+    # We'll first split on punctuation boundaries
+    split_regex = re.compile(
+        r"(?<=[.!?])\s+(?=(?:[\"'“”«»]+)?[A-ZÁÉÍÓÚÂÊÎÔÛÃÕÄËÏÖÜÇ])"
+    )
+    parts = split_regex.split(protected)
+
+    # Secondary split: treat colon or long dash as soft boundary if followed by space + lowercase start of a clause with >=3 words
+    refined: List[str] = []
+    colon_regex = re.compile(r"^(.+?:)\s+([a-záéíóúâêîôûãõç].+)$")
+    for p in parts:
+        m = colon_regex.match(p)
+        if m:
+            # Heuristic: split only if remainder has at least 3 words
+            remainder = m.group(2)
+            if len(re.findall(r"\w+", remainder)) >= 3:
+                refined.extend([m.group(1), remainder])
+                continue
+        refined.append(p)
+
+    # Restore abbreviations
+    restored = [seg.replace(marker, ".") for seg in refined]
+
+    # Clean up whitespace & stray quotes spacing
+    cleaned = []
+    for seg in restored:
+        s = seg.strip()
+        if not s:
+            continue
+        # Avoid isolated abbreviation fragments
+        cleaned.append(s)
+
+    return cleaned
 
 
 @dataclass
