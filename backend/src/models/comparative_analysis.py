@@ -24,6 +24,10 @@ class ComparativeAnalysisRequest(BaseModel):
     target_text: str = Field(..., min_length=20, description="Simplified text")
     analysis_options: AnalysisOptions = Field(default_factory=AnalysisOptions)
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata")
+    hierarchical_output: bool = Field(
+        False,
+        description="If true, include hierarchical analysis structure (paragraph→sentence).",
+    )
 
 
 class SimplificationStrategyType(str, Enum):
@@ -128,6 +132,10 @@ class ComparativeAnalysisResponse(BaseModel):
     # Metadata
     processing_time: float
     model_version: str = "1.0.0"
+    hierarchical_analysis: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Hierarchical analysis tree when requested (versioned).",
+    )
 
 
 class AnalysisHistoryItem(BaseModel):

@@ -1,0 +1,216 @@
+"""Sentence Alignment Service (Milestone M1)
+Provides sentence-level alignment within already aligned paragraph pairs.
+Non-invasive addition: does not alter existing AlignmentResult schema; callers may
+embed summaries in processing metadata.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import List, Dict, Tuple
+import logging
+import re
+
+import numpy as np
+
+try:
+    from sentence_transformers import SentenceTransformer  # type: ignore
+    from sklearn.metrics.pairwise import cosine_similarity
+    ML_AVAILABLE = True
+except Exception:  # pragma: no cover - fallback path
+    ML_AVAILABLE = False
+
+logger = logging.getLogger(__name__)
+
+
+def simple_sentence_split(text: str) -> List[str]:
+    """Lightweight sentence splitter (fallback when spaCy unavailable).
+    Splits on punctuation followed by space + capital letter, retaining basic Portuguese handling.
+    """
+    # Normalize whitespace
+    text = re.sub(r"\s+", " ", text.strip())
+    if not text:
+        return []
+    # Split on sentence end punctuation
+    parts = re.split(r"(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÂÊÎÔÛÃÕÄËÏÖÜ])", text)
+    # Final cleanup
+    return [p.strip() for p in parts if p.strip()]
+
+
+@dataclass
+class SentenceAlignmentRecord:
+    source_index: int
+    target_index: int
+    similarity: float
+    relation: str  # 'aligned' | 'split' | 'merged'
+
+
+@dataclass
+class SentenceAlignmentResult:
+    aligned: List[SentenceAlignmentRecord]
+    unmatched_source: List[int]
+    unmatched_target: List[int]
+    split_groups: List[Dict[str, List[int]]]
+    merge_groups: List[Dict[str, List[int]]]
+    similarity_matrix: List[List[float]]
+
+
+class SentenceAlignmentService:
+    """Service performing sentence-level alignment heuristics.
+
+    Strategy:
+    1. Embed sentences (or create deterministic pseudo-embeddings if ML unavailable).
+    2. Compute cosine similarity matrix.
+    3. For each source sentence choose best target above threshold.
+    4. Derive inverse best-source mapping for targets.
+    5. Classify relations:
+       - aligned: 1:1 mapping both directions.
+       - split: one source is best for multiple targets (targets' best source is that source).
+       - merged: one target is best for multiple sources (sources' best target is that target).
+    6. Unmatched = sentences with no best counterpart >= threshold.
+    """
+
+    def __init__(self, model_name: str = "paraphrase-multilingual-MiniLM-L12-v2"):
+        self.model_name = model_name
+        self.model: SentenceTransformer | None = None
+        if ML_AVAILABLE:
+            try:
+                # Lazy load on first use; do not load here to minimize startup cost.
+                pass
+            except Exception:  # pragma: no cover
+                logger.warning("SentenceTransformer load deferred; will fallback if needed")
+
+    def _ensure_model(self):
+        if not ML_AVAILABLE:
+            return
+        if self.model is None:
+            try:
+                from sentence_transformers import SentenceTransformer  # local import
+                self.model = SentenceTransformer(self.model_name, device="cpu")
+            except Exception as e:  # pragma: no cover
+                logger.error(f"Failed loading sentence model {self.model_name}: {e}")
+
+    def _embed(self, sentences: List[str]) -> np.ndarray:
+        if ML_AVAILABLE:
+            self._ensure_model()
+            if self.model:
+                return self.model.encode(sentences, normalize_embeddings=True, show_progress_bar=False)
+        # Fallback deterministic pseudo-embeddings based on hashing to keep tests stable
+        vectors = []
+        for s in sentences:
+            h = abs(hash(s)) % (10**6)
+            # Create simple 8-dim feature vector derived from characters
+            vec = [((h >> shift) & 0xFF) / 255.0 for shift in range(0, 64, 8)]
+            # Pad to 8 dims
+            while len(vec) < 8:
+                vec.append(0.0)
+            vectors.append(vec)
+        return np.array(vectors, dtype=float)
+
+    def align(self, source_sentences: List[str], target_sentences: List[str], threshold: float = 0.5) -> SentenceAlignmentResult:
+        if not source_sentences and not target_sentences:
+            return SentenceAlignmentResult([], [], [], [], [], [])
+        if not source_sentences:
+            return SentenceAlignmentResult([], [], list(range(len(target_sentences))), [], [], [])
+        if not target_sentences:
+            return SentenceAlignmentResult([], list(range(len(source_sentences))), [], [], [], [])
+
+        src_emb = self._embed(source_sentences)
+        tgt_emb = self._embed(target_sentences)
+
+        # Similarity matrix (cosine)
+        # Manual cosine for small matrices to avoid dependency if sklearn absent
+        src_norm = src_emb / (np.linalg.norm(src_emb, axis=1, keepdims=True) + 1e-8)
+        tgt_norm = tgt_emb / (np.linalg.norm(tgt_emb, axis=1, keepdims=True) + 1e-8)
+        sim_matrix = np.dot(src_norm, tgt_norm.T)
+
+        # Best mappings
+        source_best: Dict[int, Tuple[int, float]] = {}
+        for i in range(len(source_sentences)):
+            sims = sim_matrix[i]
+            j = int(np.argmax(sims))
+            score = float(sims[j])
+            if score >= threshold:
+                source_best[i] = (j, score)
+
+        target_best: Dict[int, Tuple[int, float]] = {}
+        for j in range(len(target_sentences)):
+            sims = sim_matrix[:, j]
+            i = int(np.argmax(sims))
+            score = float(sims[i])
+            if score >= threshold:
+                target_best[j] = (i, score)
+
+        # Inverse groupings
+        target_to_sources: Dict[int, List[int]] = {}
+        for si, (tj, _) in source_best.items():
+            target_to_sources.setdefault(tj, []).append(si)
+        source_to_targets: Dict[int, List[int]] = {}
+        for tj, (si, _) in target_best.items():
+            source_to_targets.setdefault(si, []).append(tj)
+
+        aligned_records: List[SentenceAlignmentRecord] = []
+        split_groups: List[Dict[str, List[int]]] = []
+        merge_groups: List[Dict[str, List[int]]] = []
+
+        processed_pairs: set[Tuple[int, int]] = set()
+
+        # Classify splits
+        for si, targets in source_to_targets.items():
+            if len(targets) > 1:
+                split_groups.append({"source": [si], "targets": sorted(targets)})
+                for tj in targets:
+                    score = sim_matrix[si, tj]
+                    aligned_records.append(
+                        SentenceAlignmentRecord(si, tj, float(score), relation="split")
+                    )
+                    processed_pairs.add((si, tj))
+
+        # Classify merges
+        for tj, sources in target_to_sources.items():
+            if len(sources) > 1:
+                merge_groups.append({"target": [tj], "sources": sorted(sources)})
+                for si in sources:
+                    if (si, tj) in processed_pairs:
+                        continue
+                    score = sim_matrix[si, tj]
+                    aligned_records.append(
+                        SentenceAlignmentRecord(si, tj, float(score), relation="merged")
+                    )
+                    processed_pairs.add((si, tj))
+
+        # 1:1 aligned (not part of splits/merges)
+        for si, (tj, score) in source_best.items():
+            if (si, tj) in processed_pairs:
+                continue
+            # Check if mutual best
+            mutual = target_best.get(tj, (None,))[0] == si
+            relation = "aligned" if mutual else "aligned"  # fallback same label
+            aligned_records.append(
+                SentenceAlignmentRecord(si, tj, float(score), relation=relation)
+            )
+            processed_pairs.add((si, tj))
+
+        matched_sources = {r.source_index for r in aligned_records}
+        matched_targets = {r.target_index for r in aligned_records}
+
+        unmatched_source = [i for i in range(len(source_sentences)) if i not in matched_sources]
+        unmatched_target = [j for j in range(len(target_sentences)) if j not in matched_targets]
+
+        return SentenceAlignmentResult(
+            aligned=aligned_records,
+            unmatched_source=unmatched_source,
+            unmatched_target=unmatched_target,
+            split_groups=split_groups,
+            merge_groups=merge_groups,
+            similarity_matrix=sim_matrix.tolist(),
+        )
+
+
+__all__ = [
+    "SentenceAlignmentService",
+    "SentenceAlignmentResult",
+    "SentenceAlignmentRecord",
+    "simple_sentence_split",
+]
+ # Desenvolvido com ❤️ pelo Núcleo de Estudos de Tradução - PIPGLA/UFRJ | Contém código assistido por IA
