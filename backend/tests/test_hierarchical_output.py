@@ -24,6 +24,7 @@ async def test_hierarchical_output_included():
         ),
     )
     resp = await service.perform_comparative_analysis(req)
+    # legacy dict-shaped hierarchical_analysis must still be present
     assert resp.hierarchical_analysis is not None
     h = resp.hierarchical_analysis
     assert h["hierarchy_version"] == "1.1"
@@ -32,6 +33,11 @@ async def test_hierarchical_output_included():
     assert "sentences" in h["source_paragraphs"][0]
     # Updated expected alignment mode after semantic paragraph alignment integration
     assert h["metadata"]["alignment_mode"] == "semantic_paragraph + sentence_cosine"
+    # new hierarchical_tree (JSON-serializable list of paragraph dicts) should be present
+    assert resp.hierarchical_tree is not None
+    assert isinstance(resp.hierarchical_tree, list)
+    # hierarchical_tree contains serialized paragraph nodes for source + target
+    assert any(isinstance(p, dict) and p.get("level") == "paragraph" for p in resp.hierarchical_tree)
 
 
 @pytest.mark.asyncio

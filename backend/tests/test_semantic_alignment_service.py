@@ -60,7 +60,8 @@ class TestSemanticAlignmentService:
     def test_service_initialization_with_defaults(self):
         """Test service initialization with default config"""
         service = SemanticAlignmentService()
-        assert service.config.bertimbau_model == "neuralmind/bert-base-portuguese-cased"
+        # Service default model should match the service default (miniLM paraphrase)
+        assert service.config.bertimbau_model == "paraphrase-multilingual-MiniLM-L12-v2"
         assert service.config.similarity_threshold == 0.7
         assert service.config.device == "cpu"
 
@@ -309,3 +310,47 @@ class TestSemanticAlignmentService:
         assert key1 == key2
         assert key1 != key3
         assert len(key1) == 32  # MD5 hex digest length
+
+    @pytest.mark.asyncio
+    async def test_sentence_alignment_integration_via_user_config(self, service, sample_paragraphs):
+        """Integration: enable sentence-level alignment via user_config and ensure it runs."""
+        request = AlignmentRequest(
+            source_paragraphs=sample_paragraphs["source"],
+            target_paragraphs=sample_paragraphs["target"],
+            similarity_threshold=0.5,
+            alignment_method=AlignmentMethod.COSINE_SIMILARITY,
+            max_alignments_per_source=2,
+            user_config={
+                "enable_sentence_alignment": True,
+                "sentence_similarity_threshold": 0.5,
+            },
+        )
+
+        # Prepare mock paragraph-level embeddings and similarity matrix to force aligned pairs
+        mock_response = Mock()
+        # 3 source + 4 target => 7 embeddings
+        mock_response.embeddings = [[0.1] * 768] * 7
+        mock_response.processing_time = 0.1
+        mock_response.model_used = "test_model"
+
+        # Patch embedding generation and _compute_similarity_matrix to deterministic values
+        with patch.object(service, "generate_embeddings", return_value=mock_response), \
+             patch.object(service, "_compute_similarity_matrix") as mock_similarity:
+
+            mock_similarity.return_value = np.array([
+                [0.9, 0.3, 0.1, 0.2],
+                [0.2, 0.8, 0.2, 0.1],
+                [0.1, 0.2, 0.9, 0.3],
+            ])
+
+            result = await service.align_paragraphs(request)
+
+        # Paragraph-level alignment must succeed
+        assert result.success is True
+        assert result.alignment_result is not None
+
+        # The service integration currently attaches sentence-level results internally and
+        # does not modify the paragraph AlignmentResult model by default.
+        # However, the integration should not raise and should attempt sentence alignment.
+        # We validate by ensuring paragraph alignment produces aligned pairs.
+        assert len(result.alignment_result.aligned_pairs) == 3

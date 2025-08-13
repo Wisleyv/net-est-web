@@ -45,6 +45,146 @@ logger = logging.getLogger(__name__)
 class ComparativeAnalysisService:
     """Service for performing comparative text analysis"""
 
+    # === Scaffold for Sentence and Phrase Analysis ===
+
+    def analyze_sentences(self, source_text: str, target_text: str) -> dict:
+        """
+        Analyze sentences between source and target texts.
+
+        - Split source_text and target_text into sentences (uses simple_sentence_split).
+        - Align sentences with the lightweight SentenceAlignmentService.
+        - For each aligned sentence pair, call analyze_phrases() and collect nested findings.
+        - Return a structured dict containing:
+            {
+                "aligned": [SentenceNode, ...],
+                "unmatched_source": [SentenceNode, ...],
+                "unmatched_target": [SentenceNode, ...],
+                "similarity_matrix": [...],
+            }
+
+        The SentenceNode dataclass is used to represent each sentence node (confidence,
+        source_text, target_text, nested_findings).
+        """
+        try:
+            # Split into sentences using the small splitter (robust for Portuguese)
+            source_sentences = simple_sentence_split(source_text)
+            target_sentences = simple_sentence_split(target_text)
+
+            # Early return for empty inputs
+            if not source_sentences and not target_sentences:
+                return {
+                    "aligned": [],
+                    "unmatched_source": [],
+                    "unmatched_target": [],
+                    "similarity_matrix": [],
+                }
+
+            # Use the sentence alignment service to align sentences.
+            # The service expects lists of "paragraphs" but will flatten; passing
+            # sentence lists works as it computes an S x T similarity matrix.
+            alignment_result = self.sentence_alignment_service.align(
+                source_sentences, target_sentences, threshold=0.3
+            )
+
+            aligned_nodes: List[SentenceNode] = []
+            unmatched_source_nodes: List[SentenceNode] = []
+            unmatched_target_nodes: List[SentenceNode] = []
+
+            # Build a mapping of aligned pairs from the service result
+            aligned_pairs = []
+            for rec in alignment_result.aligned:
+                # Support tuple format (src_idx, tgt_idx, score) used by the lightweight aligner
+                if isinstance(rec, (list, tuple)) and len(rec) >= 2:
+                    src_idx = int(rec[0])
+                    tgt_idx = int(rec[1])
+                    score = float(rec[2]) if len(rec) > 2 else 0.0
+                else:
+                    # If record is unexpected, skip
+                    continue
+                aligned_pairs.append((src_idx, tgt_idx, score))
+
+            # For each aligned pair, call analyze_phrases and assemble a SentenceNode
+            for src_idx, tgt_idx, score in aligned_pairs:
+                src_sent = source_sentences[src_idx] if src_idx < len(source_sentences) else ""
+                tgt_sent = target_sentences[tgt_idx] if tgt_idx < len(target_sentences) else ""
+                try:
+                    phrase_analysis = self.analyze_phrases(src_sent, tgt_sent)
+                except Exception as e:
+                    logger.debug(f"analyze_phrases failed for {src_idx}->{tgt_idx}: {e}")
+                    phrase_analysis = {"micro_operations": [], "warnings": [str(e)]}
+
+                node = SentenceNode(
+                    tag=f"s-{src_idx}-{tgt_idx}",
+                    confidence=float(score),
+                    source_text=src_sent,
+                    target_text=tgt_sent,
+                    explanation=None,
+                    nested_findings=phrase_analysis.get("micro_operations", []),
+                )
+                aligned_nodes.append(node)
+
+            # Build unmatched source nodes
+            for i in alignment_result.unmatched_source:
+                i = int(i)
+                src_sent = source_sentences[i] if i < len(source_sentences) else ""
+                node = SentenceNode(
+                    tag=f"s-src-unmatched-{i}",
+                    confidence=0.0,
+                    source_text=src_sent,
+                    target_text="",
+                    explanation="unaligned_source",
+                    nested_findings=[],
+                )
+                unmatched_source_nodes.append(node)
+
+            # Build unmatched target nodes
+            for j in alignment_result.unmatched_target:
+                j = int(j)
+                tgt_sent = target_sentences[j] if j < len(target_sentences) else ""
+                node = SentenceNode(
+                    tag=f"s-tgt-unmatched-{j}",
+                    confidence=0.0,
+                    source_text="",
+                    target_text=tgt_sent,
+                    explanation="unaligned_target",
+                    nested_findings=[],
+                )
+                unmatched_target_nodes.append(node)
+
+            # Prepare similarity matrix in serializable form
+            sim_matrix = alignment_result.similarity_matrix
+
+            return {
+                "aligned": aligned_nodes,
+                "unmatched_source": unmatched_source_nodes,
+                "unmatched_target": unmatched_target_nodes,
+                "similarity_matrix": sim_matrix,
+            }
+
+        except Exception as e:
+            logger.error(f"Error in analyze_sentences: {e}")
+            return {"aligned": [], "unmatched_source": [], "unmatched_target": [], "similarity_matrix": [], "warnings": [str(e)]}
+
+    def analyze_phrases(self, source_sentence: str, target_sentence: str) -> dict:
+        """
+        Analyze phrase-level differences within an aligned sentence pair.
+
+        Subtask 1: Implement and Connect analyze_phrases
+        - Use phrase segmentation logic.
+        - Compare semantic similarity or structural differences.
+        - Return results suitable for inclusion in hierarchical pipeline.
+
+        Args:
+            source_sentence (str): Source sentence text.
+            target_sentence (str): Target sentence text.
+
+        Returns:
+            dict: Detailed phrase-level alignment and analysis.
+        """
+        # TODO: Implement phrase segmentation and analysis
+        pass
+
+
     def __init__(self):
         self.analysis_history: List[AnalysisHistoryItem] = []
         # Initialize the semantic model
@@ -145,7 +285,25 @@ class ComparativeAnalysisService:
             # Hierarchical output (M2 partial integration)
             if getattr(request, "hierarchical_output", False):
                 try:
+                    # Build the legacy dict-shaped hierarchy (contains dataclass objects for paragraphs)
                     response.hierarchical_analysis = await self._build_hierarchy_async(request)
+                    # Additionally provide a JSON-serializable hierarchical_tree field for the frontend.
+                    # Convert any dataclass ParagraphNode / SentenceNode / PhraseNode instances into plain dicts.
+                    def _maybe_asdict(obj):
+                        try:
+                            # asdict handles nested dataclasses as well
+                            return asdict(obj)
+                        except Exception:
+                            return obj if isinstance(obj, dict) else obj
+                    h = response.hierarchical_analysis or {}
+                    src = h.get("source_paragraphs", []) or []
+                    tgt = h.get("target_paragraphs", []) or []
+                    serialized = []
+                    for p in src:
+                        serialized.append(_maybe_asdict(p))
+                    for p in tgt:
+                        serialized.append(_maybe_asdict(p))
+                    response.hierarchical_tree = serialized
                 except Exception as e:  # pragma: no cover - graceful degradation
                     logger.error(f"Failed to build hierarchical analysis: {e}")
             
@@ -537,13 +695,36 @@ class ComparativeAnalysisService:
         paragraph_alignment_records: List[Dict[str, Any]] = []
         if alignment_resp.success and alignment_resp.alignment_result:
             for pair in alignment_resp.alignment_result.aligned_pairs:
-                aligned_map[pair.source_index] = pair.target_index
+                # Support both AlignedPair-like objects and legacy tuple/list formats
+                # (e.g., (src_idx, tgt_idx, score)) to be robust against input shapes.
+                try:
+                    src_idx = getattr(pair, "source_index", None)
+                    tgt_idx = getattr(pair, "target_index", None)
+                    sim_score = getattr(pair, "similarity_score", None)
+                    conf = getattr(pair, "confidence", None)
+                except Exception:
+                    src_idx = tgt_idx = sim_score = conf = None
+
+                if src_idx is None or tgt_idx is None:
+                    # Fallback for tuple/list pair formats
+                    if isinstance(pair, (list, tuple)) and len(pair) >= 2:
+                        src_idx = pair[0]
+                        tgt_idx = pair[1]
+                        sim_score = pair[2] if len(pair) > 2 else None
+                        conf = None
+
+                if src_idx is None or tgt_idx is None:
+                    # Unable to interpret pair; skip with debug log
+                    logger.debug(f"Skipping unexpected alignment pair format: {pair}")
+                    continue
+
+                aligned_map[int(src_idx)] = int(tgt_idx)
                 paragraph_alignment_records.append(
                     {
-                        "source_index": pair.source_index,
-                        "target_index": pair.target_index,
-                        "similarity": pair.similarity_score,
-                        "confidence": pair.confidence,
+                        "source_index": int(src_idx),
+                        "target_index": int(tgt_idx),
+                        "similarity": float(sim_score) if sim_score is not None else None,
+                        "confidence": conf,
                     }
                 )
 
@@ -566,11 +747,29 @@ class ComparativeAnalysisService:
             if sentence_alignment_result:
                 rel_map: Dict[int, List[Dict[str, Any]]] = {}
                 for rec in sentence_alignment_result.aligned:
-                    rel_map.setdefault(rec.source_index, []).append({
-                        "target_index": rec.target_index,
-                        "relation": rec.relation,
-                        "similarity": rec.similarity,
+                    # Support both object-like records and tuple/list records produced by the
+                    # lightweight sentence aligner (which returns tuples (src_idx, tgt_idx, score)).
+                    if hasattr(rec, "source_index") and hasattr(rec, "target_index"):
+                        src_idx = getattr(rec, "source_index")
+                        tgt_idx = getattr(rec, "target_index")
+                        similarity = getattr(rec, "similarity", None) or getattr(rec, "score", None) or getattr(rec, "similarity_score", None)
+                        relation = getattr(rec, "relation", None)
+                    elif isinstance(rec, (list, tuple)) and len(rec) >= 2:
+                        src_idx = rec[0]
+                        tgt_idx = rec[1]
+                        # third element may be score
+                        similarity = rec[2] if len(rec) > 2 else None
+                        relation = None
+                    else:
+                        logger.debug(f"Unexpected sentence alignment record format: {rec}")
+                        continue
+
+                    rel_map.setdefault(int(src_idx), []).append({
+                        "target_index": int(tgt_idx),
+                        "relation": relation,
+                        "similarity": float(similarity) if similarity is not None else None,
                     })
+
                 for i, sent in enumerate(sentences_s):
                     sent_sal = None
                     if request.analysis_options.include_salience and getattr(self, 'salience_provider', None):
@@ -661,16 +860,383 @@ class ComparativeAnalysisService:
                 sal_values = [s.get('salience') for s in paragraph_node['sentences'] if isinstance(s.get('salience'), (int,float))]
                 if sal_values and max(sal_values) > 0:
                     m = max(sal_values)
+                # === Stage 2 / Stage 3 scaffolding ===
+                async def analyze_sentences(
+                    self,
+                    source_sentences: List[str],
+                    target_sentences: List[str],
+                    user_config: dict | None = None,
+                ) -> dict:
+                    """
+                    Analyze pairs of sentences at the meso level (async).
+                
+                    Inputs
+                    - source_sentences: list of sentences from the source paragraph (already segmented)
+                    - target_sentences: list of sentences from the target paragraph
+                    - user_config: optional dict with runtime flags and thresholds, e.g.
+                        {
+                            "sentence_similarity_threshold": 0.6,
+                            "model_name": "paraphrase-multilingual-MiniLM-L12-v2",
+                            "normalize": True
+                        }
+                
+                    Behavior implemented
+                    - Generates embeddings for source_sentences and target_sentences using the
+                      existing SemanticAlignmentService.generate_embeddings (MiniLM by default).
+                    - Computes a sentence-level similarity matrix using the service's
+                      _compute_similarity_matrix helper and AlignmentMethod.COSINE_SIMILARITY.
+                    - Performs greedy per-source matching (similar to paragraph-level logic) to
+                      produce aligned_sentence_pairs: list of (src_idx, tgt_idx, similarity).
+                    - Invokes analyze_phrases() (placeholder) for each aligned sentence pair and
+                      collects micro-level feature hooks into `phrase_features`.
+                    - Returns a structured dict with aligned pairs, similarity matrix, and
+                      collected phrase-level placeholders.
+                
+                    Returns
+                    - dict with keys:
+                        {
+                            "aligned_sentence_pairs": list[tuple[int,int,float]],
+                            "similarity_matrix": list[list[float]],
+                            "phrase_features": list[dict],  # one entry per aligned pair or None
+                            "warnings": list[str],
+                        }
+                    """
+                    try:
+                        cfg = user_config or {}
+                        model_name = cfg.get("model_name", self.semantic_alignment_service.config.bertimbau_model)
+                        normalize = bool(cfg.get("normalize", True))
+                        threshold = float(cfg.get("sentence_similarity_threshold", 0.5))
+                
+                        # Handle empty inputs quickly
+                        if not source_sentences and not target_sentences:
+                            return {
+                                "aligned_sentence_pairs": [],
+                                "similarity_matrix": [],
+                                "phrase_features": [],
+                                "warnings": [],
+                            }
+                
+                        # Request embeddings for all sentences via the semantic alignment service
+                        texts = list(source_sentences) + list(target_sentences)
+                        try:
+                            from ..models.semantic_alignment import EmbeddingRequest, AlignmentMethod
+                        except Exception:
+                            from ..models.semantic_alignment import EmbeddingRequest, AlignmentMethod
+                
+                        embedding_request = EmbeddingRequest(texts=texts, model_name=model_name, normalize=normalize)
+                        embedding_response = await self.semantic_alignment_service.generate_embeddings(embedding_request)
+                
+                        # Split embeddings
+                        source_count = len(source_sentences)
+                        source_embeddings = embedding_response.embeddings[:source_count]
+                        target_embeddings = embedding_response.embeddings[source_count:]
+                
+                        # Compute similarity matrix (use cosine similarity)
+                        similarity_matrix = self.semantic_alignment_service._compute_similarity_matrix(
+                            source_embeddings, target_embeddings, AlignmentMethod.COSINE_SIMILARITY
+                        )
+                
+                        # Greedy per-source matching: choose best target above threshold not already matched
+                        aligned_pairs = []
+                        aligned_target_indices = set()
+                
+                        for i in range(len(source_sentences)):
+                            row = similarity_matrix[i]
+                            best_j = None
+                            best_score = 0.0
+                            for j, score in enumerate(row):
+                                if j in aligned_target_indices:
+                                    continue
+                                if score > best_score:
+                                    best_score = score
+                                    best_j = j
+                            if best_j is not None and best_score >= threshold:
+                                aligned_pairs.append((i, best_j, float(best_score)))
+                                aligned_target_indices.add(best_j)
+                
+                        # Prepare phrase-level feature hooks by invoking analyze_phrases on aligned pairs
+                        phrase_features = []
+                        for (src_idx, tgt_idx, sim_score) in aligned_pairs:
+                            src_sent = source_sentences[src_idx]
+                            tgt_sent = target_sentences[tgt_idx]
+                            try:
+                                # analyze_phrases is synchronous placeholder; if it becomes async, adapt accordingly.
+                                # It currently returns a dict with micro_operations and warnings.
+                                pf = self.analyze_phrases(src_sent, tgt_sent, user_config=cfg)
+                                # If analyze_phrases is async in the future, call: await self.analyze_phrases(...)
+                                phrase_features.append(pf)
+                            except Exception as e:
+                                logger.debug(f"analyze_phrases failed for sentence pair {src_idx}->{tgt_idx}: {e}")
+                                phrase_features.append({"micro_operations": [], "warnings": [str(e)]})
+                
+                        # Convert similarity_matrix to nested lists for serialization
+                        sim_matrix_list = similarity_matrix.tolist() if hasattr(similarity_matrix, "tolist") else [
+                            [float(v) for v in row] for row in similarity_matrix
+                        ]
+                
+                        return {
+                            "aligned_sentence_pairs": aligned_pairs,
+                            "similarity_matrix": sim_matrix_list,
+                            "phrase_features": phrase_features,
+                            "warnings": [],
+                        }
+                
+                    except Exception as e:
+                        logger.error(f"Error in analyze_sentences: {e}")
+                        return {"aligned_sentence_pairs": [], "similarity_matrix": [], "phrase_features": [], "warnings": [str(e)]}
+        
+                def analyze_phrases(
+                    self,
+                    source_sentence: str,
+                    target_sentence: str,
+                    user_config: dict | None = None,
+                ) -> dict:
+                    """
+                    Micro-level analysis between a source and target sentence.
+
+                    Implementation (minimal):
+                    - Tokenize source/target sentences into word tokens.
+                    - Use difflib.SequenceMatcher to find replace/insert/delete operations.
+                    - For each replace op, build a micro-operation with:
+                        * source_tokens, target_tokens
+                        * op_type: 'replace' | 'insert' | 'delete'
+                        * features: {
+                            "source_len": int,
+                            "target_len": int,
+                            "len_delta": int,
+                            "source_syllables": int,
+                            "target_syllables": int,
+                            "syllable_delta": int,
+                            "is_key_phrase": bool (LangExtract placeholder),
+                        }
+                        * suggested_tag: one of SL+, MV+, TA+, MOD+ (very small heuristic)
+                        * confidence: float 0..1 (heuristic)
+                    - Returns dict {"micro_operations": [...], "warnings": [...]}
+                    """
+                    import difflib
+                    import re
+
+                    def tokenize(text: str) -> list[str]:
+                        return re.findall(r"\w+|\S", text, flags=re.UNICODE)
+
+                    def count_syllables(word: str) -> int:
+                        # Very small heuristic: count vowel groups
+                        w = word.lower()
+                        groups = re.findall(r"[aeiouáéíóúâêôãõü]+", w)
+                        return max(1, len(groups))
+
+                    warnings: list[str] = []
+                    micro_ops: list[dict] = []
+
+                    try:
+                        s_toks = tokenize(source_sentence)
+                        t_toks = tokenize(target_sentence)
+
+                        seq = difflib.SequenceMatcher(a=s_toks, b=t_toks)
+                        for tag, i1, i2, j1, j2 in seq.get_opcodes():
+                            if tag == "equal":
+                                continue
+
+                            src_segment = s_toks[i1:i2]
+                            tgt_segment = t_toks[j1:j2]
+
+                            if tag == "replace":
+                                op_type = "replace"
+                            elif tag == "delete":
+                                op_type = "delete"
+                            elif tag == "insert":
+                                op_type = "insert"
+                            else:
+                                op_type = tag
+
+                            source_len = sum(len(tok) for tok in src_segment) if src_segment else 0
+                            target_len = sum(len(tok) for tok in tgt_segment) if tgt_segment else 0
+                            len_delta = target_len - source_len
+
+                            src_syll = sum(count_syllables(tok) for tok in src_segment) if src_segment else 0
+                            tgt_syll = sum(count_syllables(tok) for tok in tgt_segment) if tgt_segment else 0
+                            syll_delta = tgt_syll - src_syll
+
+                            # LangExtract placeholder: mark phrase as key if contains multiword token or long token
+                            def langextract_is_key_phrase(tokens: list[str]) -> bool:
+                                # Placeholder heuristic: any token longer than 7 chars or multiword chunk >1 tokens
+                                if not tokens:
+                                    return False
+                                if len(tokens) > 1:
+                                    return True
+                                return any(len(t) > 7 for t in tokens)
+
+                            is_key_phrase = langextract_is_key_phrase(src_segment)
+
+                            # Tiny heuristic rule engine for suggested_tag
+                            suggested_tag = "SL+"  # default: lexical simplification
+                            confidence = 0.5
+
+                            # If replacement increases syllables significantly -> EXP+ or MOD+
+                            if syll_delta > 2:
+                                suggested_tag = "EXP+"
+                                confidence = 0.6
+                            # If replacement reduces syllables significantly -> SL+
+                            elif syll_delta < -1:
+                                suggested_tag = "SL+"
+                                confidence = 0.7
+                            # If structure changes (adds/removes many tokens) -> MOD+
+                            if abs(len_delta) > max(1, source_len * 0.4):
+                                suggested_tag = "MOD+"
+                                confidence = min(0.9, confidence + 0.1)
+                            # If target tokens contain a verb form change heuristic, mark MV+ (very small heuristic)
+                            verbs = {"é", "foi", "está", "são", "ser", "fazer", "fez", "faz"}
+                            if any(tok.lower() in verbs for tok in tgt_segment + src_segment):
+                                if suggested_tag == "SL+":
+                                    suggested_tag = "MV+"
+                                    confidence = 0.6
+
+                            # Boost confidence if inside a key phrase
+                            if is_key_phrase:
+                                confidence = min(1.0, confidence + 0.15)
+
+                            micro_ops.append(
+                                {
+                                    "source_tokens": src_segment,
+                                    "target_tokens": tgt_segment,
+                                    "op_type": op_type,
+                                    "features": {
+                                        "source_len": source_len,
+                                        "target_len": target_len,
+                                        "len_delta": len_delta,
+                                        "source_syllables": src_syll,
+                                        "target_syllables": tgt_syll,
+                                        "syllable_delta": syll_delta,
+                                        "is_key_phrase": is_key_phrase,
+                                    },
+                                    "suggested_tag": suggested_tag,
+                                    "confidence": float(confidence),
+                                }
+                            )
+
+                    except Exception as e:
+                        warnings.append(str(e))
+
+                    return {"micro_operations": micro_ops, "warnings": warnings}
                     for s in paragraph_node['sentences']:
                         if isinstance(s.get('salience'), (int,float)):
                             s['salience'] = s['salience'] / m
             target_nodes.append(paragraph_node)
-
+ 
+        # Convert dict-based paragraph/sentence structures to dataclass-based nodes
+        def _convert_sentence_record_to_node(sent_rec: Dict[str, Any], role: str = "source") -> SentenceNode:
+            """
+            Convert a sentence record (dict) produced by the existing logic into a SentenceNode.
+            Handles both cases where sentence_record contains micro_spans (from extract_micro_spans)
+            or where nested findings are already micro_operations lists.
+            """
+            try:
+                sent_id = sent_rec.get("sentence_id") or sent_rec.get("index") or ""
+                src_text = sent_rec.get("text") if role == "source" else ""
+                tgt_text = sent_rec.get("text") if role == "target" else ""
+                confidence = 0.0
+                # Try common similarity fields
+                align = sent_rec.get("alignment")
+                if isinstance(align, list) and len(align) > 0:
+                    confidence = float(align[0].get("similarity") or 0.0)
+                elif isinstance(sent_rec.get("salience"), (int, float)):
+                    confidence = float(sent_rec.get("salience"))
+ 
+                # Build nested findings from micro_spans or micro_operations
+                nested: List[PhraseNode] = []
+                # micro_spans (from extractor) -> map to PhraseNode
+                if "micro_spans" in sent_rec and isinstance(sent_rec["micro_spans"], list):
+                    for sp in sent_rec["micro_spans"][:5]:
+                        nested.append(
+                            PhraseNode(
+                                tag=sp.get("span_id", ""),
+                                confidence=float(sp.get("salience", 0.0)),
+                                source_text=sp.get("text") if role == "source" else "",
+                                target_text=sp.get("text") if role == "target" else "",
+                                explanation=sp.get("method"),
+                            )
+                        )
+                # micro_operations (from analyze_phrases) -> map to PhraseNode
+                if "micro_operations" in sent_rec and isinstance(sent_rec["micro_operations"], list):
+                    for mi_idx, mo in enumerate(sent_rec["micro_operations"][:10]):
+                        nested.append(
+                            PhraseNode(
+                                tag=f"{sent_id}-mo-{mi_idx}",
+                                confidence=float(mo.get("confidence", 0.0)) if isinstance(mo, dict) else 0.0,
+                                source_text=" ".join(mo.get("source_tokens", [])) if isinstance(mo, dict) else "",
+                                target_text=" ".join(mo.get("target_tokens", [])) if isinstance(mo, dict) else "",
+                                explanation=mo.get("op_type") if isinstance(mo, dict) else None,
+                            )
+                        )
+ 
+                return SentenceNode(
+                    tag=str(sent_id),
+                    confidence=confidence,
+                    source_text=src_text,
+                    target_text=tgt_text,
+                    explanation=sent_rec.get("explanation"),
+                    nested_findings=nested,
+                )
+            except Exception as e:
+                logger.debug(f"Conversion to SentenceNode failed for record: {e}")
+                return SentenceNode(tag=str(sent_rec.get("sentence_id", "")), confidence=0.0, source_text=sent_rec.get("text", ""), target_text="", explanation="conversion_error", nested_findings=[])
+ 
+        def _convert_paragraph_dict_to_node(pdict: Dict[str, Any], role: str = "source") -> ParagraphNode:
+            """
+            Convert paragraph dict (existing format) to ParagraphNode, converting sentences inside.
+            """
+            tag = pdict.get("paragraph_id") or pdict.get("index") or ""
+            confidence = 0.0
+            if isinstance(pdict.get("salience"), (int, float)):
+                confidence = float(pdict.get("salience"))
+            p_source_text = pdict.get("text") if role == "source" else pdict.get("text") or ""
+            p_target_text = pdict.get("text") if role == "target" else ""
+            nested_sent_nodes: List[SentenceNode] = []
+            sentences = pdict.get("sentences", [])
+            for srec in sentences:
+                # If sentence entries are simple dicts, convert; if already SentenceNode objects, use them
+                if isinstance(srec, SentenceNode):
+                    nested_sent_nodes.append(srec)
+                elif isinstance(srec, dict):
+                    nested_sent_nodes.append(_convert_sentence_record_to_node(srec, role=role))
+                else:
+                    # Unknown format: create a fallback node
+                    nested_sent_nodes.append(SentenceNode(tag=str(srec), confidence=0.0, source_text=str(srec) if role=="source" else "", target_text=str(srec) if role=="target" else "", nested_findings=[]))
+ 
+            return ParagraphNode(
+                tag=str(tag),
+                confidence=confidence,
+                source_text=p_source_text,
+                target_text=p_target_text,
+                explanation=pdict.get("alignment") and "aligned" or None,
+                nested_findings=nested_sent_nodes,
+            )
+ 
+        # Map source_nodes and target_nodes (which are dicts) into dataclass instances
+        source_paragraph_nodes: List[ParagraphNode] = []
+        for p in source_nodes:
+            if isinstance(p, ParagraphNode):
+                source_paragraph_nodes.append(p)
+            elif isinstance(p, dict):
+                source_paragraph_nodes.append(_convert_paragraph_dict_to_node(p, role="source"))
+            else:
+                # fallback
+                source_paragraph_nodes.append(ParagraphNode(tag=str(getattr(p, "paragraph_id", "")), source_text=str(p)))
+ 
+        target_paragraph_nodes: List[ParagraphNode] = []
+        for p in target_nodes:
+            if isinstance(p, ParagraphNode):
+                target_paragraph_nodes.append(p)
+            elif isinstance(p, dict):
+                target_paragraph_nodes.append(_convert_paragraph_dict_to_node(p, role="target"))
+            else:
+                target_paragraph_nodes.append(ParagraphNode(tag=str(getattr(p, "paragraph_id", "")), target_text=str(p)))
+ 
         hierarchy_version = "1.2" if include_micro else "1.1"
         hierarchy = {
             "hierarchy_version": hierarchy_version,
-            "source_paragraphs": source_nodes,
-            "target_paragraphs": target_nodes,
+            "source_paragraphs": source_paragraph_nodes,
+            "target_paragraphs": target_paragraph_nodes,
             "metadata": {
                 "paragraph_alignment_count": len(paragraph_alignment_records),
                 "paragraph_unaligned_source": [i for i in range(len(source_paragraphs)) if i not in aligned_map],
@@ -679,6 +1245,140 @@ class ComparativeAnalysisService:
             },
         }
         return hierarchy
+
+    def analyze_phrases(
+        self,
+        source_sentence: str,
+        target_sentence: str,
+        user_config: dict | None = None,
+    ) -> dict:
+        """
+        Micro-level analysis between a source and target sentence.
+
+        Minimal implementation (kept in sync with the hierarchical analyzer scaffolding):
+        - Tokenize source/target sentences into word tokens.
+        - Use difflib.SequenceMatcher to find replace/insert/delete operations.
+        - For each operation build a micro-operation dict with:
+            * source_tokens, target_tokens
+            * op_type: 'replace' | 'insert' | 'delete'
+            * features: {
+                "source_len": int,
+                "target_len": int,
+                "len_delta": int,
+                "source_syllables": int,
+                "target_syllables": int,
+                "syllable_delta": int,
+                "is_key_phrase": bool,
+              }
+            * suggested_tag: heuristic tag (SL+, MV+, TA+, MOD+, EXP+)
+            * confidence: float 0..1 (heuristic)
+        - Returns dict {"micro_operations": [...], "warnings": [...]}
+        """
+        import difflib
+        import re
+
+        def tokenize(text: str) -> list[str]:
+            return re.findall(r"\w+|\S", text, flags=re.UNICODE)
+
+        def count_syllables(word: str) -> int:
+            # Very small heuristic: count vowel groups
+            w = word.lower()
+            groups = re.findall(r"[aeiouáéíóúâêôãõü]+", w)
+            return max(1, len(groups))
+
+        warnings: list[str] = []
+        micro_ops: list[dict] = []
+
+        try:
+            s_toks = tokenize(source_sentence)
+            t_toks = tokenize(target_sentence)
+
+            seq = difflib.SequenceMatcher(a=s_toks, b=t_toks)
+            for tag, i1, i2, j1, j2 in seq.get_opcodes():
+                if tag == "equal":
+                    continue
+
+                src_segment = s_toks[i1:i2]
+                tgt_segment = t_toks[j1:j2]
+
+                if tag == "replace":
+                    op_type = "replace"
+                elif tag == "delete":
+                    op_type = "delete"
+                elif tag == "insert":
+                    op_type = "insert"
+                else:
+                    op_type = tag
+
+                source_len = sum(len(tok) for tok in src_segment) if src_segment else 0
+                target_len = sum(len(tok) for tok in tgt_segment) if tgt_segment else 0
+                len_delta = target_len - source_len
+
+                src_syll = sum(count_syllables(tok) for tok in src_segment) if src_segment else 0
+                tgt_syll = sum(count_syllables(tok) for tok in tgt_segment) if tgt_segment else 0
+                syll_delta = tgt_syll - src_syll
+
+                # LangExtract placeholder: mark phrase as key if contains multiword token or long token
+                def langextract_is_key_phrase(tokens: list[str]) -> bool:
+                    # Placeholder heuristic: any token longer than 7 chars or multiword chunk >1 tokens
+                    if not tokens:
+                        return False
+                    if len(tokens) > 1:
+                        return True
+                    return any(len(t) > 7 for t in tokens)
+
+                is_key_phrase = langextract_is_key_phrase(src_segment)
+
+                # Tiny heuristic rule engine for suggested_tag
+                suggested_tag = "SL+"  # default: lexical simplification
+                confidence = 0.5
+
+                # If replacement increases syllables significantly -> EXP+ or MOD+
+                if syll_delta > 2:
+                    suggested_tag = "EXP+"
+                    confidence = 0.6
+                # If replacement reduces syllables significantly -> SL+
+                elif syll_delta < -1:
+                    suggested_tag = "SL+"
+                    confidence = 0.7
+                # If structure changes (adds/removes many tokens) -> MOD+
+                if abs(len_delta) > max(1, source_len * 0.4):
+                    suggested_tag = "MOD+"
+                    confidence = min(0.9, confidence + 0.1)
+                # If target tokens contain a verb form change heuristic, mark MV+ (very small heuristic)
+                verbs = {"é", "foi", "está", "são", "ser", "fazer", "fez", "faz"}
+                if any(tok.lower() in verbs for tok in tgt_segment + src_segment):
+                    if suggested_tag == "SL+":
+                        suggested_tag = "MV+"
+                        confidence = 0.6
+
+                # Boost confidence if inside a key phrase
+                if is_key_phrase:
+                    confidence = min(1.0, confidence + 0.15)
+
+                micro_ops.append(
+                    {
+                        "source_tokens": src_segment,
+                        "target_tokens": tgt_segment,
+                        "op_type": op_type,
+                        "features": {
+                            "source_len": source_len,
+                            "target_len": target_len,
+                            "len_delta": len_delta,
+                            "source_syllables": src_syll,
+                            "target_syllables": tgt_syll,
+                            "syllable_delta": syll_delta,
+                            "is_key_phrase": is_key_phrase,
+                        },
+                        "suggested_tag": suggested_tag,
+                        "confidence": float(confidence),
+                    }
+                )
+
+        except Exception as e:
+            warnings.append(str(e))
+
+        return {"micro_operations": micro_ops, "warnings": warnings}
 
     # Helper methods
     def _tokenize_text(self, text: str) -> List[str]:
@@ -1099,3 +1799,80 @@ class ComparativeAnalysisService:
             "export_url": f"/exports/{analysis_id}.{format}",
             "created_at": datetime.now().isoformat()
         }
+
+# === Scaffold for Hierarchical Node Models ===
+# These dataclasses will be used in the hierarchical output structure for comparative analysis.
+
+# Hierarchical node dataclasses moved to a dedicated models module to keep
+# model definitions centralized and importable by other modules.
+# Use the dataclass definitions from backend/src/models/hierarchical_nodes.py
+from ..models.hierarchical_nodes import ParagraphNode, SentenceNode, PhraseNode, to_dict
+from dataclasses import asdict, dataclass, field
+from typing import List, Optional, Any
+
+@dataclass
+class ParagraphNode:
+    """
+    Represents a paragraph in the hierarchical analysis.
+    
+    Attributes:
+        level (str): The hierarchy level ("paragraph").
+        tag (str): A label or identifier for the paragraph.
+        confidence (float): Confidence score for the analysis.
+        source_text (str): Original paragraph text.
+        target_text (str): Translated/simplified paragraph text.
+        explanation (Optional[str]): Explanation of analysis.
+        nested_findings (List[Any]): List of SentenceNode objects.
+    """
+    # TODO: Fill with actual types and defaults
+    level: str = "paragraph"
+    tag: str = ""
+    confidence: float = 0.0
+    source_text: str = ""
+    target_text: str = ""
+    explanation: Optional[str] = None
+    nested_findings: List[Any] = field(default_factory=list)
+
+
+@dataclass
+class SentenceNode:
+    """
+    Represents a sentence in the hierarchical analysis.
+    
+    Attributes:
+        level (str): The hierarchy level ("sentence").
+        tag (str): A label or identifier for the sentence.
+        confidence (float): Confidence score for the sentence alignment.
+        source_text (str): Original sentence text.
+        target_text (str): Translated/simplified sentence text.
+        explanation (Optional[str]): Explanation of analysis.
+        nested_findings (List[Any]): List of PhraseNode objects.
+    """
+    level: str = "sentence"
+    tag: str = ""
+    confidence: float = 0.0
+    source_text: str = ""
+    target_text: str = ""
+    explanation: Optional[str] = None
+    nested_findings: List[Any] = field(default_factory=list)
+
+
+@dataclass
+class PhraseNode:
+    """
+    Represents a phrase in the hierarchical analysis.
+    
+    Attributes:
+        level (str): The hierarchy level ("phrase").
+        tag (str): A label or identifier for the phrase.
+        confidence (float): Confidence score for the phrase alignment.
+        source_text (str): Original phrase text.
+        target_text (str): Translated/simplified phrase text.
+        explanation (Optional[str]): Explanation of analysis.
+    """
+    level: str = "phrase"
+    tag: str = ""
+    confidence: float = 0.0
+    source_text: str = ""
+    target_text: str = ""
+    explanation: Optional[str] = None

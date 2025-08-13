@@ -183,7 +183,11 @@ class ComparativeAnalysisResponse(BaseModel):
     model_version: str = "1.0.0"
     hierarchical_analysis: Optional[Dict[str, Any]] = Field(
         default=None,
-        description="Hierarchical analysis tree when requested (versioned).",
+        description="Hierarchical analysis tree when requested (versioned). (legacy dict-shaped payload)"
+    )
+    hierarchical_tree: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        description="Hierarchical tree (list of paragraph nodes) serialized for frontend consumption. Each list item is a dict representing a ParagraphNode (dataclass->dict)."
     )
 
 

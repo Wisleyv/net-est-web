@@ -81,6 +81,9 @@ class SemanticAlignmentService:
     """Service for semantic alignment of paragraphs"""
 
     def __init__(self, config: AlignmentConfiguration | None = None):
+        # Use provided config or a sensible default configuration.
+        # The default model for semantic alignment should be the lightweight
+        # paraphrase-multilingual-MiniLM-L12-v2 (miniLM) as the primary operational default.
         self.config = config or AlignmentConfiguration(
             bertimbau_model="paraphrase-multilingual-MiniLM-L12-v2",
             similarity_threshold=0.7,
@@ -92,6 +95,8 @@ class SemanticAlignmentService:
         self.model = None
         self.embedding_cache = EmbeddingCache()
         self.executor = ThreadPoolExecutor(max_workers=2)
+        # Lazy sentence alignment service (initialized on first use)
+        self.sentence_alignment_service = None
 
         if not ML_AVAILABLE:
             logger.warning(
@@ -376,6 +381,66 @@ class SemanticAlignmentService:
                     request.alignment_method,
                 )
             )
+            
+            # --- Step 2 integration:
+            # Lazily instantiate the sentence alignment service and compute
+            # sentence-level alignments for each aligned paragraph pair.
+            # We run the (synchronous) sentence alignment in the executor to avoid blocking.
+            sentence_alignments = []
+            try:
+                # Read user-configured options (if any)
+                user_cfg = request.user_config or {}
+                enable_sentence_alignment = bool(user_cfg.get("enable_sentence_alignment", False))
+                sentence_threshold = float(user_cfg.get("sentence_similarity_threshold", 0.5))
+
+                if enable_sentence_alignment and aligned_pairs:
+                    # Lazy import to avoid circular imports at module load time
+                    if self.sentence_alignment_service is None:
+                        from .sentence_alignment_service import SentenceAlignmentService
+
+                        self.sentence_alignment_service = SentenceAlignmentService()
+
+                    # Prepare tasks for executor
+                    loop = asyncio.get_event_loop()
+                    tasks = []
+                    for pair in aligned_pairs:
+                        src_para = pair.source_text
+                        tgt_para = pair.target_text
+                        # Run the lightweight sync aligner in threadpool
+                        tasks.append(
+                            loop.run_in_executor(
+                                self.executor,
+                                self.sentence_alignment_service.align,
+                                [src_para],
+                                [tgt_para],
+                                sentence_threshold,
+                            )
+                        )
+
+                    if tasks:
+                        sentence_results = await asyncio.gather(*tasks, return_exceptions=True)
+                        for res in sentence_results:
+                            if isinstance(res, Exception):
+                                logger.debug(f"Sentence alignment task failed: {res}")
+                                sentence_alignments.append(None)
+                            else:
+                                # Convert dataclass result to serializable dict
+                                sentence_alignments.append(
+                                    {
+                                        "aligned": res.aligned,
+                                        "unmatched_source": res.unmatched_source,
+                                        "unmatched_target": res.unmatched_target,
+                                        "similarity_matrix": res.similarity_matrix,
+                                    }
+                                )
+                else:
+                    # Sentence-level disabled or no aligned pairs; leave empty
+                    sentence_alignments = []
+            except Exception as e:
+                # Do not fail the paragraph alignment due to sentence-level failures;
+                # log and continue.
+                logger.debug(f"Sentence-level alignment integration failed: {e}")
+                sentence_alignments = []
 
             # Create unaligned details
             unaligned_source_details = self._create_unaligned_details(

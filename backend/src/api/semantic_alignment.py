@@ -186,14 +186,26 @@ async def align_paragraphs_simple(
     target_paragraphs: list[str],
     similarity_threshold: float = 0.7,
     method: AlignmentMethod = AlignmentMethod.COSINE_SIMILARITY,
+    enable_sentence_alignment: bool = False,
+    sentence_similarity_threshold: float = 0.5,
 ) -> AlignmentResponse:
-    """Simplified endpoint for paragraph alignment with basic parameters"""
+    """Simplified endpoint for paragraph alignment with basic parameters.
+
+    Adds lightweight flags to enable optional sentence-level alignment and to
+    control the sentence-level similarity threshold. These options are placed
+    into the AlignmentRequest.user_config so the SemanticAlignmentService can
+    consume them (without changing the core models).
+    """
     request = AlignmentRequest(
         source_paragraphs=source_paragraphs,
         target_paragraphs=target_paragraphs,
         similarity_threshold=similarity_threshold,
         alignment_method=method,
         max_alignments_per_source=3,
+        user_config={
+            "enable_sentence_alignment": enable_sentence_alignment,
+            "sentence_similarity_threshold": sentence_similarity_threshold,
+        },
     )
 
     return await align_paragraphs(request)
