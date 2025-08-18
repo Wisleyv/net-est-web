@@ -63,6 +63,9 @@ class Settings(BaseSettings):
     BERTIMBAU_MODEL: str = "paraphrase-multilingual-MiniLM-L12-v2"
     SIMILARITY_THRESHOLD: float = 0.5
 
+    # Feature flags (enable/disable experimental features)
+    ENABLE_SENTENCE_ALIGNMENT: bool = False
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True,

@@ -165,24 +165,11 @@ class ComparativeAnalysisService:
             logger.error(f"Error in analyze_sentences: {e}")
             return {"aligned": [], "unmatched_source": [], "unmatched_target": [], "similarity_matrix": [], "warnings": [str(e)]}
 
-    def analyze_phrases(self, source_sentence: str, target_sentence: str) -> dict:
-        """
-        Analyze phrase-level differences within an aligned sentence pair.
-
-        Subtask 1: Implement and Connect analyze_phrases
-        - Use phrase segmentation logic.
-        - Compare semantic similarity or structural differences.
-        - Return results suitable for inclusion in hierarchical pipeline.
-
-        Args:
-            source_sentence (str): Source sentence text.
-            target_sentence (str): Target sentence text.
-
-        Returns:
-            dict: Detailed phrase-level alignment and analysis.
-        """
-        # TODO: Implement phrase segmentation and analysis
-        pass
+    # NOTE: the detailed `analyze_phrases` implementation appears later in this module
+    # and is the version used by the hierarchical builder. This early stub was removed
+    # to avoid duplicate definitions and confusion during maintenance. The full
+    # implementation can be found further down in this file (search for the
+    # "Micro-level analysis between a source and target sentence" docstring).
 
 
     def __init__(self):
@@ -190,7 +177,13 @@ class ComparativeAnalysisService:
         # Initialize the semantic model
         self.model = None
         self.semantic_alignment_service = SemanticAlignmentService()
-        self.sentence_alignment_service = SentenceAlignmentService()
+        # Instantiate sentence alignment service defensively: try to create with a safe default,
+        # but fall back to None if instantiation fails (avoids raising during app startup).
+        try:
+            self.sentence_alignment_service = SentenceAlignmentService(similarity_threshold=0.3)
+        except Exception as e:
+            logger.warning(f"SentenceAlignmentService initialization failed, continuing without it: {e}")
+            self.sentence_alignment_service = None
         # M3: Salience provider (lazy/simple instantiation; frequency fallback if advanced libs absent)
         try:
             self.salience_provider = SalienceProvider(method=os.getenv('SALIENCE_METHOD', 'frequency'))
@@ -304,6 +297,63 @@ class ComparativeAnalysisService:
                     for p in tgt:
                         serialized.append(_maybe_asdict(p))
                     response.hierarchical_tree = serialized
+# --- Feature extraction summary population (non-breaking, optional) ---
+                    # Aggregate a lightweight summary of extracted features so API consumers can access
+                    # top key phrases and salience statistics without traversing the full tree.
+                    try:
+                        from collections import Counter
+                        top_key_phrases: List[str] = []
+                        sentence_saliences: List[float] = []
+
+                        # serialized contains paragraph dicts (asdict of ParagraphNode)
+                        for para in serialized:
+                            # paragraphs may contain 'nested_findings' (SentenceNode list) or legacy 'sentences' dicts
+                            sentences = []
+                            if isinstance(para, dict):
+                                if isinstance(para.get("nested_findings"), list) and para.get("nested_findings"):
+                                    sentences = para.get("nested_findings", [])
+                                elif isinstance(para.get("sentences"), list):
+                                    sentences = para.get("sentences", [])
+                            for sent in sentences:
+                                if not isinstance(sent, dict):
+                                    continue
+                                # collect sentence-level key_phrases
+                                s_kps = sent.get("key_phrases") or []
+                                if isinstance(s_kps, list):
+                                    top_key_phrases.extend([kp for kp in s_kps if isinstance(kp, str)])
+                                # collect sentence salience (support multiple possible field names)
+                                s_sal = sent.get("salience_score") or sent.get("salience") or sent.get("confidence")
+                                if isinstance(s_sal, (int, float)):
+                                    sentence_saliences.append(float(s_sal))
+                                # inspect nested phrase nodes
+                                nested_phrases = sent.get("nested_findings") or sent.get("micro_operations") or sent.get("micro_spans") or []
+                                if isinstance(nested_phrases, list):
+                                    for ph in nested_phrases:
+                                        if not isinstance(ph, dict):
+                                            continue
+                                        ph_kps = ph.get("key_phrases") or []
+                                        if isinstance(ph_kps, list):
+                                            top_key_phrases.extend([kp for kp in ph_kps if isinstance(kp, str)])
+                                        ph_sal = ph.get("salience_score") or ph.get("salience") or ph.get("confidence")
+                                        if isinstance(ph_sal, (int, float)):
+                                            sentence_saliences.append(float(ph_sal))
+
+                        # Build summary (non-fatal; keep backward-compatible)
+                        kp_counts = Counter([kp.lower() for kp in top_key_phrases if isinstance(kp, str)])
+                        most_common_phrases = [p for p, _ in kp_counts.most_common(10)]
+                        avg_sentence_salience = (sum(sentence_saliences) / len(sentence_saliences)) if sentence_saliences else None
+
+                        response.feature_extraction_summary = {
+                            "top_key_phrases": most_common_phrases,
+                            "average_sentence_salience": avg_sentence_salience,
+                            "total_key_phrases_found": len(top_key_phrases),
+                        }
+                        response.include_feature_fields = bool(most_common_phrases or avg_sentence_salience is not None)
+                    except Exception as e:
+                        # Non-fatal: keep response backward-compatible if aggregation fails
+                        logger.debug(f"Feature extraction summary aggregation failed: {e}")
+                        response.feature_extraction_summary = None
+                        response.include_feature_fields = False
                 except Exception as e:  # pragma: no cover - graceful degradation
                     logger.error(f"Failed to build hierarchical analysis: {e}")
             
@@ -649,11 +699,24 @@ class ComparativeAnalysisService:
         source_paragraphs = split_paragraphs(request.source_text)
         target_paragraphs = split_paragraphs(request.target_text)
 
+        # Determine provider to use for this request.
+        # NOTE: avoid mutating the service-level provider (self.salience_provider) because
+        # the service instance may be reused concurrently. Create a per-request provider
+        # when an override is specified; otherwise fall back to the shared provider.
+        if request.salience_method and getattr(self, 'salience_provider', None):
+            try:
+                provider_for_request = SalienceProvider(method=request.salience_method.lower())
+            except Exception:
+                # If instantiation fails, fall back to the shared provider
+                provider_for_request = getattr(self, 'salience_provider', None)
+        else:
+            provider_for_request = getattr(self, 'salience_provider', None)
+
         # Paragraph salience aggregation (conditional by request options)
         def paragraph_saliences(paragraphs: List[str]) -> List[float | None]:
             if not request.analysis_options.include_salience:
                 return [None]*len(paragraphs)
-            provider = getattr(self, 'salience_provider', None)
+            provider = provider_for_request
             if not provider:
                 return [None] * len(paragraphs)
             raw: List[float | None] = []
@@ -673,11 +736,10 @@ class ComparativeAnalysisService:
             return raw
 
         # Optional override of salience method at request level
-        if request.salience_method and getattr(self, 'salience_provider', None):
-            try:
-                self.salience_provider.method = request.salience_method.lower()
-            except Exception:
-                pass
+        # NOTE: we avoid mutating the shared service-level provider to preserve thread-safety.
+        # Per-request provider selection is handled earlier (provider_for_request). Keep this
+        # block intentionally inert to preserve backward-compatibility for callers that may
+        # expect request.salience_method to be accepted without mutating global state.
 
         source_para_sal = paragraph_saliences(source_paragraphs)
         target_para_sal = paragraph_saliences(target_paragraphs)
@@ -772,9 +834,9 @@ class ComparativeAnalysisService:
 
                 for i, sent in enumerate(sentences_s):
                     sent_sal = None
-                    if request.analysis_options.include_salience and getattr(self, 'salience_provider', None):
+                    if request.analysis_options.include_salience and provider_for_request:
                         try:
-                            s_res = self.salience_provider.extract(sent, max_units=6)
+                            s_res = provider_for_request.extract(sent, max_units=6)
                             sent_sal = max((u['weight'] for u in s_res.units), default=0.0)
                         except Exception:
                             sent_sal = None
@@ -795,9 +857,9 @@ class ComparativeAnalysisService:
             else:
                 for i, sent in enumerate(sentences_s):
                     sent_sal = None
-                    if request.analysis_options.include_salience and getattr(self, 'salience_provider', None):
+                    if request.analysis_options.include_salience and provider_for_request:
                         try:
-                            s_res = self.salience_provider.extract(sent, max_units=6)
+                            s_res = provider_for_request.extract(sent, max_units=6)
                             sent_sal = max((u['weight'] for u in s_res.units), default=0.0)
                         except Exception:
                             sent_sal = None
@@ -835,9 +897,9 @@ class ComparativeAnalysisService:
             source_pair = next((s for s, t in aligned_map.items() if t == t_idx), None)
             for i, sent in enumerate(sentences_t):
                 sent_sal = None
-                if request.analysis_options.include_salience and getattr(self, 'salience_provider', None):
+                if request.analysis_options.include_salience and provider_for_request:
                     try:
-                        t_res = self.salience_provider.extract(sent, max_units=6)
+                        t_res = provider_for_request.extract(sent, max_units=6)
                         sent_sal = max((u['weight'] for u in t_res.units), default=0.0)
                     except Exception:
                         sent_sal = None
@@ -1129,8 +1191,20 @@ class ComparativeAnalysisService:
             Convert a sentence record (dict) produced by the existing logic into a SentenceNode.
             Handles both cases where sentence_record contains micro_spans (from extract_micro_spans)
             or where nested findings are already micro_operations lists.
+
+            Extended behavior:
+            - Populate SentenceNode.key_phrases and salience_score using FeatureExtractor.
+            - Convert micro_spans / micro_operations into PhraseNode instances and populate
+              PhraseNode.key_phrases, salience_score and features where possible.
             """
             try:
+                # Lazy import & instantiate FeatureExtractor so file-level changes aren't required
+                try:
+                    from .feature_extractor import FeatureExtractor  # local import for optional dependency
+                    extractor = FeatureExtractor()
+                except Exception:
+                    extractor = None
+
                 sent_id = sent_rec.get("sentence_id") or sent_rec.get("index") or ""
                 src_text = sent_rec.get("text") if role == "source" else ""
                 tgt_text = sent_rec.get("text") if role == "target" else ""
@@ -1141,34 +1215,123 @@ class ComparativeAnalysisService:
                     confidence = float(align[0].get("similarity") or 0.0)
                 elif isinstance(sent_rec.get("salience"), (int, float)):
                     confidence = float(sent_rec.get("salience"))
- 
+
+                # Prepare sentence-level feature containers
+                sentence_key_phrases: List[str] = []
+                sentence_salience: Optional[float] = None
+                sentence_features: Dict[str, Any] = {}
+
+                # Populate salience using provider when available or extractor fallback
+                if isinstance(sent_rec.get("salience"), (int, float)):
+                    sentence_salience = float(sent_rec.get("salience"))
+                else:
+                    # try provider via extractor
+                    if extractor and getattr(self, "salience_provider", None):
+                        try:
+                            sentence_salience = extractor.salience_score(src_text or tgt_text, provider=self.salience_provider)
+                        except Exception:
+                            sentence_salience = None
+                    elif extractor:
+                        try:
+                            sentence_salience = extractor.salience_score(src_text or tgt_text, provider=None)
+                        except Exception:
+                            sentence_salience = None
+
+                # Extract key phrases and POS/features if extractor is available
+                if extractor:
+                    try:
+                        sentence_key_phrases = extractor.extract_key_phrases(src_text or tgt_text, max_phrases=6)
+                        sentence_features = extractor.sentence_pos_features(src_text or tgt_text) or {}
+                    except Exception as e:
+                        logger.debug(f"FeatureExtractor sentence features failed: {e}")
+                        sentence_key_phrases = []
+                        sentence_features = {}
+
                 # Build nested findings from micro_spans or micro_operations
                 nested: List[PhraseNode] = []
-                # micro_spans (from extractor) -> map to PhraseNode
+                # micro_spans (from extractor) -> map to PhraseNode (prefer spans' salience if present)
                 if "micro_spans" in sent_rec and isinstance(sent_rec["micro_spans"], list):
                     for sp in sent_rec["micro_spans"][:5]:
+                        # map span payload into PhraseNode including extractor-derived fields when possible
+                        p_key_phrases: List[str] = []
+                        p_sal: Optional[float] = None
+                        p_features: Dict[str, Any] = {}
+                        span_text = sp.get("text", "") or ""
+                        # use extractor to get phrase-level key phrases/features if available
+                        if extractor:
+                            try:
+                                p_key_phrases = extractor.extract_key_phrases(span_text, max_phrases=3)
+                                p_features = extractor.sentence_pos_features(span_text)
+                                p_sal = extractor.salience_score(span_text, provider=getattr(self, "salience_provider", None))
+                            except Exception:
+                                p_key_phrases = []
+                                p_features = {}
+                                p_sal = float(sp.get("salience", 0.0)) if sp.get("salience") is not None else None
+                        else:
+                            p_sal = float(sp.get("salience", 0.0)) if sp.get("salience") is not None else None
+
                         nested.append(
                             PhraseNode(
-                                tag=sp.get("span_id", ""),
-                                confidence=float(sp.get("salience", 0.0)),
+                                tag=sp.get("span_id", "") or f"{sent_id}-span",
+                                confidence=float(sp.get("salience", 0.0)) if sp.get("salience") is not None else (p_sal or 0.0),
                                 source_text=sp.get("text") if role == "source" else "",
                                 target_text=sp.get("text") if role == "target" else "",
                                 explanation=sp.get("method"),
+                                key_phrases=p_key_phrases,
+                                salience_score=p_sal,
+                                features=p_features,
                             )
                         )
-                # micro_operations (from analyze_phrases) -> map to PhraseNode
+                # micro_operations (from analyze_phrases) -> map to PhraseNode and include micro features
                 if "micro_operations" in sent_rec and isinstance(sent_rec["micro_operations"], list):
                     for mi_idx, mo in enumerate(sent_rec["micro_operations"][:10]):
-                        nested.append(
-                            PhraseNode(
-                                tag=f"{sent_id}-mo-{mi_idx}",
-                                confidence=float(mo.get("confidence", 0.0)) if isinstance(mo, dict) else 0.0,
-                                source_text=" ".join(mo.get("source_tokens", [])) if isinstance(mo, dict) else "",
-                                target_text=" ".join(mo.get("target_tokens", [])) if isinstance(mo, dict) else "",
-                                explanation=mo.get("op_type") if isinstance(mo, dict) else None,
+                        try:
+                            mo_conf = float(mo.get("confidence", 0.0)) if isinstance(mo, dict) else 0.0
+                            src_txt = " ".join(mo.get("source_tokens", [])) if isinstance(mo, dict) else ""
+                            tgt_txt = " ".join(mo.get("target_tokens", [])) if isinstance(mo, dict) else ""
+                            explanation = mo.get("op_type") if isinstance(mo, dict) else None
+                            mo_features = mo.get("features", {}) if isinstance(mo, dict) else {}
+                            # augment features with extractor POS features per phrase if available
+                            ph_key_phrases: List[str] = []
+                            ph_salience: Optional[float] = None
+                            ph_features: Dict[str, Any] = dict(mo_features)
+                            if extractor:
+                                try:
+                                    ph_key_phrases = extractor.extract_key_phrases(src_txt or tgt_txt, max_phrases=3)
+                                    pos_feats = extractor.sentence_pos_features(src_txt or tgt_txt)
+                                    # merge pos_feats summary into ph_features without overwriting micro features
+                                    for k, v in (pos_feats or {}).items():
+                                        if k not in ph_features:
+                                            ph_features[k] = v
+                                    ph_salience = extractor.salience_score(src_txt or tgt_txt, provider=getattr(self, "salience_provider", None))
+                                except Exception:
+                                    ph_key_phrases = []
+                                    ph_features = ph_features
+                                    ph_salience = None
+                            nested.append(
+                                PhraseNode(
+                                    tag=f"{sent_id}-mo-{mi_idx}",
+                                    confidence=mo_conf,
+                                    source_text=src_txt,
+                                    target_text=tgt_txt,
+                                    explanation=explanation,
+                                    key_phrases=ph_key_phrases,
+                                    salience_score=ph_salience,
+                                    features=ph_features,
+                                )
                             )
-                        )
- 
+                        except Exception as e:
+                            logger.debug(f"Failed converting micro_operation to PhraseNode: {e}")
+                            nested.append(
+                                PhraseNode(
+                                    tag=f"{sent_id}-mo-{mi_idx}",
+                                    confidence=0.0,
+                                    source_text="",
+                                    target_text="",
+                                    explanation="conversion_error",
+                                )
+                            )
+
                 return SentenceNode(
                     tag=str(sent_id),
                     confidence=confidence,
@@ -1176,10 +1339,13 @@ class ComparativeAnalysisService:
                     target_text=tgt_text,
                     explanation=sent_rec.get("explanation"),
                     nested_findings=nested,
+                    key_phrases=sentence_key_phrases,
+                    salience_score=sentence_salience,
+                    features=sentence_features,
                 )
             except Exception as e:
                 logger.debug(f"Conversion to SentenceNode failed for record: {e}")
-                return SentenceNode(tag=str(sent_rec.get("sentence_id", "")), confidence=0.0, source_text=sent_rec.get("text", ""), target_text="", explanation="conversion_error", nested_findings=[])
+                return SentenceNode(tag=str(sent_rec.get("sentence_id", "")), confidence=0.0, source_text=sent_rec.get("text", ""), target_text="", explanation="conversion_error", nested_findings=[], key_phrases=[], salience_score=None, features={})
  
         def _convert_paragraph_dict_to_node(pdict: Dict[str, Any], role: str = "source") -> ParagraphNode:
             """
@@ -1233,10 +1399,94 @@ class ComparativeAnalysisService:
                 target_paragraph_nodes.append(ParagraphNode(tag=str(getattr(p, "paragraph_id", "")), target_text=str(p)))
  
         hierarchy_version = "1.2" if include_micro else "1.1"
+
+        # Deterministic serializer: map internal paragraph/sentence nodes (dataclass or dict)
+        # into the legacy dict-shaped payload expected by API consumers and existing tests.
+        def _serialize_sentence(snode: Any, role: str = "source") -> Dict[str, Any]:
+            # snode may be a dict (original sentence_record) or a SentenceNode dataclass
+            if isinstance(snode, dict):
+                sentence_id = snode.get("sentence_id") or f"s-{role}-{snode.get('index','')}"
+                text = snode.get("text", "")
+                alignment = snode.get("alignment")
+                sal = snode.get("salience") if "salience" in snode else snode.get("salience_score") or snode.get("confidence")
+                micro = snode.get("micro_spans") or snode.get("micro_operations") or []
+                return {
+                    "sentence_id": sentence_id,
+                    "index": snode.get("index"),
+                    "text": text,
+                    "alignment": alignment,
+                    "salience": sal,
+                    "micro_spans": micro
+                }
+            else:
+                # dataclass-like object
+                sentence_id = getattr(snode, "tag", "")
+                text = getattr(snode, "source_text", "") if role == "source" else getattr(snode, "target_text", "")
+                alignment = None
+                sal = getattr(snode, "salience_score", None) or getattr(snode, "confidence", None)
+                micro = []
+                # nested_findings may contain PhraseNodes; keep them out of sentence serialization
+                return {
+                    "sentence_id": sentence_id,
+                    "index": getattr(snode, "index", None),
+                    "text": text,
+                    "alignment": alignment,
+                    "salience": sal,
+                    "micro_spans": micro
+                }
+
+        def _serialize_paragraph(pnode: Any, role: str = "source", index_override: int | None = None) -> Dict[str, Any]:
+            # pnode may be dict (original paragraph_node) or ParagraphNode dataclass
+            if isinstance(pnode, dict):
+                paragraph_id = pnode.get("paragraph_id") or f"p-{role}-{pnode.get('index','')}"
+                idx = pnode.get("index", index_override)
+                text = pnode.get("text", "")
+                sentences = pnode.get("sentences", [])
+                # normalize sentences entries
+                serialized_sentences = [_serialize_sentence(s, role=role) for s in sentences]
+                sal = pnode.get("salience")
+                alignment = pnode.get("alignment")
+                return {
+                    "paragraph_id": paragraph_id,
+                    "index": idx,
+                    "role": role,
+                    "text": text,
+                    "sentences": serialized_sentences,
+                    "salience": sal,
+                    "alignment": alignment
+                }
+            else:
+                # dataclass instance
+                paragraph_id = getattr(pnode, "tag", "")
+                idx = getattr(pnode, "index", index_override)
+                text = getattr(pnode, "source_text", "") if role == "source" else getattr(pnode, "target_text", "")
+                nested = getattr(pnode, "nested_findings", [])
+                serialized_sentences = [_serialize_sentence(s, role=role) for s in nested]
+                sal = getattr(pnode, "confidence", None)
+                alignment = getattr(pnode, "explanation", None)
+                return {
+                    "paragraph_id": paragraph_id,
+                    "index": idx,
+                    "role": role,
+                    "text": text,
+                    "sentences": serialized_sentences,
+                    "salience": sal,
+                    "alignment": alignment
+                }
+
+        # Build legacy-shaped lists (prefer original dicts when available to preserve fields)
+        try:
+            legacy_source_paragraphs = [_serialize_paragraph(p, role="source") for p in source_paragraph_nodes]
+            legacy_target_paragraphs = [_serialize_paragraph(p, role="target") for p in target_paragraph_nodes]
+        except Exception:
+            # conservative fallback: try serializing the earlier dict-shaped nodes if present
+            legacy_source_paragraphs = [ _serialize_paragraph(p, role="source") for p in source_nodes ]
+            legacy_target_paragraphs = [ _serialize_paragraph(p, role="target") for p in target_nodes ]
+
         hierarchy = {
             "hierarchy_version": hierarchy_version,
-            "source_paragraphs": source_paragraph_nodes,
-            "target_paragraphs": target_paragraph_nodes,
+            "source_paragraphs": legacy_source_paragraphs,
+            "target_paragraphs": legacy_target_paragraphs,
             "metadata": {
                 "paragraph_alignment_count": len(paragraph_alignment_records),
                 "paragraph_unaligned_source": [i for i in range(len(source_paragraphs)) if i not in aligned_map],
@@ -1806,73 +2056,16 @@ class ComparativeAnalysisService:
 # Hierarchical node dataclasses moved to a dedicated models module to keep
 # model definitions centralized and importable by other modules.
 # Use the dataclass definitions from backend/src/models/hierarchical_nodes.py
+# Feature extractor for hierarchical feature population
+from .feature_extractor import FeatureExtractor
 from ..models.hierarchical_nodes import ParagraphNode, SentenceNode, PhraseNode, to_dict
 from dataclasses import asdict, dataclass, field
 from typing import List, Optional, Any
 
-@dataclass
-class ParagraphNode:
-    """
-    Represents a paragraph in the hierarchical analysis.
-    
-    Attributes:
-        level (str): The hierarchy level ("paragraph").
-        tag (str): A label or identifier for the paragraph.
-        confidence (float): Confidence score for the analysis.
-        source_text (str): Original paragraph text.
-        target_text (str): Translated/simplified paragraph text.
-        explanation (Optional[str]): Explanation of analysis.
-        nested_findings (List[Any]): List of SentenceNode objects.
-    """
-    # TODO: Fill with actual types and defaults
-    level: str = "paragraph"
-    tag: str = ""
-    confidence: float = 0.0
-    source_text: str = ""
-    target_text: str = ""
-    explanation: Optional[str] = None
-    nested_findings: List[Any] = field(default_factory=list)
-
-
-@dataclass
-class SentenceNode:
-    """
-    Represents a sentence in the hierarchical analysis.
-    
-    Attributes:
-        level (str): The hierarchy level ("sentence").
-        tag (str): A label or identifier for the sentence.
-        confidence (float): Confidence score for the sentence alignment.
-        source_text (str): Original sentence text.
-        target_text (str): Translated/simplified sentence text.
-        explanation (Optional[str]): Explanation of analysis.
-        nested_findings (List[Any]): List of PhraseNode objects.
-    """
-    level: str = "sentence"
-    tag: str = ""
-    confidence: float = 0.0
-    source_text: str = ""
-    target_text: str = ""
-    explanation: Optional[str] = None
-    nested_findings: List[Any] = field(default_factory=list)
-
-
-@dataclass
-class PhraseNode:
-    """
-    Represents a phrase in the hierarchical analysis.
-    
-    Attributes:
-        level (str): The hierarchy level ("phrase").
-        tag (str): A label or identifier for the phrase.
-        confidence (float): Confidence score for the phrase alignment.
-        source_text (str): Original phrase text.
-        target_text (str): Translated/simplified phrase text.
-        explanation (Optional[str]): Explanation of analysis.
-    """
-    level: str = "phrase"
-    tag: str = ""
-    confidence: float = 0.0
-    source_text: str = ""
-    target_text: str = ""
-    explanation: Optional[str] = None
+# Hierarchical node dataclasses are defined centrally in:
+#   backend/src/models/hierarchical_nodes.py
+# The service imports and uses those dataclasses (see earlier imports).
+# Removing local redefinitions here avoids name shadowing and keeps a single
+# source of truth for node shapes (PhraseNode / SentenceNode / ParagraphNode).
+#
+# See: backend/src/models/hierarchical_nodes.py

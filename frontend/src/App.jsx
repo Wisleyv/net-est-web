@@ -7,8 +7,11 @@ import React, { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Components
-import EnhancedTextInput from './components/EnhancedTextInput';
+import DualTextInputComponent from './components/DualTextInputComponent';
 import AboutCredits from './components/AboutCredits';
+import SentenceAlignmentPlaceholder from './components/SentenceAlignmentPlaceholder';
+import ComparativeResultsDisplay from './components/ComparativeResultsDisplay';
+import ComparativeAnalysisService from './services/comparativeAnalysisService';
 
 // React Query client
 const queryClient = new QueryClient({
@@ -74,10 +77,33 @@ class ErrorBoundary extends React.Component {
 // Main Application Component
 function MainApp() {
   const [currentView, setCurrentView] = useState('input');
+  const [analysisResult, setAnalysisResult] = useState(null);
+  const [isAnalysing, setIsAnalysing] = useState(false);
 
-  const handleTextProcessed = (_result) => {
-    // Analysis completed successfully
-    // The EnhancedTextInput component handles the display
+  const handleTextProcessed = async (analysisData) => {
+    // Called by DualTextInputComponent when user submits analysisData
+    setIsAnalysing(true);
+    try {
+      // Call the ComparativeAnalysisService to run the analysis on the backend
+      const result = await ComparativeAnalysisService.performComparativeAnalysis(analysisData);
+      // Raw log (may show live object)
+      console.log('Comparative analysis result (raw):', result);
+      // Snapshot the object to avoid later mutation / inspect nested shape
+      try {
+        console.log('Comparative analysis result (JSON):', JSON.parse(JSON.stringify(result)));
+      } catch (e) {
+        console.warn('Failed to stringify comparative analysis result for snapshot:', e);
+      }
+      setAnalysisResult(result);
+      // Switch to results view so the UI can display outcome
+      setCurrentView('results');
+    } catch (err) {
+      console.error('Failed to perform comparative analysis', err);
+      // Keep user on input view on failure (could be enhanced to show notifications)
+      setCurrentView('input');
+    } finally {
+      setIsAnalysing(false);
+    }
   };
 
   const handleError = (_error) => {
@@ -89,12 +115,27 @@ function MainApp() {
     switch (currentView) {
       case 'about':
         return <AboutCredits onBack={() => setCurrentView('input')} />;
+      case 'results':
+        return (
+          <ComparativeResultsDisplay
+            analysisResult={analysisResult}
+            onExport={async (format) => {
+              const id = analysisResult?.id || analysisResult?.analysis_id || analysisResult?.analysisId;
+              if (!id) throw new Error('Missing analysis id for export');
+              return ComparativeAnalysisService.exportAnalysis(id, format);
+            }}
+            isExporting={isAnalysing}
+          />
+        );
       default:
         return (
-          <EnhancedTextInput
-            onTextProcessed={handleTextProcessed}
-            onError={handleError}
-          />
+          <>
+            <DualTextInputComponent
+              onComparativeAnalysis={handleTextProcessed}
+              className=""
+            />
+            <SentenceAlignmentPlaceholder />
+          </>
         );
     }
   };
@@ -148,7 +189,7 @@ function MainApp() {
                 transition: 'all 0.2s ease'
               }}
             >
-              � Análise de Textos
+              📊 Análise de Textos
             </button>
             <button
               onClick={() => setCurrentView('about')}

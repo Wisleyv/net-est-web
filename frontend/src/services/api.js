@@ -96,8 +96,6 @@ export const semanticAlignmentAPI = {
 
 // Analytics API (Fixed to match backend implementation)
 export const analyticsAPI = {
-  // Sess// Analytics API
-export const analyticsAPI = {
   createSession: (data) => api.post('/api/v1/analytics/sessions', data),
   getSession: (sessionId) => api.get(`/api/v1/analytics/sessions/${sessionId}`),
   updateSession: (sessionId, data) => api.put(`/api/v1/analytics/sessions/${sessionId}`, data),
@@ -107,9 +105,34 @@ export const analyticsAPI = {
   submitFeedback: (data) => api.post('/api/v1/analytics/feedback', data),
   getMetrics: (params = {}) => api.get('/api/v1/analytics/metrics', { params }),
   exportData: (sessionId) => api.get(`/api/v1/analytics/export/${sessionId}`),
-UFRJ
-Projeto: NET-EST - Sistema de Análise de Estratégias de Simplificação Textual em Tradução Intralingual
-Equipe: Coord.: Profa. Dra. Janine Pimentel; Dev. Principal: Wisley Vilela; Especialista Linguística: Luanny Matos de Lima; Agentes IA: Claude Sonnet 3.5, ChatGPT-4o, Gemini 2.0 Flash
-Instituições: PIPGLA/UFRJ | Politécnico de Leiria
-Apoio: CAPES | Licença: MIT
-*/
+};
+
+// Manual Tags API
+export const manualTagsAPI = {
+  // Create a new manual tag
+  create: (data) => api.post('/api/v1/manual-tags/', data),
+  
+  // Get tags for analysis
+  getForAnalysis: (analysisId) => api.get(`/api/v1/manual-tags/${analysisId}`),
+  
+  // Get tags for specific sentence
+  getForSentence: (analysisId, sentenceIndex) => api.get(`/api/v1/manual-tags/sentence/${analysisId}/${sentenceIndex}`),
+  
+  // Update existing tag
+  update: (tagId, data) => api.put(`/api/v1/manual-tags/${tagId}`, data),
+  
+  // Delete tag
+  delete: (tagId) => api.delete(`/api/v1/manual-tags/${tagId}`),
+  
+  // Get available tag types
+  getAvailableTypes: () => api.get('/api/v1/manual-tags/tag-types/available'),
+  
+  // Get statistics
+  getStats: (analysisId) => api.get(`/api/v1/manual-tags/stats/${analysisId}`),
+  
+  // Delete all tags for analysis
+  deleteAllForAnalysis: (analysisId) => api.delete(`/api/v1/manual-tags/analysis/${analysisId}`)
+};
+
+// Default export for legacy/default imports (components expect a default axios instance)
+export default api;
