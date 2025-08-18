@@ -18,9 +18,8 @@ Do NOT inject into executable source files to avoid syntax errors. For code file
 
 Banner (for allowed doc files) to append at end:
 
-/*
 Desenvolvido com ❤️ pelo Núcleo de Estudos de Tradução - PIPGLA/UFRJ | Contém código assistido por IA
-*/
+
 
 ## Project Overview
 

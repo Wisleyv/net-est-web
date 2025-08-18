@@ -1,41 +1,20 @@
 /**
  * Interactive Text Highlighter Component
- * Provides visual highlighting and editable strategy tags for tex                <span 
-                  className={`sentence ${sentenceStrategies.length > 0 ? 'highlighted-source' : ''}`}
-                  style={{
-                    backg                            <select 
-                              value={selectedStrategy}
-                              onChange={(e) => setSelectedStrategy(e.target.value)}
-                              className="strategy-select"
-                            >
-                              <option value="">Selecione estratégia para adicionar...</option>
-                              {Object.entries(STRATEGY_METADATA)
-                                .filter(([code, metadata]) => {
-                                  // Only show strategies that are valid and have proper metadata
-                                  return code && metadata && metadata.name && code !== 'UNK+';
-                                })
-                                .map(([code, metadata]) => (
-                                  <option key={code} value={metadata.name}>
-                                    {code} - {metadata.name}
-                                  </option>
-                                ))}
-                            </select>sentenceStrategies.length > 0 ? 
-                      sentenceStrategies[0].color + '60' : 'transparent',
-                    borderLeftColor: sentenceStrategies.length > 0 ? 
-                      sentenceStrategies[0].color : 'transparent'
-                  }}sis
+ * Provides visual highlighting and editable strategy tags for text analysis
  * Addresses requirements: 1.2, 1.3 - Source highlighting and target strategy tags
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Edit3, Check, X } from 'lucide-react';
 import { STRATEGY_METADATA, getStrategyColor } from '../services/strategyColorMapping.js';
+import ManualTagsService from '../services/manualTagsService.js';
 import './InteractiveTextHighlighter.css';
 
 const InteractiveTextHighlighter = ({
   sourceText,
   targetText,
   analysisResult,
+  analysisId, // Add analysisId prop for backend persistence
   onStrategyUpdate = null
 }) => {
   // Convert hex color to rgba with transparency
@@ -71,6 +50,12 @@ const InteractiveTextHighlighter = ({
   const [selectedStrategy, setSelectedStrategy] = useState('');
   const [addingTag, setAddingTag] = useState(null); // For manual tag insertion
   const [insertPosition, setInsertPosition] = useState(null); // Track insertion position
+  
+  // Manual tags state
+  const [manualTags, setManualTags] = useState([]);
+  const [loadingTags, setLoadingTags] = useState(false);
+  const [savingTag, setSavingTag] = useState(false);
+  const [tagError, setTagError] = useState(null);
 
   // Helper functions for sentence counting (moved up to avoid hoisting issues)
   const getSourceSentenceCount = useCallback(() => {
@@ -80,6 +65,29 @@ const InteractiveTextHighlighter = ({
   const getTargetSentenceCount = useCallback(() => {
     return targetText ? targetText.split(/[.!?]+/).filter(s => s.trim()).length : 0;
   }, [targetText]);
+
+  // Load manual tags when component mounts or analysisId changes
+  useEffect(() => {
+    const loadManualTags = async () => {
+      if (!analysisId) return;
+      
+      setLoadingTags(true);
+      setTagError(null);
+      
+      try {
+        const tags = await ManualTagsService.getTagsForAnalysis(analysisId);
+        setManualTags(tags);
+        console.log('Loaded manual tags:', tags);
+      } catch (error) {
+        console.error('Failed to load manual tags:', error);
+        setTagError('Erro ao carregar tags manuais');
+      } finally {
+        setLoadingTags(false);
+      }
+    };
+
+    loadManualTags();
+  }, [analysisId]);
 
   // Helper function to convert Portuguese strategy name to code
   const getStrategyCodeByName = (strategyName) => {
@@ -108,44 +116,84 @@ const InteractiveTextHighlighter = ({
     return null;
   };
 
-  // Process strategies detected from analysis
+  // Process strategies detected from analysis and merge with manual tags
   const strategiesDetected = useMemo(() => {
-    if (!analysisResult?.simplification_strategies) return [];
+    const automaticStrategies = [];
     
-    const strategies = analysisResult.simplification_strategies
-      .map((strategy, index) => {
-        const strategyCode = getStrategyCodeByName(strategy.name);
-        
-        // Skip strategies that can't be mapped to valid codes
-        if (!strategyCode || !STRATEGY_METADATA[strategyCode]) {
-          return null;
-        }
-        
-        const strategyMeta = STRATEGY_METADATA[strategyCode];
-        
-        return {
-          id: strategy.id || `strategy_${index}`,
-          code: strategyCode,
-          fullName: strategyMeta.name, // Use the canonical name from metadata
-          confidence: strategy.confidence,
-          evidence: strategy.evidence || [],
-          color: getStrategyColor(strategyCode),
-          isAutomatic: !strategy.isManual, // Check if manually added
-          // Use preserved position if available, otherwise calculate
-          targetPosition: strategy.targetPosition || { 
-            sentence: index % getTargetSentenceCount(), 
-            type: 'sentence' 
-          },
-          sourcePosition: strategy.sourcePosition || { 
-            sentence: index % getSourceSentenceCount(), 
-            type: 'sentence' 
+    // Process automatic strategies from analysis
+    if (analysisResult?.simplification_strategies) {
+    
+      const autoStrategies = analysisResult.simplification_strategies
+        .map((strategy, index) => {
+          const strategyCode = getStrategyCodeByName(strategy.name);
+          
+          // Skip strategies that can't be mapped to valid codes
+          if (!strategyCode || !STRATEGY_METADATA[strategyCode]) {
+            return null;
           }
-        };
-      })
-      .filter(Boolean); // Remove null entries for invalid strategies
-    
-    return strategies;
-  }, [analysisResult, getSourceSentenceCount, getTargetSentenceCount]);
+          
+          const strategyMeta = STRATEGY_METADATA[strategyCode];
+          
+          return {
+            id: strategy.id || `strategy_${index}`,
+            code: strategyCode,
+            fullName: strategyMeta.name, // Use the canonical name from metadata
+            confidence: strategy.confidence,
+            evidence: strategy.evidence || [],
+            color: getStrategyColor(strategyCode),
+            isAutomatic: true, // Mark as automatic
+            // Use preserved position if available, otherwise calculate
+            targetPosition: strategy.targetPosition || {
+              sentence: index % getTargetSentenceCount(),
+              type: 'sentence'
+            },
+            sourcePosition: strategy.sourcePosition || {
+              sentence: index % getSourceSentenceCount(),
+              type: 'sentence'
+            }
+          };
+        })
+        .filter(Boolean); // Remove null entries for invalid strategies
+      
+      automaticStrategies.push(...autoStrategies);
+    }
+
+    // Process manual tags
+    const manualStrategies = manualTags.map(tag => {
+      const strategyMeta = STRATEGY_METADATA[tag.tag_type] || { name: tag.tag_type };
+      
+      const manualStrategy = {
+        id: tag.id,
+        code: tag.tag_type,
+        fullName: strategyMeta.name,
+        confidence: tag.confidence || 1.0,
+        evidence: tag.evidence || ['Manually added by human validator'],
+        color: getStrategyColor(tag.tag_type),
+        isAutomatic: false, // Mark as manual
+        targetPosition: {
+          sentence: tag.sentence_index,
+          type: 'sentence'
+        },
+        sourcePosition: {
+          sentence: tag.sentence_index,
+          type: 'sentence'
+        },
+        // Additional manual tag data
+        isManual: true,
+        userNotes: tag.user_notes,
+        createdAt: tag.created_at,
+        updatedAt: tag.updated_at
+      };
+      
+      console.log('🔧 Processing manual tag:', tag, '→', manualStrategy);
+      return manualStrategy;
+    });
+
+    // Merge automatic and manual strategies
+    const allStrategies = [...automaticStrategies, ...manualStrategies];
+    console.log('🔧 All strategies detected:', allStrategies);
+    return allStrategies;
+  }, [analysisResult, manualTags, getSourceSentenceCount, getTargetSentenceCount]);
 
   // Split text into sentences for highlighting
   const splitIntoSentences = useCallback((text) => {
@@ -165,21 +213,115 @@ const InteractiveTextHighlighter = ({
 
   // Handle strategy tag editing
   const handleEditTag = (strategyId, currentCode) => {
+    console.log('🔧 handleEditTag called:', { strategyId, currentCode });
     setEditingTag(strategyId);
     setSelectedStrategy(currentCode);
   };
 
-  const handleSaveTag = () => {
-    if (onStrategyUpdate && editingTag && selectedStrategy) {
-      onStrategyUpdate(editingTag, selectedStrategy);
+  const handleSaveTag = async () => {
+    console.log('🔧 handleSaveTag called:', { editingTag, selectedStrategy });
+    
+    if (!editingTag || !selectedStrategy) {
+      console.log('❌ handleSaveTag: missing editingTag or selectedStrategy');
+      return;
     }
-    setEditingTag(null);
-    setSelectedStrategy('');
+    
+    setSavingTag(true);
+    setTagError(null);
+    
+    try {
+      // Find the strategy being edited
+      const strategy = strategiesDetected.find(s => s.id === editingTag);
+      console.log('🔧 Found strategy to edit:', strategy);
+      
+      if (!strategy) {
+        throw new Error('Estratégia não encontrada');
+      }
+      
+      const strategyCode = getStrategyCodeByName(selectedStrategy);
+      console.log('🔧 Strategy code:', strategyCode);
+      
+      if (!strategyCode) {
+        throw new Error('Código de estratégia inválido');
+      }
+      
+      if (!strategy.isAutomatic) {
+        console.log('🔧 Updating existing manual tag via API');
+        // This is an existing manual tag - update it via API
+        const result = await ManualTagsService.updateTag(editingTag, {
+          tagType: strategyCode
+        });
+        console.log('🔧 Update result:', result);
+        
+        if (result.success) {
+          // Update local state
+          setManualTags(prevTags =>
+            prevTags.map(tag =>
+              tag.id === editingTag
+                ? { ...tag, tag_type: strategyCode, updated_at: new Date().toISOString() }
+                : tag
+            )
+          );
+          console.log('✅ Manual tag updated successfully');
+        }
+      } else {
+        console.log('🔧 Converting automatic strategy to manual tag');
+        // This is an automatic strategy - convert it to a manual tag
+        if (!analysisId) {
+          throw new Error('Analysis ID is required to save manual tags');
+        }
+        
+        // Get sentence text for the tag
+        const sentenceText = targetSentences[strategy.targetPosition.sentence] || '';
+        
+        // Check if a manual tag already exists for this sentence and strategy
+        const existingTag = manualTags.find(tag =>
+          tag.sentence_index === strategy.targetPosition.sentence &&
+          tag.tag_type === strategyCode
+        );
+        
+        if (existingTag) {
+          setTagError(`Tag ${strategyCode} já existe para esta frase`);
+          return;
+        }
+        
+        // Create new manual tag via API
+        const result = await ManualTagsService.createTag({
+          tagType: strategyCode,
+          sentenceIndex: strategy.targetPosition.sentence,
+          sentenceText: sentenceText,
+          analysisId: analysisId,
+          userNotes: `Converted from automatic strategy: ${strategy.fullName}`
+        });
+        console.log('🔧 Create result:', result);
+        
+        if (result.success) {
+          // Add to local state
+          setManualTags(prevTags => [...prevTags, result.tag]);
+          console.log('✅ Automatic strategy converted to manual tag successfully');
+          
+          // Also call the callback to update the UI
+          if (onStrategyUpdate) {
+            onStrategyUpdate(editingTag, selectedStrategy);
+          }
+        } else {
+          setTagError(result.message || 'Erro ao converter estratégia para tag manual');
+        }
+      }
+    } catch (error) {
+      console.error('❌ Failed to save tag:', error);
+      setTagError(error.message || 'Erro ao salvar alterações na tag');
+    } finally {
+      setSavingTag(false);
+      setEditingTag(null);
+      setSelectedStrategy('');
+    }
   };
 
   const handleCancelEdit = () => {
     setEditingTag(null);
     setSelectedStrategy('');
+    setTagError(null);
   };
 
   // Handle double-click to add new tag
@@ -191,41 +333,81 @@ const InteractiveTextHighlighter = ({
   };
 
   // Handle saving new manually added tag
-  const handleSaveNewTag = () => {
-    if (onStrategyUpdate && insertPosition && selectedStrategy) {
+  const handleSaveNewTag = async () => {
+    if (!analysisId || !insertPosition || !selectedStrategy) return;
+    
+    setSavingTag(true);
+    setTagError(null);
+    
+    try {
       // Get the strategy code from the selected Portuguese name
       const strategyCode = getStrategyCodeByName(selectedStrategy);
       
       if (!strategyCode) {
+        throw new Error('Código de estratégia inválido');
+      }
+      
+      // Get sentence text for the tag
+      const sentenceText = targetSentences[insertPosition.sentence] || '';
+      
+      // Check if tag already exists for this sentence and strategy
+      const existingTag = manualTags.find(tag =>
+        tag.sentence_index === insertPosition.sentence &&
+        tag.tag_type === strategyCode
+      );
+      
+      if (existingTag) {
+        setTagError(`Tag ${strategyCode} já existe para esta frase`);
         return;
       }
       
-      // Create new strategy object with explicit position validation
-      const newStrategy = {
-        id: `manual_${Date.now()}`,
-        code: strategyCode,
-        fullName: selectedStrategy, // Keep full name for reference
-        confidence: 1.0, // Manual tags have 100% confidence
-        evidence: ['Manually added by human validator'],
-        color: getStrategyColor(strategyCode),
-        isAutomatic: false, // Mark as manually added
-        // Ensure we're using the exact sentence index where the user clicked
-        targetPosition: { 
-          sentence: insertPosition.sentence, 
-          type: 'sentence'
-        },
-        sourcePosition: { 
-          sentence: insertPosition.sentence, 
-          type: 'sentence' 
-        }
-      };
+      // Create tag via API
+      const result = await ManualTagsService.createTag({
+        tagType: strategyCode,
+        sentenceIndex: insertPosition.sentence,
+        sentenceText: sentenceText,
+        analysisId: analysisId
+      });
       
-      // Add to strategies list
-      onStrategyUpdate('add', newStrategy);
+      if (result.success) {
+        // Add to local state
+        setManualTags(prevTags => [...prevTags, result.tag]);
+        
+        // Also update via callback if provided (for backward compatibility)
+        if (onStrategyUpdate) {
+          const newStrategy = {
+            id: result.tag.id,
+            code: strategyCode,
+            fullName: STRATEGY_METADATA[strategyCode]?.name || strategyCode,
+            confidence: 1.0,
+            evidence: ['Manually added by human validator'],
+            color: getStrategyColor(strategyCode),
+            isAutomatic: false,
+            targetPosition: {
+              sentence: insertPosition.sentence,
+              type: 'sentence'
+            },
+            sourcePosition: {
+              sentence: insertPosition.sentence,
+              type: 'sentence'
+            }
+          };
+          onStrategyUpdate('add', newStrategy);
+        }
+        
+        console.log('Manual tag created successfully:', result.tag);
+      } else {
+        setTagError(result.message || 'Erro ao criar tag manual');
+      }
+    } catch (error) {
+      console.error('Failed to create manual tag:', error);
+      setTagError(error.message || 'Erro ao criar tag manual');
+    } finally {
+      setSavingTag(false);
+      setAddingTag(false);
+      setInsertPosition(null);
+      setSelectedStrategy('');
     }
-    setAddingTag(false);
-    setInsertPosition(null);
-    setSelectedStrategy('');
   };
 
   // Handle canceling new tag addition
@@ -233,6 +415,61 @@ const InteractiveTextHighlighter = ({
     setAddingTag(false);
     setInsertPosition(null);
     setSelectedStrategy('');
+    setTagError(null);
+  };
+
+  // Handle tag deletion
+  const handleDeleteTag = async (strategyId) => {
+    console.log('🔧 handleDeleteTag called:', { strategyId });
+    
+    if (!strategyId) {
+      console.log('❌ handleDeleteTag: missing strategyId');
+      return;
+    }
+    
+    setSavingTag(true);
+    setTagError(null);
+    
+    try {
+      // Find the strategy being deleted
+      const strategy = strategiesDetected.find(s => s.id === strategyId);
+      console.log('🔧 Found strategy to delete:', strategy);
+      
+      if (!strategy) {
+        throw new Error('Estratégia não encontrada');
+      }
+      
+      // Only allow deletion of manual tags
+      if (!strategy.isAutomatic || strategy.isManual) {
+        console.log('🔧 Deleting manual tag via API');
+        // This is a manual tag - delete it via API
+        const result = await ManualTagsService.deleteTag(strategyId);
+        console.log('🔧 Delete result:', result);
+        
+        if (result.success) {
+          // Remove from local state
+          setManualTags(prevTags => prevTags.filter(tag => tag.id !== strategyId));
+          console.log('✅ Manual tag deleted successfully');
+        } else {
+          setTagError(result.message || 'Erro ao excluir tag');
+        }
+      } else {
+        console.log('❌ Cannot delete automatic strategy');
+        setTagError('Não é possível excluir estratégias automáticas');
+        return;
+      }
+      
+      // Also use callback for UI updates if provided
+      if (onStrategyUpdate) {
+        console.log('🔧 Calling onStrategyUpdate for delete');
+        onStrategyUpdate('delete', strategyId);
+      }
+    } catch (error) {
+      console.error('❌ Failed to delete tag:', error);
+      setTagError(error.message || 'Erro ao excluir tag');
+    } finally {
+      setSavingTag(false);
+    }
   };
 
   // Render source text with highlighting
@@ -300,6 +537,8 @@ const InteractiveTextHighlighter = ({
         <div className="text-content">
           <div className="add-tag-hint">
             💡 Duplo-clique em uma frase para adicionar tag manual
+            {loadingTags && <span> (Carregando tags...)</span>}
+            {tagError && <div className="error-message">❌ {tagError}</div>}
           </div>
           {targetSentences.map((sentence, index) => {
             // Check if this sentence has strategies
@@ -316,10 +555,11 @@ const InteractiveTextHighlighter = ({
                       <div key={strategy.id} className="strategy-tag-container">
                         {editingTag === strategy.id ? (
                           <div className="strategy-editor">
-                            <select 
+                            <select
                               value={selectedStrategy}
                               onChange={(e) => setSelectedStrategy(e.target.value)}
                               className="strategy-select"
+                              disabled={savingTag}
                             >
                               <option value="">Selecione estratégia...</option>
                               {Object.entries(STRATEGY_METADATA).map(([code, metadata]) => (
@@ -328,29 +568,53 @@ const InteractiveTextHighlighter = ({
                                 </option>
                               ))}
                             </select>
-                            <button onClick={handleSaveTag} className="save-btn">
-                              <Check size={14} />
+                            <button
+                              onClick={handleSaveTag}
+                              className="save-btn"
+                              disabled={savingTag || !selectedStrategy}
+                            >
+                              {savingTag ? '...' : <Check size={14} />}
                             </button>
-                            <button onClick={handleCancelEdit} className="cancel-btn">
+                            <button
+                              onClick={handleCancelEdit}
+                              className="cancel-btn"
+                              disabled={savingTag}
+                            >
                               <X size={14} />
                             </button>
                           </div>
                         ) : (
-                          <button 
-                            className="strategy-tag unified-tag"
-                            style={{ 
-                              backgroundColor: strategy.color,
-                              color: getContrastingTextColor(strategy.color)
-                            }}
-                            onClick={() => handleEditTag(strategy.id, strategy.fullName || strategy.code)}
-                            title={`${strategy.fullName || strategy.code} - Confiança: ${Math.round(strategy.confidence * 100)}% - ${strategy.isAutomatic ? 'Automático' : 'Manual'}`}
-                          >
-                            <span className="tag-code">[{strategy.code}]</span>
-                            <Edit3 size={12} className="edit-icon" />
-                            <span className="confidence">
-                              {Math.round(strategy.confidence * 100)}%
-                            </span>
-                          </button>
+                          <div className="strategy-tag-wrapper">
+                            <button
+                              className="strategy-tag unified-tag"
+                              style={{
+                                backgroundColor: strategy.color,
+                                color: getContrastingTextColor(strategy.color)
+                              }}
+                              onClick={() => handleEditTag(strategy.id, strategy.fullName || strategy.code)}
+                              title={`${strategy.fullName || strategy.code} - Confiança: ${Math.round(strategy.confidence * 100)}% - ${strategy.isAutomatic ? 'Automático' : 'Manual'}`}
+                              disabled={savingTag}
+                            >
+                              <span className="tag-code">[{strategy.code}]</span>
+                              <Edit3 size={12} className="edit-icon" />
+                              <span className="confidence">
+                                {Math.round(strategy.confidence * 100)}%
+                              </span>
+                            </button>
+                            {!strategy.isAutomatic && (
+                              <button
+                                className="delete-tag-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteTag(strategy.id);
+                                }}
+                                title="Excluir tag manual"
+                                disabled={savingTag}
+                              >
+                                <X size={12} />
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
                     ))}
@@ -359,10 +623,11 @@ const InteractiveTextHighlighter = ({
                     {addingTag && insertPosition?.sentence === index && (
                       <div className="strategy-tag-container">
                         <div className="strategy-editor new-tag-editor">
-                          <select 
+                          <select
                             value={selectedStrategy}
                             onChange={(e) => setSelectedStrategy(e.target.value)}
                             className="strategy-select"
+                            disabled={savingTag}
                           >
                             <option value="">Selecione estratégia para adicionar...</option>
                             {Object.entries(STRATEGY_METADATA).map(([code, metadata]) => (
@@ -371,10 +636,18 @@ const InteractiveTextHighlighter = ({
                               </option>
                             ))}
                           </select>
-                          <button onClick={handleSaveNewTag} className="save-btn" disabled={!selectedStrategy}>
-                            <Check size={14} />
+                          <button
+                            onClick={handleSaveNewTag}
+                            className="save-btn"
+                            disabled={savingTag || !selectedStrategy}
+                          >
+                            {savingTag ? '...' : <Check size={14} />}
                           </button>
-                          <button onClick={handleCancelNewTag} className="cancel-btn">
+                          <button
+                            onClick={handleCancelNewTag}
+                            className="cancel-btn"
+                            disabled={savingTag}
+                          >
                             <X size={14} />
                           </button>
                         </div>

@@ -4,12 +4,12 @@
  */
 
 import React, { useState } from 'react';
-import { 
-  FileText, 
-  TrendingUp, 
-  BarChart3, 
-  Target, 
-  Download, 
+import {
+  FileText,
+  TrendingUp,
+  BarChart3,
+  Target,
+  Download,
   Eye,
   EyeOff,
   ChevronDown,
@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   Info
 } from 'lucide-react';
+import InteractiveTextHighlighter from './InteractiveTextHighlighter';
 
 const ComparativeResultsDisplay = ({ 
   analysisResult, 
@@ -255,50 +256,91 @@ const ComparativeResultsDisplay = ({
         {activeSection === 'comparison' && (
           <div className="space-y-4">
             <h4 className="font-medium text-gray-900">Comparação Lado a Lado</h4>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Source Text */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-gray-500" />
-                  <h5 className="font-medium text-gray-900">Texto Fonte (Original)</h5>
-                </div>
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto">
-                  <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans">
-                    {analysisResult.sourceText}
-                  </pre>
-                </div>
-              </div>
-
-              {/* Target Text */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-green-600" />
-                  <h5 className="font-medium text-gray-900">Texto Simplificado</h5>
-                </div>
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 max-h-96 overflow-y-auto">
-                  <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans">
-                    {analysisResult.targetText}
-                  </pre>
-                </div>
-              </div>
-            </div>
-
-            {/* Highlighted Differences */}
-            {analysisResult.highlightedDifferences && (
+    
+            {/* Use the interactive highlighter (renders side-by-side and tags) */}
+            <InteractiveTextHighlighter
+              sourceText={analysisResult.source_text ?? analysisResult.sourceText ?? ''}
+              targetText={analysisResult.target_text ?? analysisResult.targetText ?? ''}
+              analysisResult={analysisResult}
+              analysisId={analysisResult.analysis_id ?? analysisResult.analysisId ?? analysisResult.id}
+              onStrategyUpdate={() => {}}
+            />
+    
+            {/* Display detected simplification strategies instead of basic differences */}
+            {analysisResult.simplification_strategies && analysisResult.simplification_strategies.length > 0 && (
               <div className="bg-white border border-gray-200 rounded-lg p-4">
-                <h5 className="font-medium text-gray-900 mb-3">Principais Diferenças Identificadas</h5>
-                <div className="space-y-2">
-                  {analysisResult.highlightedDifferences.map((diff, index) => (
-                    <div key={index} className="flex items-start gap-3 p-2 bg-yellow-50 rounded">
-                      <AlertCircle className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
-                      <div className="text-sm">
-                        <span className="font-medium text-yellow-800">{diff.type}:</span>
-                        <span className="text-yellow-700 ml-1">{diff.description}</span>
+                <h5 className="font-medium text-gray-900 mb-3">Estratégias de Simplificação Detectadas</h5>
+                <div className="space-y-3">
+                  {analysisResult.simplification_strategies.map((strategy, index) => (
+                    <div key={index} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                              {strategy.sigla || strategy.name?.split(' ')[0] || 'N/A'}
+                            </span>
+                            <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                              (strategy.impacto || strategy.impact) === 'alto' || (strategy.impacto || strategy.impact) === 'high'
+                                ? 'bg-red-100 text-red-800'
+                                : (strategy.impacto || strategy.impact) === 'médio' || (strategy.impacto || strategy.impact) === 'medium'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-green-100 text-green-800'
+                            }`}>
+                              {strategy.impacto === 'alto' ? 'Alto Impacto' :
+                               strategy.impacto === 'médio' ? 'Médio Impacto' :
+                               strategy.impacto === 'baixo' ? 'Baixo Impacto' :
+                               strategy.impact === 'high' ? 'Alto Impacto' :
+                               strategy.impact === 'medium' ? 'Médio Impacto' :
+                               strategy.impact === 'low' ? 'Baixo Impacto' : 'Médio Impacto'}
+                            </span>
+                            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                              {Math.round((strategy.confianca || strategy.confidence || 0) * 100)}% confiança
+                            </span>
+                          </div>
+                          <h6 className="font-medium text-gray-900 mb-1">
+                            {strategy.nome || strategy.name || 'Estratégia de Simplificação'}
+                          </h6>
+                          <p className="text-sm text-gray-600 mb-2">
+                            {strategy.descricao || strategy.description || 'Descrição não disponível'}
+                          </p>
+                          {(strategy.exemplos || strategy.examples) && (strategy.exemplos || strategy.examples).length > 0 && (
+                            <div className="mt-2">
+                              <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Exemplos:</span>
+                              <div className="mt-1 space-y-1">
+                                {(strategy.exemplos || strategy.examples).slice(0, 2).map((example, exIndex) => (
+                                  <div key={exIndex} className="text-xs bg-gray-50 p-2 rounded border-l-2 border-blue-200">
+                                    {example.original && (
+                                      <>
+                                        <span className="text-red-600 font-medium">Fonte: </span>
+                                        <span className="text-red-600">{example.original}</span>
+                                        <br />
+                                      </>
+                                    )}
+                                    {(example.simplified || example.fragmentado) && (
+                                      <>
+                                        <span className="text-green-600 font-medium">Simplificado: </span>
+                                        <span className="text-green-600">{example.simplified || example.fragmentado}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
+                {(!analysisResult.simplification_strategies || analysisResult.simplification_strategies.length === 0) && (
+                  <div className="text-center py-4 text-gray-500">
+                    <Info className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm">Nenhuma estratégia de simplificação específica foi detectada automaticamente.</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      As estratégias podem ser adicionadas manualmente através da interface de marcação.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>

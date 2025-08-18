@@ -15,6 +15,9 @@ const DualTextInputComponent = ({ onComparativeAnalysis, className = "" }) => {
   const [targetFile, setTargetFile] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
+  const [includeHierarchy, setIncludeHierarchy] = useState(true);
+  const [includeSalience, setIncludeSalience] = useState(true);
+  const [salienceMethod, setSalienceMethod] = useState('frequency');
 
   const { handleError, handleSuccess } = useErrorHandler();
 
@@ -145,6 +148,10 @@ const DualTextInputComponent = ({ onComparativeAnalysis, className = "" }) => {
           targetFile: targetFile?.name,
           timestamp: new Date().toISOString(),
         }
+  ,
+  hierarchical_output: includeHierarchy,
+  include_salience: includeSalience,
+  salience_method: salienceMethod
       };
       
       await onComparativeAnalysis(analysisData);
@@ -166,6 +173,9 @@ const DualTextInputComponent = ({ onComparativeAnalysis, className = "" }) => {
     setSourceFile(null);
     setTargetFile(null);
     setValidationErrors({});
+  setIncludeHierarchy(true);
+  setIncludeSalience(true);
+  setSalienceMethod('frequency');
     handleSuccess('Campos limpos com sucesso!');
   };
 
@@ -187,6 +197,29 @@ const DualTextInputComponent = ({ onComparativeAnalysis, className = "" }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Opções Avançadas */}
+        <div className="lg:col-span-2 bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-4">
+          <h4 className="font-medium text-gray-800">Opções Avançadas</h4>
+          <div className="flex flex-wrap gap-6 items-end">
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" className="rounded border-gray-300" checked={includeHierarchy} onChange={(e)=>setIncludeHierarchy(e.target.checked)} />
+              Incluir Estrutura Hierárquica (parágrafo/sentença)
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" className="rounded border-gray-300" checked={includeSalience} onChange={(e)=>setIncludeSalience(e.target.checked)} />
+              Calcular Saliência
+            </label>
+            <div className="flex flex-col">
+              <label className="text-xs font-medium text-gray-600 mb-1">Método de Saliência</label>
+              <select className="text-sm border-gray-300 rounded px-2 py-1" value={salienceMethod} onChange={(e)=>setSalienceMethod(e.target.value)} disabled={!includeSalience}>
+                <option value="frequency">Frequência (padrão)</option>
+                <option value="keybert">KeyBERT (se disponível)</option>
+                <option value="yake">YAKE (se disponível)</option>
+              </select>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500">A saliência atribui pesos (0–1) a parágrafos e sentenças para indicar importância relativa. O cálculo é opcional e pode aumentar o tempo de processamento.</p>
+        </div>
         {/* Source Text Input */}
         <div className="space-y-4">
           <div className="flex items-center gap-2">

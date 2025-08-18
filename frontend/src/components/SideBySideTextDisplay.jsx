@@ -93,38 +93,35 @@ const SideBySideTextDisplay = ({
   }, [targetText]);
 
   // Apply highlighting to text based on detected strategies
-  const highlightText = (text, isTarget = false) => {
-    if (!text || strategiesDetected.length === 0) {
-      return <span className="unhighlighted-text">{text}</span>;
-    }
+  const highlightText = (text, isTarget = false, paragraphIndex = 0) => {
+    if (!text) return <span className="unhighlighted-text">{text}</span>;
 
-    const highlightedText = text;
-    const segments = [{ text: highlightedText, strategies: [] }];
-
-    // Apply highlighting for each strategy
-    strategiesDetected.forEach(strategy => {
-      if (!selectedStrategies.has(strategy.code) && selectedStrategies.size > 0) {
-        return; // Skip if strategy is not selected when filtering is active
-      }
-
-      // Simple highlighting - wrap detected segments
-      // This is a simplified approach; in a full implementation,
-      // you would use the evidence from the backend to highlight specific spans
-      if (strategy.evidence.length > 0) {
-        const className = getStrategyClassName(strategy.code);
-        const strategyTag = `<span class="${className}" data-strategy="${strategy.code}">${strategy.code}</span>`;
-        
-        // Add strategy tag at the beginning for demonstration
-        if (isTarget) {
-          segments[0].text = `${strategyTag} ${segments[0].text}`;
-        }
-      }
+    // Find strategies that explicitly target this paragraph (preferred)
+    const strategiesForParagraph = strategiesDetected.filter((strategy) => {
+      const key = isTarget ? 'targetParagraph' : 'sourceParagraph';
+      return strategy[key] === paragraphIndex;
     });
 
+    // Fallback: if none found, fall back to evidence-based tags (existing behavior)
+    const fallbackStrategies = strategiesForParagraph.length === 0
+      ? strategiesDetected.filter(s => (selectedStrategies.size === 0 || selectedStrategies.has(s.code)))
+      : strategiesForParagraph;
+
+    // Build prefix HTML with tags for strategies found for this paragraph
+    const prefixTags = fallbackStrategies.map((strategy) => {
+      const className = getStrategyClassName(strategy.code);
+      const color = strategy.color || '#ddd';
+      const evidenceText = (strategy.evidence || []).slice(0,3).join('; ');
+      const title = `${strategy.code} — ${strategy.name} (${Math.round(strategy.confidence*100)}%)${evidenceText ? ' — ' + evidenceText : ''}`;
+      return `<button type="button" title="${title}" class="${className} strategy-inline-tag" data-strategy="${strategy.code}" style="background:${color};color:${getContrastingTextColor(color)};border:none;padding:2px 6px;margin-right:6px;border-radius:4px;font-size:0.8em;cursor:pointer;">${strategy.code}</button>`;
+    }).join(' ');
+
+    const safeText = text.replace(/</g, '<').replace(/>/g, '>');
+
     return (
-      <div 
+      <div
         className="highlighted-text"
-        dangerouslySetInnerHTML={{ __html: segments[0].text }}
+        dangerouslySetInnerHTML={{ __html: (prefixTags ? prefixTags + ' ' : '') + safeText }}
         onMouseOver={handleTextHover}
         onMouseOut={handleTextOut}
         onFocus={handleTextHover}

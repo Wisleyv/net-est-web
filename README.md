@@ -52,6 +52,40 @@ Consulte nossa documentação estruturada para mais informações:
 5. **Coletor de Feedback** - Aprendizado contínuo
 6. **Gerador de Relatórios** - Exportação de resultados
 
+## 🧭 Roadmap (Milestones Overview)
+
+| Milestone | Focus | Status | Key Deliverables |
+|-----------|-------|--------|------------------|
+| M1 | Paragraph & Sentence Alignment | ✅ Done | Semantic alignment + enhanced Portuguese sentence splitter |
+| M2 | Hierarchical Output (Paragraph → Sentence) | ✅ Done | Hierarchy model, local sentence salience normalization, control flags |
+| M3 | Sentence Salience & Cache | ✅ Done | SalienceProvider (freq/KeyBERT/YAKE), include_salience & salience_method flags, LRU cache |
+| M4 | Visualization & Micro-Spans | 🚧 In Progress | Salience heatmap / highlighting, lexical micro-spans ([Design](./docs/m4_visualizacao_saliencia_microspans.md)) |
+| M5 | Human Feedback Loop | 🔜 Planned | Feedback endpoint, correction persistence |
+| M6 | Advanced Analytics & Reporting | 🔜 Planned | Session metrics, structured export |
+
+### M3 – Salience (Summary)
+
+Delivered salience provider with:
+* Default frequency-based method (Portuguese stopword aware).
+* Optional KeyBERT / YAKE (when installed) selectable via `salience_method`.
+* Request flags: `include_salience` and `salience_method` (per-request override).
+* Per-paragraph normalization for intra-paragraph comparability.
+* Deterministic hash-based caching + LRU (`SALIENCE_CACHE_MAX`) preventing unbounded growth.
+* Tests: fallback behavior, flag control, cache reuse, LRU eviction.
+
+Next recommended step (M4 start): implement sentence salience visualization (gradient / side bars) and scaffold micro-span extraction while retaining hierarchical compatibility.
+
+### M4 – Visualization & Micro-Spans (Summary)
+
+Status: In Progress. Backend flags (`include_visual_salience`, `include_micro_spans`, `micro_span_mode`, `salience_visual_mode`) implemented; heuristic `MicroSpanExtractor` (`ngram-basic`) integrated with hierarchy (version bump to 1.2 when active) and unit-tested. Next: frontend visualization (gradient / bars) and tooltip UI.
+
+Immediate focus:
+* Frontend gradient / bar visualization layer.
+* Tooltip or popover listing micro-spans with normalized salience.
+* Optional performance metrics (latency / cache hit-rate) logging.
+
+Phase exit criteria (updated): backend integration complete (DONE), tests green (DONE), frontend visualization prototype (PENDING), documentation sample payload with micro_spans (PENDING).
+
 ##  Equipe
 
 - **Coordenação:** Profa. Dra. Janine Pimentel (PIPGLA/UFRJ e Politécnico de Leiria)

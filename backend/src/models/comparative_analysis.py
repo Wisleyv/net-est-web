@@ -149,38 +149,40 @@ class ComparativeAnalysisResponse(BaseModel):
     """Response model for comparative analysis"""
     analysis_id: str
     timestamp: datetime
-    
+
     # Input data
     source_text: str
     target_text: str
     source_length: int
     target_length: int
     compression_ratio: float
-    
+
     # Overall assessment
     overall_score: int = Field(..., ge=0, le=100)
     overall_assessment: str
-    
+
     # Detailed analyses
     lexical_analysis: Optional[LexicalAnalysis] = None
     syntactic_analysis: Optional[SyntacticAnalysis] = None
     semantic_analysis: Optional[SemanticAnalysis] = None
     readability_metrics: Optional[ReadabilityMetrics] = None
-    
+
     # Identified strategies
     simplification_strategies: List[SimplificationStrategy] = Field(default_factory=list)
     strategies_count: int
-    
+
     # Metrics summary
     semantic_preservation: float = Field(..., ge=0.0, le=100.0)
     readability_improvement: float
-    
+
     # Highlighted differences for UI
     highlighted_differences: List[Dict[str, str]] = Field(default_factory=list)
-    
+
     # Metadata
     processing_time: float
     model_version: str = "1.0.0"
+
+    # Hierarchical outputs (legacy dict-shaped and serialized dataclass tree)
     hierarchical_analysis: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Hierarchical analysis tree when requested (versioned). (legacy dict-shaped payload)"
@@ -188,6 +190,20 @@ class ComparativeAnalysisResponse(BaseModel):
     hierarchical_tree: Optional[List[Dict[str, Any]]] = Field(
         default=None,
         description="Hierarchical tree (list of paragraph nodes) serialized for frontend consumption. Each list item is a dict representing a ParagraphNode (dataclass->dict)."
+    )
+
+    # Feature extraction summary and optional top-level feature export:
+    # - feature_extraction_summary: general aggregated features computed during analysis
+    #   (e.g., top key_phrases, average sentence salience, feature counts). Kept flexible
+    #   to avoid breaking changes while enabling frontend/analytics to consume extracted features.
+    # - include_feature_fields: convenience flag (informational) indicating feature fields are present
+    feature_extraction_summary: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Aggregated feature extraction results (key phrases, salience averages, feature counts)."
+    )
+    include_feature_fields: bool = Field(
+        default=False,
+        description="Flag indicating that hierarchical nodes contain populated feature fields (key_phrases, salience_score, features)."
     )
 
 
