@@ -195,6 +195,12 @@ pids
 *.pkl
 *.pickle
 
+# Hugging Face model cache (do not track downloaded models)
+.huggingface-cache/
+/.huggingface/
+backend/.huggingface-cache/
+backend/.huggingface/
+
 # Data files (if sensitive)
 # data/
 # datasets/
