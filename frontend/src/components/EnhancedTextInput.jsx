@@ -40,16 +40,17 @@ const EnhancedTextInput = ({ onTextProcessed, onError }) => {
       
       const result = response.data;
       
-      if (result && result.status === 'success') {
+      // Check if the response contains the expected analysis result fields
+      if (result && result.analysis_id && result.overall_score !== undefined) {
         // Add the original texts to the result for display
         const enhancedResult = {
           ...result,
           sourceText: inputData.sourceText,
           targetText: inputData.targetText,
-          timestamp: new Date().toISOString(),
+          timestamp: result.timestamp || new Date().toISOString(),
           // Map the API response structure to what the display component expects
-          strategies_count: result.simplification_strategies?.length || 0,
-          semantic_preservation: result.semantic_similarity || 0,
+          strategies_count: result.strategies_count || result.simplification_strategies?.length || 0,
+          semantic_preservation: result.semantic_preservation || result.semantic_analysis?.semantic_similarity || 0,
           readability_improvement: result.readability_improvement || 0,
         };
         
@@ -61,7 +62,7 @@ const EnhancedTextInput = ({ onTextProcessed, onError }) => {
           onTextProcessed(enhancedResult);
         }
       } else {
-        throw new Error(result.message || 'Analysis failed');
+        throw new Error('Invalid analysis response format');
       }
       
     } catch (error) {
