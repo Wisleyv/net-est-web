@@ -36,22 +36,22 @@ logger = structlog.get_logger()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Gerenciamento do ciclo de vida da aplicação"""
-    logger.info("🚀 NET-EST API iniciando...")
+    logger.info("NET-EST API iniciando...")
     
     # Pre-load models at startup for better performance
-    logger.info("📚 Carregando modelos de ML...")
+    logger.info("Carregando modelos de ML...")
     try:
         from .services.strategy_detector import _initialize_models
         nlp, semantic_model = _initialize_models()
         if semantic_model:
-            logger.info("✅ Modelo semântico carregado na inicialização")
+            logger.info("Modelo semântico carregado na inicialização")
         else:
-            logger.info("⚠️ Modelo semântico não disponível - usando apenas heurísticas")
+            logger.info("AVISO: Modelo semântico não disponível - usando apenas heurísticas")
     except Exception as e:
-        logger.warning(f"⚠️ Erro ao carregar modelos: {e}")
+        logger.warning(f"AVISO: Erro ao carregar modelos: {e}")
     
     yield
-    logger.info("🔥 NET-EST API finalizando...")
+    logger.info("NET-EST API finalizando...")
 
 
 # Criar aplicação FastAPI

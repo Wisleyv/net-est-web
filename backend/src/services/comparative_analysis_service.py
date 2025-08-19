@@ -350,19 +350,23 @@ class ComparativeAnalysisService:
         from Tabela Simplificação Textual.
         """
         try:
+            logging.info("🔍 Starting strategy identification with new StrategyDetector")
+            
             # Use the new StrategyDetector for proper Portuguese strategies
             strategy_detector = StrategyDetector()
+            logging.info("✅ StrategyDetector created successfully")
             
             # Get strategies based on Tabela Simplificação Textual
             detected_strategies = strategy_detector.identify_strategies(
                 source_text=source_text,
                 target_text=target_text
             )
+            logging.info(f"✅ Strategy detection completed: {len(detected_strategies)} strategies")
             
             # Debug log
             logging.info(f"Detected strategies: {len(detected_strategies)}")
             for strategy in detected_strategies:
-                logging.info(f"Strategy: {getattr(strategy, 'sigla', 'UNKNOWN')} - {getattr(strategy, 'nome', 'UNKNOWN')}")
+                logging.info(f"Strategy: {getattr(strategy, 'sigla', 'UNKNOWN')} - {getattr(strategy, 'nome', 'UNKNOWN')} (conf: {getattr(strategy, 'confianca', 0)})")
             
             # Convert to the format expected by the frontend
             strategies = []
