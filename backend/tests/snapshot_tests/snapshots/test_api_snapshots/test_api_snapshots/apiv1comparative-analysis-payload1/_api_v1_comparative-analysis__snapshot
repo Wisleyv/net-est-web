@@ -79,18 +79,23 @@
     "source_unique_words": 7,
     "substitutions": [
       {
+        "source": "reunião",
+        "target": "inesperados",
+        "type": "lexical_substitution"
+      },
+      {
         "source": "adiada",
         "target": "motivos",
         "type": "lexical_substitution"
       },
       {
-        "source": "imprevistas",
-        "target": "inesperados",
+        "source": "devido",
+        "target": "cancelado",
         "type": "lexical_substitution"
       },
       {
-        "source": "reunião",
-        "target": "cancelado",
+        "source": "circunstâncias",
+        "target": "encontro",
         "type": "lexical_substitution"
       }
     ],

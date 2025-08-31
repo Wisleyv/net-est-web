@@ -448,9 +448,10 @@ class SemanticAlignmentService:
                     if aligned_pairs
                     else 0.0
                 ),
-                # Timing fields are variable and not useful for snapshot tests; redact
-                "processing_time_seconds": "<redacted>",
-                "embedding_time_seconds": "<redacted>",
+                # Keep numeric timing fields here (tests expect numeric values);
+                # snapshot tests will redact these via the test normalizer.
+                "processing_time_seconds": processing_time,
+                "embedding_time_seconds": embedding_response.processing_time,
                 "model_used": embedding_response.model_used,
             }
 
