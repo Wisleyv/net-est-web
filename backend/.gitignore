@@ -1,0 +1,17 @@
+# Local VSCode / workspace backups
+vscode_backup_*
+.vscode/
+
+# Backup python files
+*.py.bak
+
+# Local archives (keep out of active commits if desired)
+backend/archived/
+
+# Virtual env (if present under backend)
+venv/
+backend/venv/
+
+# OS artifacts
+Thumbs.db
+.DS_Store
