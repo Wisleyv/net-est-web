@@ -16,13 +16,23 @@
     },
     "source_paragraphs": [
       {
+        "alignment": {
+          "similarity": null,
+          "target_index": 0
+        },
         "index": 0,
         "paragraph_id": "p-src-0",
         "role": "source",
         "salience": 1.0,
         "sentences": [
           {
-            "alignment": null,
+            "alignment": [
+              {
+                "relation": "aligned",
+                "similarity": 1.0,
+                "target_index": 0
+              }
+            ],
             "index": 0,
             "salience": 1.0,
             "sentence_id": "s-src-0-0",
@@ -69,18 +79,18 @@
     "source_unique_words": 7,
     "substitutions": [
       {
-        "source": "devido",
+        "source": "adiada",
         "target": "motivos",
-        "type": "lexical_substitution"
-      },
-      {
-        "source": "reunião",
-        "target": "encontro",
         "type": "lexical_substitution"
       },
       {
         "source": "imprevistas",
         "target": "inesperados",
+        "type": "lexical_substitution"
+      },
+      {
+        "source": "reunião",
+        "target": "cancelado",
         "type": "lexical_substitution"
       }
     ],

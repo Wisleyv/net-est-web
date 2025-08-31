@@ -13,7 +13,8 @@ def _normalize(obj):
     if isinstance(obj, dict):
         new = {}
         for k, v in obj.items():
-            if k in ("analysis_id", "timestamp", "feedback_id", "processing_time", "feedback_prompt"):
+            # Redact commonly-volatile identifiers and timing fields used in nested models
+            if k in ("analysis_id", "timestamp", "feedback_id", "processing_time", "feedback_prompt", "embedding_time_seconds", "processing_time_seconds"):
                 new[k] = "<redacted>"
             elif isinstance(v, float):
                 # Round floats to stable precision
