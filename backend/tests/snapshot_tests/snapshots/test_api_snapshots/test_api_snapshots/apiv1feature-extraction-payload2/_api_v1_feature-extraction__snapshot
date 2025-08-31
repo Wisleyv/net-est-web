@@ -1,0 +1,107 @@
+{
+  "annotated_data": [],
+  "average_confidence": 0.0,
+  "confidence_distribution": {
+    "high": 0,
+    "low": 0,
+    "medium": 0
+  },
+  "features_extracted": 0,
+  "metadata": {},
+  "processing_time": "<redacted>",
+  "recommendations": [
+    "Consider enabling OM+ tag or increasing simplification strategies",
+    "Review text pair for actual simplification or adjust confidence thresholds"
+  ],
+  "reduction_ratio_achieved": 0.0,
+  "reduction_ratio_expected": 0.65,
+  "success": true,
+  "tag_distribution": {},
+  "total_annotations": 0,
+  "user_config_used": {
+    "confidence_thresholds": {
+      "high": 0.8,
+      "low": 0.3,
+      "medium": 0.6
+    },
+    "expected_reduction_ratio": 0.65,
+    "reduction_tolerance": 0.15,
+    "similarity_threshold": 0.5,
+    "tag_config": {
+      "AS+": {
+        "active": true,
+        "manual_only": false,
+        "weight": 1.0
+      },
+      "DL+": {
+        "active": true,
+        "manual_only": false,
+        "weight": 1.0
+      },
+      "EXP+": {
+        "active": true,
+        "manual_only": false,
+        "weight": 1.0
+      },
+      "IN+": {
+        "active": true,
+        "manual_only": false,
+        "weight": 1.0
+      },
+      "MOD+": {
+        "active": true,
+        "manual_only": false,
+        "weight": 1.2
+      },
+      "MT+": {
+        "active": true,
+        "manual_only": false,
+        "weight": 1.0
+      },
+      "MV+": {
+        "active": true,
+        "manual_only": false,
+        "weight": 1.0
+      },
+      "OM+": {
+        "active": false,
+        "manual_only": false,
+        "weight": 1.0
+      },
+      "PRO+": {
+        "active": false,
+        "manual_only": true,
+        "weight": 1.0
+      },
+      "RD+": {
+        "active": true,
+        "manual_only": false,
+        "weight": 1.0
+      },
+      "RF+": {
+        "active": true,
+        "manual_only": false,
+        "weight": 1.5
+      },
+      "RP+": {
+        "active": true,
+        "manual_only": false,
+        "weight": 1.0
+      },
+      "SL+": {
+        "active": true,
+        "manual_only": false,
+        "weight": 1.3
+      },
+      "TA+": {
+        "active": true,
+        "manual_only": false,
+        "weight": 1.0
+      }
+    }
+  },
+  "warnings": [
+    "Text reduction (0.0%) is below expected level (65.0%)",
+    "No simplification strategies detected"
+  ]
+}
