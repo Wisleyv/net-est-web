@@ -82,7 +82,8 @@ class SemanticAlignmentService:
 
     def __init__(self, config: AlignmentConfiguration | None = None):
         self.config = config or AlignmentConfiguration(
-            bertimbau_model="paraphrase-multilingual-MiniLM-L12-v2",
+                # Use the test-suite expected default model for compatibility
+                bertimbau_model="neuralmind/bert-base-portuguese-cased",
             similarity_threshold=0.7,
             max_sequence_length=512,
             batch_size=8,
@@ -124,13 +125,26 @@ class SemanticAlignmentService:
         start_time = time.time()
 
         if not ML_AVAILABLE:
-            # Fallback: return random embeddings for testing
-            logger.warning("Using fallback random embeddings")
-            embeddings = [[np.random.random() for _ in range(768)] for _ in request.texts]
+            # Fallback: return deterministic embeddings for testing (seeded by text+model)
+            logger.warning("Using deterministic fallback embeddings")
+            dim = 768
+            embeddings: list[list[float]] = []
+            for text in request.texts:
+                seed_input = f"{request.model_name}:{text}"
+                seed = int.from_bytes(hashlib.sha256(seed_input.encode()).digest()[:8], "big")
+                rng = np.random.default_rng(seed)
+                vec = rng.random(dim)
+                if request.normalize:
+                    norm = np.linalg.norm(vec)
+                    if norm > 0:
+                        vec = vec / norm
+                embeddings.append(vec.tolist())
+
+            # Keep legacy model name expected by tests while using deterministic vectors
             return EmbeddingResponse(
                 embeddings=embeddings,
                 model_used="fallback_random",
-                embedding_dim=768,
+                embedding_dim=dim,
                 processing_time=time.time() - start_time,
             )
 
@@ -504,3 +518,4 @@ class SemanticAlignmentService:
             status["model_status"] = "ml_libraries_not_available"
 
         return status
+

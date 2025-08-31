@@ -88,6 +88,14 @@ app.include_router(analytics_router)
 app.include_router(comparative_analysis_router)
 app.include_router(feature_extraction_router, prefix="/api/v1")
 
+# Backwards-compatible mounts under /api/v1 to avoid breaking existing clients/tests
+# These duplicate mounts call the same handlers and are temporary; remove once clients
+# and tests are migrated to the canonical paths.
+app.include_router(text_input_router, prefix="/api/v1")
+app.include_router(semantic_alignment_router, prefix="/api/v1")
+app.include_router(analytics_router, prefix="/api/v1")
+app.include_router(comparative_analysis_router, prefix="/api/v1")
+
 
 # Handler de exceções global
 @app.exception_handler(Exception)
@@ -108,3 +116,10 @@ if __name__ == "__main__":
         reload=True,
         log_config=None,  # Usar nosso logging customizado
     )
+
+from src.core.feature_flags import feature_flags
+
+@app.get("/feature-flags/")
+async def list_feature_flags():
+    """Endpoint to list current feature flags (for debugging)"""
+    return feature_flags.flags

@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Body
 
 from ..models.semantic_alignment import (
     AlignmentConfiguration,
@@ -63,6 +63,28 @@ async def align_paragraphs(request: AlignmentRequest) -> AlignmentResponse:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {str(e)}",
         )
+
+
+@router.post("/", response_model=AlignmentResponse)
+async def align_paragraphs_root(request_body: dict = Body(...)) -> AlignmentResponse:
+    """Compatibility root POST endpoint -> accepts legacy payloads (source_text/target_text)
+    and forwards to /align by coercing into AlignmentRequest when necessary."""
+    # If already matching new model shape, let pydantic handle it by creating AlignmentRequest
+    if isinstance(request_body, dict) and (
+        "source_paragraphs" in request_body or "target_paragraphs" in request_body
+    ):
+        request = AlignmentRequest(**request_body)
+    elif isinstance(request_body, dict) and ("source_text" in request_body and "target_text" in request_body):
+        # Legacy simple payload: single strings -> wrap into single-paragraph lists
+        request = AlignmentRequest(
+            source_paragraphs=[request_body.get("source_text", "")],
+            target_paragraphs=[request_body.get("target_text", "")],
+        )
+    else:
+        # Fallback: attempt to coerce generically
+        request = AlignmentRequest(**request_body)
+
+    return await align_paragraphs(request)
 
 
 @router.post("/embeddings", response_model=EmbeddingResponse)

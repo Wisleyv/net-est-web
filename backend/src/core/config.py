@@ -59,6 +59,10 @@ class Settings(BaseSettings):
     MAX_WORDS_LIMIT: int = 2000
     MAX_FILE_SIZE_MB: int = 10
 
+    # Strategy Detection Configuration
+    STRATEGY_DETECTION_MODE: str = "complete"  # "complete" or "performance"
+    MAX_SENTENCES_FOR_PERFORMANCE: int = 5  # Only used in performance mode
+
     # Futuros - Modelos e API
     BERTIMBAU_MODEL: str = "paraphrase-multilingual-MiniLM-L12-v2"
     SIMILARITY_THRESHOLD: float = 0.5

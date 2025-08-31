@@ -194,6 +194,9 @@ watchfiles==1.1.0
 websockets==15.0.1
     # via uvicorn
 
+aiohttp==3.9.5
+    # required for async test client in feedback concurrency tests
+
 # ---------------------------------------------------------------------------
 # Key Phrase / Salience Extraction (Module 3 hierarchical update)
 # The design references an external tool "LangExtract" (not available on PyPI).
