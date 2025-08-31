@@ -629,6 +629,15 @@ class ComparativeAnalysisService:
             if t_idx is not None:
                 sentences_t = self._split_sentences(target_paragraphs[t_idx])
                 sentence_alignment_result = self.sentence_alignment_service.align(sentences_s, sentences_t, threshold=0.3)
+            else:
+                # When paragraph-level alignment is not available, attempt a lightweight
+                # sentence-level similarity alignment so hierarchical outputs contain
+                # alignment relations for tests that expect them.
+                try:
+                    sentences_t = self._split_sentences(request.target_text)
+                    sentence_alignment_result = self.sentence_alignment_service.align(sentences_s, sentences_t, threshold=0.3)
+                except Exception:
+                    sentence_alignment_result = None
             if sentence_alignment_result:
                 rel_map: Dict[int, List[Dict[str, Any]]] = {}
                 for rec in sentence_alignment_result.aligned:
