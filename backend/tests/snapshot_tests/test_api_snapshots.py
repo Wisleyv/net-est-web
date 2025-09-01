@@ -16,6 +16,9 @@ def _normalize(obj):
             # Redact commonly-volatile identifiers and timing fields used in nested models
             if k in ("analysis_id", "timestamp", "feedback_id", "processing_time", "feedback_prompt", "embedding_time_seconds", "processing_time_seconds"):
                 new[k] = "<redacted>"
+            # Hierarchical analysis is experimental and feature-flag controlled; redact to keep snapshots stable
+            elif k == "hierarchical_analysis":
+                new[k] = "<redacted>"
             elif isinstance(v, float):
                 # Round floats to stable precision
                 new[k] = round(v, 6)
