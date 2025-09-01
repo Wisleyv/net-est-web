@@ -12,12 +12,34 @@ class FeatureFlags:
         self.load()
     
     def load(self):
-        """Load feature flags from YAML file"""
+        """Load feature flags from YAML file.
+
+        Tries multiple candidate locations to support running from repo root
+        or from the backend package (tests often run with different CWD).
+        """
         try:
-            config_file = Path(self.config_path)
-            if config_file.exists():
-                with open(config_file, 'r') as f:
-                    self.flags = yaml.safe_load(f) or {}
+            # Candidate paths to check (in order)
+            candidates = [Path(self.config_path)]
+
+            # If this module lives under backend/src/core, allow backend/config
+            # as a fallback location used in this repository layout.
+            module_root = Path(__file__).resolve().parents[2]  # backend/
+            candidates.append(module_root / self.config_path)
+
+            # Also allow an explicit backend/config absolute path from repo root
+            candidates.append(Path('backend') / self.config_path)
+
+            loaded = False
+            for cfg in candidates:
+                if cfg.exists():
+                    with open(cfg, 'r', encoding='utf-8') as f:
+                        self.flags = yaml.safe_load(f) or {}
+                    loaded = True
+                    break
+
+            if not loaded:
+                # No config found; keep flags empty but avoid raising.
+                self.flags = {}
         except Exception as e:
             # Fallback to empty config on error
             self.flags = {}
