@@ -1,4 +1,4 @@
-# ===== FRONTEND (Node.js/React) =====
+.pip-cache/# ===== FRONTEND (Node.js/React) =====
 # Dependencies
 node_modules/
 npm-debug.log*
