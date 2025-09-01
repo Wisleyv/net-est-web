@@ -1,0 +1,26 @@
+{
+  "aligned": [
+    {
+      "relation": "aligned",
+      "similarity": 1.0,
+      "source_index": 0,
+      "target_index": 0
+    },
+    {
+      "relation": "aligned",
+      "similarity": 1.0,
+      "source_index": 1,
+      "target_index": 1
+    }
+  ],
+  "similarity_matrix": [
+    [
+      1.0,
+      1.0
+    ],
+    [
+      1.0,
+      1.0
+    ]
+  ]
+}

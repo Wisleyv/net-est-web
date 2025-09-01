@@ -3,10 +3,7 @@ Focus: correctness of sentence-level alignment classifications and edge cases.
 """
 
 import pytest
-from src.services.sentence_alignment_service import (
-    SentenceAlignmentService,
-    simple_sentence_split,
-)
+from src.services.sentence_alignment_service import SentenceAlignmentService
 
 
 @pytest.fixture
@@ -14,9 +11,10 @@ def service():
     return SentenceAlignmentService()
 
 
-def test_simple_sentence_split_basic():
+def test_split_sentences_basic():
+    service = SentenceAlignmentService()
     text = "Primeira frase. Segunda frase! Terceira? Quarta frase final."
-    parts = simple_sentence_split(text)
+    parts = service.split_sentences(text)
     assert len(parts) >= 4
     assert parts[0].startswith("Primeira")
 

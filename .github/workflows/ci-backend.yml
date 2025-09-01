@@ -1,0 +1,48 @@
+name: CI - Backend Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    env:
+      PYTHONPATH: backend/src
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/backend/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          if (Test-Path backend/requirements.txt) {
+            pip install -r backend/requirements.txt
+          } else {
+            # fallback: ensure pytest is available so the test step doesn't fail early
+            pip install pytest
+          }
+
+      - name: Run tests
+        shell: pwsh
+        run: |
+          python -m pytest -q
+
+      - name: Snapshot check (no update)
+        shell: pwsh
+        run: |
+          python -m pytest tests/snapshot_tests -q

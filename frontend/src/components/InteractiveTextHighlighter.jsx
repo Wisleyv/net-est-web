@@ -111,39 +111,40 @@ const InteractiveTextHighlighter = ({
   // Process strategies detected from analysis
   const strategiesDetected = useMemo(() => {
     if (!analysisResult?.simplification_strategies) return [];
-    
+
     const strategies = analysisResult.simplification_strategies
       .map((strategy, index) => {
-        const strategyCode = getStrategyCodeByName(strategy.name);
-        
+        // Backend now sends 'code' field directly, but fallback to name conversion if needed
+        const strategyCode = strategy.code || getStrategyCodeByName(strategy.name);
+
         // Skip strategies that can't be mapped to valid codes
         if (!strategyCode || !STRATEGY_METADATA[strategyCode]) {
           return null;
         }
-        
+
         const strategyMeta = STRATEGY_METADATA[strategyCode];
-        
+
         return {
           id: strategy.id || `strategy_${index}`,
           code: strategyCode,
           fullName: strategyMeta.name, // Use the canonical name from metadata
           confidence: strategy.confidence,
           evidence: strategy.evidence || [],
-          color: getStrategyColor(strategyCode),
+          color: strategy.color || getStrategyColor(strategyCode), // Use backend color if available
           isAutomatic: !strategy.isManual, // Check if manually added
-          // Use preserved position if available, otherwise calculate
-          targetPosition: strategy.targetPosition || { 
-            sentence: index % getTargetSentenceCount(), 
-            type: 'sentence' 
+          // Use backend position data if available, otherwise calculate
+          targetPosition: strategy.targetPosition || {
+            sentence: index % getTargetSentenceCount(),
+            type: 'sentence'
           },
-          sourcePosition: strategy.sourcePosition || { 
-            sentence: index % getSourceSentenceCount(), 
-            type: 'sentence' 
+          sourcePosition: strategy.sourcePosition || {
+            sentence: index % getSourceSentenceCount(),
+            type: 'sentence'
           }
         };
       })
       .filter(Boolean); // Remove null entries for invalid strategies
-    
+
     return strategies;
   }, [analysisResult, getSourceSentenceCount, getTargetSentenceCount]);
 

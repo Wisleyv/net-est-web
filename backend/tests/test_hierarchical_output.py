@@ -35,7 +35,8 @@ async def test_hierarchical_output_included():
 
 
 @pytest.mark.asyncio
-async def test_hierarchical_output_absent_by_default():
+async def test_hierarchical_output_enabled_by_feature_flag():
+    """Test that hierarchical output is enabled by default when feature flag is on"""
     service = ComparativeAnalysisService()
     req = ComparativeAnalysisRequest(
     source_text="Texto origem com duas frases. Mais uma sentença extra para cumprir o requisito mínimo de comprimento.",
@@ -49,7 +50,13 @@ async def test_hierarchical_output_absent_by_default():
         ),
     )
     resp = await service.perform_comparative_analysis(req)
-    assert resp.hierarchical_analysis is None
+    # With feature flag enabled, hierarchical analysis should be present by default
+    assert resp.hierarchical_analysis is not None
+    h = resp.hierarchical_analysis
+    assert h["hierarchy_version"] == "1.1"
+    assert len(h["source_paragraphs"]) == 1
+    assert len(h["target_paragraphs"]) == 1
+    assert "sentences" in h["source_paragraphs"][0]
 
 
 @pytest.mark.asyncio

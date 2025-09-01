@@ -8,15 +8,26 @@ import time
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
-
-from ..models.text_input import (
-    FileType,
-    FileUploadInfo,
-    InputType,
-    TextInputRequest,
-    TextInputResponse,
-    TextValidationResult,
-)
+try:
+    from backend.src.models.text_input import (
+        FileType,
+        FileUploadInfo,
+        InputType,
+        TextInputRequest,
+        TextInputResponse,
+        TextValidationResult,
+    )
+    from backend.src.services.text_input_service import TextInputService
+except Exception:
+    from ..models.text_input import (
+        FileType,
+        FileUploadInfo,
+        InputType,
+        TextInputRequest,
+        TextInputResponse,
+        TextValidationResult,
+    )
+    from ..services.text_input_service import TextInputService
 from ..services.text_input_service import TextInputService
 
 
