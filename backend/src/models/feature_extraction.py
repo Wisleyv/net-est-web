@@ -175,3 +175,14 @@ class FeatureExtractionResponse(BaseModel):
     # Metadata
     user_config_used: UserConfiguration = Field(description="User configuration used for analysis")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+
+    # Compatibility: accept and expose distributions with string keys for ease of JSON serialization
+    def model_dump_compat(self) -> Dict[str, Any]:
+        """Return a JSON-serializable dict with enum keys converted to strings."""
+        base = self.model_dump() if hasattr(self, 'model_dump') else self.dict()
+        # Convert confidence_distribution keys
+        conf = base.get('confidence_distribution') or {}
+        base['confidence_distribution'] = {str(k): int(v) for k, v in conf.items()} if conf else {}
+        tagd = base.get('tag_distribution') or {}
+        base['tag_distribution'] = {str(k): int(v) for k, v in tagd.items()} if tagd else {}
+        return base

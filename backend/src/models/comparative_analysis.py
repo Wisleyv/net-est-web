@@ -15,6 +15,12 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from enum import Enum
 
+# Import feedback models for integration
+try:
+    from .feedback import FeedbackCollectionPrompt
+except ImportError:
+    FeedbackCollectionPrompt = None
+
 
 class AnalysisOptions(BaseModel):
     """Options for comparative analysis"""
@@ -95,6 +101,12 @@ class SimplificationStrategy(BaseModel):
     impact: str = Field(..., pattern="^(low|medium|high)$")
     confidence: float = Field(..., ge=0.0, le=1.0)
     examples: List[Dict[str, str]] = Field(default_factory=list)
+
+    # Additional fields for frontend compatibility
+    code: Optional[str] = Field(None, description="Strategy code (e.g., 'SL+', 'RP+')")
+    color: Optional[str] = Field(None, description="Hex color code for UI highlighting")
+    targetPosition: Optional[Dict[str, Any]] = Field(None, description="Position in target text")
+    sourcePosition: Optional[Dict[str, Any]] = Field(None, description="Position in source text")
 
 
 class ReadabilityMetric(BaseModel):
@@ -184,6 +196,12 @@ class ComparativeAnalysisResponse(BaseModel):
     hierarchical_analysis: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Hierarchical analysis tree when requested (versioned).",
+    )
+
+    # M6: Feedback system integration
+    feedback_prompt: Optional[Any] = Field(
+        default=None,
+        description="Feedback collection prompt when feedback system is enabled.",
     )
 
 

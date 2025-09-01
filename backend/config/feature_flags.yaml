@@ -1,0 +1,36 @@
+# Feature Flags Configuration
+# Enable/disable experimental features without redeployment
+
+# Core features
+core_features:
+  semantic_alignment: true
+  comparative_analysis: true
+  feature_extraction: true
+
+# Experimental features (disabled by default)
+experimental:
+  sentence_alignment: true
+  salience_weighting: true
+  hierarchical_output: true
+  langextract_integration:
+    enabled: false  # Safe default: disabled
+    observation_mode: true  # Start with observation mode
+    ab_testing_enabled: false
+    strategies:
+      - SL+  # Focus on lexical simplification first
+      - MOD+ # Perspective shifts
+      - RF+  # Global rewriting
+    monitoring:
+      log_improvements: true
+      track_performance: true
+      alert_threshold: 0.05  # Alert if improvement < 5%
+
+# M6: Feedback Capture & Persistence System
+feedback_system:
+  enabled: true
+  collection_enabled: true
+  prompt_enabled: true
+  storage_path: "data/feedback"
+  max_file_size_mb: 10.0
+  retention_days: 90
+  cleanup_interval_days: 7

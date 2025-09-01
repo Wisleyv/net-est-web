@@ -94,9 +94,7 @@ export const semanticAlignmentAPI = {
   deleteAnalysis: (analysisId) => api.delete(`/api/v1/semantic-alignment/${analysisId}`),
 };
 
-// Analytics API (Fixed to match backend implementation)
-export const analyticsAPI = {
-  // Sess// Analytics API
+// Analytics API
 export const analyticsAPI = {
   createSession: (data) => api.post('/api/v1/analytics/sessions', data),
   getSession: (sessionId) => api.get(`/api/v1/analytics/sessions/${sessionId}`),
@@ -107,6 +105,20 @@ export const analyticsAPI = {
   submitFeedback: (data) => api.post('/api/v1/analytics/feedback', data),
   getMetrics: (params = {}) => api.get('/api/v1/analytics/metrics', { params }),
   exportData: (sessionId) => api.get(`/api/v1/analytics/export/${sessionId}`),
+};
+
+// Comparative Analysis API
+export const comparativeAnalysisAPI = {
+  analyze: (data) => api.post('/api/v1/comparative-analysis/analyze', data),
+  validateTexts: (data) => api.post('/api/v1/comparative-analysis/validate-texts', data),
+  uploadText: (formData) => api.post('/api/v1/comparative-analysis/upload-text', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+};
+
+export default api;
+
+/*
 UFRJ
 Projeto: NET-EST - Sistema de Análise de Estratégias de Simplificação Textual em Tradução Intralingual
 Equipe: Coord.: Profa. Dra. Janine Pimentel; Dev. Principal: Wisley Vilela; Especialista Linguística: Luanny Matos de Lima; Agentes IA: Claude Sonnet 3.5, ChatGPT-4o, Gemini 2.0 Flash

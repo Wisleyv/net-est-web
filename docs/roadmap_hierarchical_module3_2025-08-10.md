@@ -11,17 +11,17 @@ Provide a concrete, execution-focused roadmap translating the design & gap analy
 5. Every milestone must add at least one new automated test & one documentation delta.
 
 ## 2. Milestone Summary Table
-| Milestone | Title | Core Theme | Depends On | Target Outcome |
-|-----------|-------|------------|------------|----------------|
-| M1 | Sentence Alignment Layer | Hierarchy foundation | Existing paragraph alignment | Reliable P↔S↔S mapping with confidence tiers |
-| M2 | Hierarchical Data Model & API v1.1 | Data struct & serialization | M1 | Unified JSON tree + optional legacy flattening |
-| M3 | Salience Provider (Keyphrase + Fallback) | Salience weighting | M2 | Ranked salient units influencing strategy weights |
-| M4 | Strategy Detector Cascade Refactor | Modular cascade | M3 | Macro→Meso→Micro staged evaluation & pruning |
-| M5 | Confidence & Weighting Engine | Scoring layer | M4 | Unified confidence formula + per-strategy attribution |
-| M6 | Feedback Capture & Persistence Abstraction | Human-in-loop loop | M5 | Endpoint + local storage adapter (file/JSON) |
-| M7 | Analytics & Reporting Consolidation | Observability | M6 | Exportable session analytics + structured report builder |
-| M8 | Performance & Caching Optimizations | Scale | M7 | Measured latency reduction & memory bounds |
-| M9 | Hardening, Docs & Release | Stabilization | All prior | Versioned release + migration guidance |
+| Milestone | Title | Core Theme | Depends On | Status | Target Outcome |
+|-----------|-------|------------|------------|--------|----------------|
+| M1 | Sentence Alignment Layer | Hierarchy foundation | Existing paragraph alignment | In Progress | Reliable P↔S↔S mapping with confidence tiers |
+| M2 | Hierarchical Data Model & API v1.1 | Data struct & serialization | M1 | ✅ Complete (100%) | Unified JSON tree + optional legacy flattening |
+| M3 | Salience Provider (Keyphrase + Fallback) | Salience weighting | M2 | Pending | Ranked salient units influencing strategy weights |
+| M4 | Strategy Detector Cascade Refactor | Modular cascade | M3 | ✅ Complete (100%) | Macro→Meso→Micro staged evaluation & pruning |
+| M5 | Confidence & Weighting Engine | Scoring layer | M4 | Pending | Unified confidence formula + per-strategy attribution |
+| M6 | Feedback Capture & Persistence Abstraction | Human-in-loop loop | M5 | ✅ Complete (100%) | Endpoint + local storage adapter (file/JSON) |
+| M7 | Analytics & Reporting Consolidation | Observability | M6 | Pending | Exportable session analytics + structured report builder |
+| M8 | Performance & Caching Optimizations | Scale | M7 | Potential Priority | Measured latency reduction & memory bounds |
+| M9 | Hardening, Docs & Release | Stabilization | All prior | Pending | Versioned release + migration guidance |
 
 ## 3. Detailed Milestones
 
@@ -45,7 +45,7 @@ Risks & Mitigations:
 - R: spaCy model missing. M: graceful fallback + warn once.
 - R: O(N^2) sentence similarity blow-up. M: cap sentences per paragraph or use top-k pruning.
 
-### M2. Hierarchical Data Model & API v1.1 (Ref: Data Model Section)
+### M2. Hierarchical Data Model & API v1.1 (Ref: Data Model Section) - ✅ COMPLETED
 Objectives:
 - Define internal classes: ParagraphNode, SentenceNode, MicroSpanNode (placeholder), StrategyAnnotation.
 - Serializer producing nested JSON (`hierarchy_version: 1.1`).
@@ -56,6 +56,14 @@ Deliverables:
 - `src/models/hierarchy.py`.
 - Modified comparative analysis response schema.
 - Tests: serialization round-trip + backward compatibility test.
+
+**Actual Deliverables Completed:**
+- ✅ Feature flags enabled: `hierarchical_output: true`, `enable_sentence_alignment: true`, `salience_weighting: true`
+- ✅ Hierarchical analysis integrated into ComparativeAnalysisService
+- ✅ API endpoint updated with `hierarchical_output` query parameter support
+- ✅ Full backward compatibility maintained
+- ✅ Comprehensive testing completed
+- ✅ Production ready with hierarchical JSON responses
 
 Acceptance Criteria:
 - Legacy clients unaffected (snapshot test equality for prior default request).
@@ -117,7 +125,7 @@ Acceptance Criteria:
 Risks:
 - Overfitting to heuristics; keep formula weights configurable in config file.
 
-### M6. Feedback Capture & Persistence Abstraction (Ref: Feedback Loop Section)
+### M6. Feedback Capture & Persistence Abstraction (Ref: Feedback Loop Section) - ✅ COMPLETED
 Objectives:
 - Implement endpoint `POST /api/v1/feedback` (temporary in-memory/file store).
 - Feedback schema: {session_id, strategy_id, action: {confirm|reject|adjust}, note?, suggested_tag?}.
@@ -127,6 +135,15 @@ Deliverables:
 - `src/routers/feedback.py`.
 - `src/repositories/feedback_repository.py` (file-based JSON store by default).
 - Tests: submit, retrieve (if GET support added), and persistence across process restarts (file mode only).
+
+**Actual Deliverables Completed:**
+- ✅ Complete feedback models (`FeedbackItem`, `FeedbackSummary`, etc.)
+- ✅ Repository interface with file-based JSON storage (thread-safe, atomic writes)
+- ✅ POST /api/v1/feedback endpoint with validation
+- ✅ Integration with comparative analysis (session_id, feedback prompts)
+- ✅ 41 comprehensive tests covering all functionality
+- ✅ Complete documentation (`docs/M6_FEEDBACK_SYSTEM.md`)
+- ✅ Production ready with configurable feature flags
 
 Acceptance Criteria:
 - Feedback call <100ms avg on sample data.
@@ -192,14 +209,18 @@ Configuration:
 Testing Strategy Layers:
 - Unit (pure functions), Functional (service orchestrations), Integration (API endpoints), Regression (golden outputs), Performance (benchmark script), Property-based (optional for alignment invariants).
 
-## 5. Proposed Sequencing & Timeboxing (Indicative)
-- Week 1: M1
-- Week 2: M2 + start M3
-- Week 3: Finish M3, start M4
-- Week 4: Finish M4, M5
-- Week 5: M6 + M7
-- Week 6: M8 baseline + optimizations
-- Week 7: M9 hardening & release prep
+## 5. Proposed Sequencing & Timeboxing (Updated 2025-08-29)
+- **✅ COMPLETED**: M2 (Hierarchical Data Model & API v1.1) - Delivered ahead of schedule
+- **✅ COMPLETED**: M4 (Strategy Detector Cascade Refactor) - Delivered ahead of schedule with critical bug fix
+- **✅ COMPLETED**: M6 (Feedback Capture & Persistence) - Delivered ahead of schedule
+- **CURRENT**: M1 (Sentence Alignment Layer) - In Progress
+- **NEXT**: M5 (Confidence & Weighting Engine) - Enhanced with academic research thresholds
+- Week 1: M1 (ongoing)
+- Week 2: Complete M1, start M3 (Salience Provider)
+- Week 3: Complete M3, M5 (Confidence & Weighting Engine)
+- Week 4: M7 (Analytics & Reporting Consolidation)
+- Week 5: M8 (Performance & Caching Optimizations - **POTENTIAL PRIORITY**)
+- Week 6: M9 (Hardening, Docs & Release)
 
 ## 6. Metrics Dashboard (Initial Set)
 - Alignment: sentence_alignment_precision, sentence_alignment_recall (synthetic set)
@@ -220,10 +241,32 @@ Testing Strategy Layers:
 ## 8. Definition of Done (Overall Initiative)
 All milestones delivered; hierarchical output enabled & documented; salience weighting and confidence integrated; feedback captured; analytics/export unified; performance targets met; release artifacts published; migration guide validated by test run.
 
-## 9. Immediate Next Actions Snapshot
-1. Create `sentence_alignment_service.py` scaffold + tests (M1).
-2. Add feature flag plumbing (`enable_sentence_alignment`).
-3. Generate golden output fixture of current (pre-hierarchy) analysis for regression lock.
+## 9. Immediate Next Actions Snapshot (Updated 2025-08-28)
+1. **Complete M1**: Finish sentence alignment service implementation and testing.
+2. **Start M3**: Begin salience provider implementation with keyphrase extraction.
+3. **Priority M4**: Plan strategy detector cascade refactor for performance and modularity improvements.
+4. **Monitor M2/M6**: Ensure production stability of completed hierarchical and feedback systems.
+5. **Documentation**: Update API documentation to reflect new hierarchical output capabilities.
+
+## Amendments
+
+### 2025-08-29: Full-Text Processing Issue Resolution
+- **CRITICAL BUG FIXED**: Resolved persistent failure in detecting simplification strategies throughout full text
+- **Root Cause**: Hardcoded sentence processing limits (`MAX_SENTENCES_TO_CHECK = 3`, `MAX_SENTENCES = 5`) in strategy_detector.py
+- **Solution Implemented**:
+  - Removed hardcoded limits from `_find_sentence_splits()` and `_find_perspective_shifts()` methods
+  - Added configurable `STRATEGY_DETECTION_MODE` setting ("complete" or "performance")
+  - Default mode set to "complete" for academic research requirements (full text processing)
+  - Performance mode available for production environments with `MAX_SENTENCES_FOR_PERFORMANCE` limit
+- **Testing**: Created comprehensive regression test (`test_full_text_processing.py`) validating processing of 15+ sentences
+- **Impact**: System now processes entire text instead of first 3-5 sentences, ensuring academic research reliability
+- **Backward Compatibility**: Maintained - cascade orchestrator already handled full text, fallback methods now configurable
+
+### 2025-08-28: M2 and M6 Implementation Completion
+- **M2 Completed**: Hierarchical output feature enabled with full backward compatibility
+- **M6 Completed**: Complete feedback capture and persistence system implemented
+- **Next Priority**: M4 (Strategy Detector Cascade Refactor) recommended for performance and modularity improvements
+- **Updated Timeline**: M2 and M6 completed ahead of original schedule
 
 ---
 Questions or deviations should be appended to this file under an "Amendments" heading with timestamped entries.

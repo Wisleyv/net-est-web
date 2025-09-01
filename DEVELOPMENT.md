@@ -209,3 +209,85 @@ When documenting code or creating user documentation:
 /*
 Desenvolvido com ❤️ pelo Núcleo de Estudos de Tradução - PIPGLA/UFRJ | Contém código assistido por IA
 */
+
+## Snapshot Testing
+
+We've implemented snapshot testing to prevent regressions in core functionality. 
+
+### Key Commands:
+```bash
+# Run snapshot tests
+pytest tests/snapshot_tests -v
+
+# Update snapshots after intentional changes
+pytest tests/snapshot_tests -v --snapshot-update
+```
+
+### Workflow:
+1. Tests will fail when API responses change unexpectedly
+2. Review changes in the snapshot files
+3. If changes are valid, update snapshots with `--snapshot-update`
+4. Commit updated snapshots with your changes
+
+Snapshot files are stored in `backend/tests/snapshot_tests/snapshots/`
+
+## Feature Flag System
+
+We use a feature flag system to enable/disable experimental features without redeploying. 
+
+### Configuration:
+- Flags are defined in `backend/config/feature_flags.yaml`
+- Use dot notation to access nested features (e.g. "experimental.sentence_alignment")
+
+### Usage in Code:
+```python
+from src.core.feature_flags import feature_flags
+
+if feature_flags.is_enabled("experimental.sentence_alignment"):
+    # Run experimental feature
+else:
+    # Use legacy implementation
+```
+
+### Management:
+- Flags can be reloaded without restart by sending SIGHUP to the process
+- View current flags at GET `/feature-flags/` endpoint
+
+### Best Practices:
+1. Always provide fallback implementations
+2. Keep experimental features disabled by default
+3. Remove flags once features are stable
+
+## End-to-End Testing with Playwright
+
+We use Playwright for automated end-to-end testing of critical user journeys.
+
+### Getting Started:
+```bash
+# Install Playwright
+npx playwright install
+
+# Run tests
+npm run test:e2e
+```
+
+### Test Locations:
+- `frontend/tests/e2e/` - Contains all e2e test specs
+- `frontend/tests/snapshots/` - Visual comparison snapshots
+
+### Writing Tests:
+1. Use `data-testid` attributes to target elements
+2. Keep tests focused on user journeys
+3. Use page objects for complex components
+4. Add visual comparisons when needed
+
+### Example Test:
+```javascript
+test('Submit texts and view results', async ({ page }) => {
+  await page.goto('/');
+  await page.fill('[data-testid="source-text"]', 'Sample source');
+  await page.fill('[data-testid="target-text"]', 'Sample target');
+  await page.click('[data-testid="analyze-button"]');
+  await expect(page.locator('[data-testid="results"]')).toBeVisible();
+});
+```

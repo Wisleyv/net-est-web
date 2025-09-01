@@ -3,7 +3,7 @@ Data models for simplification strategies, aligned with the documentation.
 """
 
 from enum import Enum
-from typing import List, Dict, Any, Literal
+from typing import List, Dict, Any, Literal, Optional
 from pydantic import BaseModel, Field
 
 class SimplificationStrategyType(str, Enum):
@@ -20,7 +20,7 @@ class StrategyExample(BaseModel):
 
 class SimplificationStrategy(BaseModel):
     """
-    Pydantic model for a single simplification strategy, based on the 
+    Pydantic model for a single simplification strategy, based on the
     "Tabela de Estratégias de Simplificação Textual".
     """
     sigla: str = Field(..., description="The acronym for the strategy (e.g., 'SL+').")
@@ -30,6 +30,86 @@ class SimplificationStrategy(BaseModel):
     impacto: Literal["baixo", "médio", "alto"] = Field(..., description="The impact of the strategy.")
     confianca: float = Field(..., description="The confidence score of the detection (0.0 to 1.0).")
     exemplos: List[StrategyExample] = Field(..., description="Examples of the strategy in action.")
+
+    # Enhanced confidence features (M5)
+    confidence_explanation: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Detailed explanation of confidence calculation with factor breakdown"
+    )
+    confidence_level: Optional[str] = Field(
+        None,
+        description="Human-readable confidence level (very_low, low, moderate, high, very_high)"
+    )
+    evidence_quality: Optional[str] = Field(
+        None,
+        description="Quality of evidence supporting this strategy detection"
+    )
+
+    # Backwards-compatible English aliases (read/write) used across tests and other modules.
+    @property
+    def name(self) -> str:
+        return self.nome
+
+    @name.setter
+    def name(self, value: str) -> None:
+        self.nome = value
+
+    @property
+    def description(self) -> str:
+        return self.descricao
+
+    @description.setter
+    def description(self, value: str) -> None:
+        self.descricao = value
+
+    @property
+    def type(self) -> SimplificationStrategyType:
+        return self.tipo
+
+    @type.setter
+    def type(self, value: SimplificationStrategyType) -> None:
+        self.tipo = value
+
+    @property
+    def impact(self) -> str:
+        return self.impacto
+
+    @impact.setter
+    def impact(self, value: str) -> None:
+        self.impacto = value
+
+    @property
+    def confidence(self) -> float:
+        return self.confianca
+
+    @confidence.setter
+    def confidence(self, value: float) -> None:
+        self.confianca = value
+
+    # Backwards-compatible Portuguese accented property name used in older tests
+    @property
+    def confiança(self) -> float:  # type: ignore
+        return self.confianca
+
+    @confiança.setter
+    def confiança(self, value: float) -> None:  # type: ignore
+        self.confianca = value
+
+    @property
+    def examples(self) -> List[StrategyExample]:
+        return self.exemplos
+
+    @examples.setter
+    def examples(self, value: List[StrategyExample]) -> None:
+        self.exemplos = value
+
+    @property
+    def code(self) -> str | None:
+        return getattr(self, 'sigla', None)
+
+    @code.setter
+    def code(self, value: str) -> None:
+        self.sigla = value
 
 # Canonical data for all strategies, based on "Tabela Simplificação Textual.md"
 STRATEGY_DESCRIPTIONS: Dict[str, Dict[str, Any]] = {

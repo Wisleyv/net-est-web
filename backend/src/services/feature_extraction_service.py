@@ -11,19 +11,34 @@ from collections import defaultdict
 import textstat
 import spacy
 from sklearn.feature_extraction.text import TfidfVectorizer
-
-from ..models.feature_extraction import (
-    FeatureExtractionRequest,
-    FeatureExtractionResponse,
-    TagAnnotation,
-    TagType,
-    TagConfiguration,
-    UserConfiguration,
-    DiscourseFeatures,
-    TagEvidence,
-    ConfidenceLevel
-)
-from ..models.semantic_alignment import AlignmentResponse, AlignedPair
+try:
+    # Prefer absolute 'src' package path used by test runner (PYTHONPATH=backend/src)
+    from src.models.feature_extraction import (
+        FeatureExtractionRequest,
+        FeatureExtractionResponse,
+        TagAnnotation,
+        TagType,
+        TagConfiguration,
+        UserConfiguration,
+        DiscourseFeatures,
+        TagEvidence,
+        ConfidenceLevel
+    )
+    from src.models.semantic_alignment import AlignmentResponse, AlignedPair
+except Exception:
+    # Fallback to relative imports when module executed in package context
+    from ..models.feature_extraction import (
+        FeatureExtractionRequest,
+        FeatureExtractionResponse,
+        TagAnnotation,
+        TagType,
+        TagConfiguration,
+        UserConfiguration,
+        DiscourseFeatures,
+        TagEvidence,
+        ConfidenceLevel
+    )
+    from ..models.semantic_alignment import AlignmentResponse, AlignedPair
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +134,9 @@ class FeatureExtractionService:
             
             processing_time = time.time() - start_time
             
+            # Ensure user_config_used is a plain dict to avoid cross-module Pydantic instance issues
+            user_config_payload = request.user_config.model_dump() if hasattr(request.user_config, 'model_dump') else getattr(request.user_config, 'dict', lambda: request.user_config)()
+
             return FeatureExtractionResponse(
                 success=True,
                 annotated_data=annotations,
@@ -132,11 +150,13 @@ class FeatureExtractionService:
                 reduction_ratio_expected=expected_reduction,
                 warnings=warnings,
                 recommendations=recommendations,
-                user_config_used=request.user_config
+                user_config_used=user_config_payload
             )
             
         except Exception as e:
             logger.error(f"Feature extraction failed: {str(e)}")
+            user_config_payload = request.user_config.model_dump() if hasattr(request.user_config, 'model_dump') else getattr(request.user_config, 'dict', lambda: request.user_config)()
+
             return FeatureExtractionResponse(
                 success=False,
                 annotated_data=[],
@@ -150,7 +170,7 @@ class FeatureExtractionService:
                 reduction_ratio_expected=request.user_config.expected_reduction_ratio,
                 warnings=[f"Feature extraction failed: {str(e)}"],
                 recommendations=["Please check input data and try again"],
-                user_config_used=request.user_config
+                user_config_used=user_config_payload
             )
 
     def _extract_discourse_features(

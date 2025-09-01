@@ -1,0 +1,53 @@
+{
+  "alignment_result": {
+    "aligned_pairs": [
+      {
+        "alignment_method": "cosine_similarity",
+        "confidence": "high",
+        "similarity_score": 0.843976,
+        "source_index": 0,
+        "source_text": "O gato preto pulou o muro alto.",
+        "target_index": 0,
+        "target_text": "O felino escuro saltou sobre a parede elevada."
+      }
+    ],
+    "alignment_stats": {
+      "aligned_pairs_count": 1,
+      "alignment_rate_source": 1.0,
+      "alignment_rate_target": 1.0,
+      "average_similarity": 0.843976,
+      "embedding_time_seconds": "<redacted>",
+      "max_similarity": 0.843976,
+      "min_similarity": 0.843976,
+      "model_used": "neuralmind/bert-base-portuguese-cased",
+      "processing_time_seconds": "<redacted>",
+      "total_source_paragraphs": 1,
+      "total_target_paragraphs": 1,
+      "unaligned_source_count": 0,
+      "unaligned_target_count": 0
+    },
+    "similarity_matrix": {
+      "matrix": [
+        [
+          0.843976
+        ]
+      ],
+      "method": "cosine_similarity",
+      "source_count": 1,
+      "target_count": 1
+    },
+    "unaligned_source_details": [],
+    "unaligned_source_indices": [],
+    "unaligned_target_details": [],
+    "unaligned_target_indices": []
+  },
+  "errors": [],
+  "processing_metadata": {
+    "alignment_method": "cosine_similarity",
+    "max_alignments_per_source": 3,
+    "processing_time": "<redacted>",
+    "similarity_threshold": 0.5
+  },
+  "success": true,
+  "warnings": []
+}

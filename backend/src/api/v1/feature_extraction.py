@@ -51,6 +51,28 @@ async def analyze_features_and_classify(request: FeatureExtractionRequest):
         )
 
 
+@router.post("/", response_model=FeatureExtractionResponse)
+async def analyze_features_root(request_body: dict):
+    """Compatibility root POST -> accepts legacy payloads such as {"text": "..."}
+    and coerces into FeatureExtractionRequest expected by /analyze."""
+    # If provided a full FeatureExtractionRequest shape, let pydantic handle it
+    if isinstance(request_body, dict) and "alignment_data" in request_body:
+        request = FeatureExtractionRequest(**request_body)
+    elif isinstance(request_body, dict) and "text" in request_body:
+        # Build a minimal alignment_data stub from raw text input
+        stub_alignment = {
+            "aligned_pairs": [],
+            "unaligned_source_indices": [],
+            "source_paragraphs": [request_body.get("text", "")],
+            "target_paragraphs": [request_body.get("text", "")],
+        }
+        request = FeatureExtractionRequest(alignment_data=stub_alignment, user_config=UserConfiguration())
+    else:
+        request = FeatureExtractionRequest(**request_body)
+
+    return await analyze_features_and_classify(request)
+
+
 @router.post("/analyze-from-alignment", response_model=FeatureExtractionResponse)
 async def analyze_from_alignment_response(
     alignment_response: Dict[str, Any],

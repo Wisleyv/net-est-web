@@ -59,7 +59,10 @@ const SideBySideTextDisplay = ({
         confidence: strategy.confidence,
         evidence: strategy.evidence || [],
         color: getStrategyColor(strategyCode, useColorblindFriendly),
-        info: getStrategyInfo(strategyCode)
+        info: getStrategyInfo(strategyCode),
+        // Include position information from backend
+        targetPosition: strategy.targetPosition,
+        sourcePosition: strategy.sourcePosition
       };
       console.log('Mapped strategy:', mapped);
       return mapped;
@@ -92,39 +95,106 @@ const SideBySideTextDisplay = ({
     return targetText ? targetText.split('\n').filter(para => para.trim()) : [];
   }, [targetText]);
 
+  // Calculate global sentence indices for proper position mapping
+  const sourceSentenceMap = useMemo(() => {
+    const map = new Map();
+    let globalIndex = 0;
+    sourceParas.forEach((para, paraIndex) => {
+      const sentences = para.split(/[.!?]+/).filter(s => s.trim()).map(s => s.trim() + '.');
+      sentences.forEach((sentence, localIndex) => {
+        map.set(globalIndex, { paraIndex, localIndex, sentence });
+        globalIndex++;
+      });
+    });
+    return map;
+  }, [sourceParas]);
+
+  const targetSentenceMap = useMemo(() => {
+    const map = new Map();
+    let globalIndex = 0;
+    targetParas.forEach((para, paraIndex) => {
+      const sentences = para.split(/[.!?]+/).filter(s => s.trim()).map(s => s.trim() + '.');
+      sentences.forEach((sentence, localIndex) => {
+        map.set(globalIndex, { paraIndex, localIndex, sentence });
+        globalIndex++;
+      });
+    });
+    return map;
+  }, [targetParas]);
+
   // Apply highlighting to text based on detected strategies
-  const highlightText = (text, isTarget = false) => {
-    if (!text || strategiesDetected.length === 0) {
+  const highlightText = (text, isTarget = false, paraIndex = 0) => {
+    if (!text) {
+      return <span className="unhighlighted-text">{text || ''}</span>;
+    }
+
+    if (strategiesDetected.length === 0) {
       return <span className="unhighlighted-text">{text}</span>;
     }
 
-    const highlightedText = text;
-    const segments = [{ text: highlightedText, strategies: [] }];
-
-    // Apply highlighting for each strategy
-    strategiesDetected.forEach(strategy => {
+    // Filter strategies based on selection and position availability
+    const applicableStrategies = strategiesDetected.filter(strategy => {
       if (!selectedStrategies.has(strategy.code) && selectedStrategies.size > 0) {
-        return; // Skip if strategy is not selected when filtering is active
+        return false; // Skip if strategy is not selected when filtering is active
       }
 
-      // Simple highlighting - wrap detected segments
-      // This is a simplified approach; in a full implementation,
-      // you would use the evidence from the backend to highlight specific spans
-      if (strategy.evidence.length > 0) {
-        const className = getStrategyClassName(strategy.code);
-        const strategyTag = `<span class="${className}" data-strategy="${strategy.code}">${strategy.code}</span>`;
-        
-        // Add strategy tag at the beginning for demonstration
-        if (isTarget) {
-          segments[0].text = `${strategyTag} ${segments[0].text}`;
+      // Check if strategy has position information for this text
+      const positionInfo = isTarget ? strategy.targetPosition : strategy.sourcePosition;
+      return positionInfo && positionInfo.sentence !== undefined;
+    });
+
+    if (applicableStrategies.length === 0) {
+      return <span className="unhighlighted-text">{text}</span>;
+    }
+
+    // Split text into sentences for proper highlighting
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim()).map(s => s.trim() + '.');
+    const highlightedSegments = [];
+
+    sentences.forEach((sentence, localSentenceIndex) => {
+      let highlightedSentence = sentence;
+      let hasHighlights = false;
+
+      // Check if any strategy applies to this sentence using global indexing
+      applicableStrategies.forEach(strategy => {
+        const positionInfo = isTarget ? strategy.targetPosition : strategy.sourcePosition;
+
+        if (positionInfo && positionInfo.sentence !== undefined) {
+          // Find the global sentence index for this paragraph + local sentence
+          const sentenceMap = isTarget ? targetSentenceMap : sourceSentenceMap;
+          let globalSentenceIndex = -1;
+
+          // Find the global index that corresponds to this paragraph and local sentence
+          for (const [globalIdx, mapping] of sentenceMap.entries()) {
+            if (mapping.paraIndex === paraIndex && mapping.localIndex === localSentenceIndex) {
+              globalSentenceIndex = globalIdx;
+              break;
+            }
+          }
+
+          if (positionInfo.sentence === globalSentenceIndex) {
+            const className = getStrategyClassName(strategy.code);
+            // Wrap the entire sentence with strategy highlighting
+            highlightedSentence = `<span class="${className}" data-strategy="${strategy.code}" title="${strategy.info.name} (${Math.round(strategy.confidence * 100)}% confiança)">${highlightedSentence}</span>`;
+            hasHighlights = true;
+          }
         }
+      });
+
+      if (hasHighlights) {
+        highlightedSegments.push(highlightedSentence);
+      } else {
+        highlightedSegments.push(`<span class="unhighlighted-text">${sentence}</span>`);
       }
     });
 
+    // Join sentences back together
+    const finalHtml = highlightedSegments.join(' ');
+
     return (
-      <div 
+      <div
         className="highlighted-text"
-        dangerouslySetInnerHTML={{ __html: segments[0].text }}
+        dangerouslySetInnerHTML={{ __html: finalHtml }}
         onMouseOver={handleTextHover}
         onMouseOut={handleTextOut}
         onFocus={handleTextHover}
@@ -342,7 +412,7 @@ const SideBySideTextDisplay = ({
           <div className="text-content">
             {sourceParas.map((para, index) => (
               <div key={index} className="text-paragraph">
-                {highlightText(para, false)}
+                {highlightText(para, false, index)}
               </div>
             ))}
           </div>
@@ -362,7 +432,7 @@ const SideBySideTextDisplay = ({
           <div className="text-content">
             {targetParas.map((para, index) => (
               <div key={index} className="text-paragraph">
-                {highlightText(para, true)}
+                {highlightText(para, true, index)}
               </div>
             ))}
           </div>
