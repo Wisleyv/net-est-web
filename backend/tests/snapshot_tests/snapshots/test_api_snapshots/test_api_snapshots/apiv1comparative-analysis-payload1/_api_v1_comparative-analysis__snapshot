@@ -2,65 +2,7 @@
   "analysis_id": "<redacted>",
   "compression_ratio": 0.859649,
   "feedback_prompt": "<redacted>",
-  "hierarchical_analysis": {
-    "hierarchy_version": "1.1",
-    "metadata": {
-      "alignment_mode": "semantic_paragraph + sentence_cosine",
-      "paragraph_alignment_count": 0,
-      "paragraph_unaligned_source": [
-        0
-      ],
-      "paragraph_unaligned_target": [
-        0
-      ]
-    },
-    "source_paragraphs": [
-      {
-        "alignment": {
-          "similarity": null,
-          "target_index": 0
-        },
-        "index": 0,
-        "paragraph_id": "p-src-0",
-        "role": "source",
-        "salience": 1.0,
-        "sentences": [
-          {
-            "alignment": [
-              {
-                "relation": "aligned",
-                "similarity": 1.0,
-                "target_index": 0
-              }
-            ],
-            "index": 0,
-            "salience": 1.0,
-            "sentence_id": "s-src-0-0",
-            "text": "A reunião foi adiada devido a circunstâncias imprevistas"
-          }
-        ],
-        "text": "A reunião foi adiada devido a circunstâncias imprevistas."
-      }
-    ],
-    "target_paragraphs": [
-      {
-        "index": 0,
-        "paragraph_id": "p-tgt-0",
-        "role": "target",
-        "salience": 1.0,
-        "sentences": [
-          {
-            "alignment": null,
-            "index": 0,
-            "salience": 1.0,
-            "sentence_id": "s-tgt-0-0",
-            "text": "O encontro foi cancelado por motivos inesperados"
-          }
-        ],
-        "text": "O encontro foi cancelado por motivos inesperados."
-      }
-    ]
-  },
+  "hierarchical_analysis": null,
   "highlighted_differences": [
     {
       "source": "A reunião",
