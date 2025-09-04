@@ -102,7 +102,7 @@ class EmbeddingRequest(BaseModel):
 
     texts: list[str] = Field(..., description="Texts to generate embeddings for")
     model_name: str = Field(
-        "neuralmind/bert-base-portuguese-cased", description="Model to use for embeddings"
+    "paraphrase-multilingual-MiniLM-L12-v2", description="Model to use for embeddings"
     )
     normalize: bool = Field(True, description="Whether to normalize embeddings")
 
@@ -122,7 +122,7 @@ class AlignmentConfiguration(BaseModel):
     """Configuration for alignment process"""
 
     bertimbau_model: str = Field(
-        "neuralmind/bert-base-portuguese-cased", description="BERTimbau model to use"
+    "paraphrase-multilingual-MiniLM-L12-v2", description="BERTimbau model to use"
     )
     similarity_threshold: float = Field(0.5, description="Default similarity threshold")
     max_sequence_length: int = Field(512, description="Maximum sequence length for BERT")
