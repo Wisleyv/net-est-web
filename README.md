@@ -70,7 +70,15 @@ Consulte nossa documentação estruturada para mais informações:
 - [Repositório GitHub](https://github.com/Wisleyv/net-est-web)
 - [Issues e Sugestões](https://github.com/Wisleyv/net-est-web/issues)
 
-## 📄 Licença
+## � Demos / Example scripts
+
+Demo and example scripts (non-tests) are available in the `demos/` directory at the repository root. These are not collected by pytest and are intended for manual, human-in-the-loop experimentation and demonstration.
+
+Examples:
+- `demos/test_confidence_demo.py` — Full demonstration of the Confidence & Weighting Engine (M5).
+
+
+## �📄 Licença
 
 MIT License - veja [LICENSE](LICENSE) para detalhes.
 
