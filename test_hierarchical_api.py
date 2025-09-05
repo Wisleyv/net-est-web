@@ -5,7 +5,10 @@ Test script to verify hierarchical output feature is working correctly
 
 import requests
 import json
+import os
+import pytest
 
+@pytest.mark.skipif(os.environ.get("RUN_INTEGRATION", "false").lower() != "true", reason="integration tests disabled")
 def test_hierarchical_api():
     """Test the hierarchical output API functionality"""
 

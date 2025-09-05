@@ -21,22 +21,27 @@
     "source_unique_words": 7,
     "substitutions": [
       {
-        "source": "reunião",
-        "target": "inesperados",
+        "source": "adiada",
+        "target": "encontro",
         "type": "lexical_substitution"
       },
       {
-        "source": "adiada",
+        "source": "circunstâncias",
         "target": "motivos",
         "type": "lexical_substitution"
       },
       {
         "source": "devido",
-        "target": "cancelado",
+        "target": "motivos",
         "type": "lexical_substitution"
       },
       {
-        "source": "circunstâncias",
+        "source": "imprevistas",
+        "target": "inesperados",
+        "type": "lexical_substitution"
+      },
+      {
+        "source": "reunião",
         "target": "encontro",
         "type": "lexical_substitution"
       }
@@ -47,7 +52,7 @@
   },
   "model_version": "1.0.0",
   "overall_assessment": "Moderate simplification with some readability gains",
-  "overall_score": 51,
+  "overall_score": null,
   "processing_time": "<redacted>",
   "readability_improvement": 7.057857,
   "readability_metrics": {
@@ -99,38 +104,10 @@
     "semantic_similarity": 0.915463
   },
   "semantic_preservation": 91.546333,
-  "simplification_strategies": [
-    {
-      "code": "MOD+",
-      "color": "#8b5cf6",
-      "confidence": 1.0,
-      "description": "Reformulação semântica para adaptar o conteúdo ao repertório do público. Inclui substituição de metáforas, expressões idiomáticas e construções figurativas por formas mais diretas.",
-      "examples": [
-        {
-          "original": "A reunião foi adiada devido a circunstâncias imprevistas.",
-          "simplified": "O encontro foi cancelado por motivos inesperados."
-        },
-        {
-          "original": "A reunião foi adiada devido a circunstâncias imprevistas.",
-          "simplified": "O encontro foi cancelado por motivos inesperados."
-        }
-      ],
-      "impact": "high",
-      "name": "Reinterpretação Perspectiva",
-      "sourcePosition": {
-        "sentence": 0,
-        "type": "sentence"
-      },
-      "targetPosition": {
-        "sentence": 0,
-        "type": "sentence"
-      },
-      "type": "lexical"
-    }
-  ],
+  "simplification_strategies": [],
   "source_length": 57,
   "source_text": "A reunião foi adiada devido a circunstâncias imprevistas.",
-  "strategies_count": 1,
+  "strategies_count": null,
   "syntactic_analysis": {
     "clause_reduction": 0.0,
     "sentence_simplification_ratio": 0.875,
