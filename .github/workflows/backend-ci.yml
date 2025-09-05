@@ -39,6 +39,8 @@ jobs:
         if [ ! -f requirements.txt -a ! -f requirements-dev.txt ]; then
           pip install pytest
         fi
+  # Ensure optional NLP/text libs are present at collection time
+  pip install textstat spacy
     
     - name: Lint with flake8
       run: |
