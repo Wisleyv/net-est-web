@@ -46,6 +46,8 @@ jobs:
             # fallback: ensure pytest is available so the test step doesn't fail early
             pip install pytest
           }
+          # Ensure a couple of optional NLP/text libs are present at collection time
+          pip install textstat spacy
 
       - name: Run tests
         shell: pwsh
