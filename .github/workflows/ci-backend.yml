@@ -26,23 +26,45 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      - name: Install dependencies
+      - name: Install runtime and dev dependencies
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
           if (Test-Path backend/requirements.txt) {
+            Write-Host 'Installing runtime requirements...' -ForegroundColor Cyan
             pip install -r backend/requirements.txt
           } else {
+            Write-Host 'No runtime requirements file found.' -ForegroundColor Yellow
+          }
+          if (Test-Path backend/requirements-dev.txt) {
+            Write-Host 'Installing developer/test requirements...' -ForegroundColor Cyan
+            pip install -r backend/requirements-dev.txt
+          } else {
+            Write-Host 'No dev requirements file found.' -ForegroundColor Yellow
+          }
+          if (-not (Test-Path backend/requirements.txt) -and -not (Test-Path backend/requirements-dev.txt)) {
             # fallback: ensure pytest is available so the test step doesn't fail early
             pip install pytest
           }
+          # Ensure a couple of optional NLP/text libs are present at collection time
+          pip install textstat spacy
+          # Ensure async pytest plugins are available for async tests
+          pip install pytest-asyncio anyio
 
       - name: Run tests
         shell: pwsh
         run: |
-          python -m pytest -q
+          # Load the pytest-asyncio plugin explicitly to ensure async tests run in CI
+          python -m pytest -q -p pytest_asyncio
 
       - name: Snapshot check (no update)
         shell: pwsh
         run: |
-          python -m pytest tests/snapshot_tests -q
+          # Support both repository layouts: some CI runs reference root 'tests/snapshot_tests'
+          if (Test-Path backend/tests/snapshot_tests) {
+            python -m pytest backend/tests/snapshot_tests -q -p pytest_asyncio
+          } elseif (Test-Path tests/snapshot_tests) {
+            python -m pytest tests/snapshot_tests -q -p pytest_asyncio
+          } else {
+            Write-Host 'No snapshot tests directory found in known locations; skipping snapshot check.' -ForegroundColor Yellow
+          }

@@ -146,6 +146,10 @@ scipy==1.16.1
     #   sentence-transformers
 sentence-transformers==5.0.0
     # via -r requirements.in
+textstat
+    # required at import time by src/services/comparative_analysis_service.py
+spacy
+    # required for sentence tokenization fallback in sentence_alignment_service.py
 sniffio==1.3.1
     # via anyio
 starlette==0.47.2

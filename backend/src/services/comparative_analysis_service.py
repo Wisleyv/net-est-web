@@ -1037,11 +1037,10 @@ class ComparativeAnalysisService:
 
     def _find_word_substitutions(self, source_text: str, target_text: str) -> List[Dict[str, str]]:
         """Find word substitutions between texts"""
-        # Use string similarity (SequenceMatcher) to pick the most likely target
-        # substitution for each source-unique word. Preserve original token
-        # order to keep output deterministic across runs.
-        from difflib import SequenceMatcher
-
+        # Use semantic similarity (SentenceTransformer) when available to
+        # select the target token that is semantically closest to the source
+        # token. Fallback to the deterministic seeded-embedding heuristic if
+        # the semantic model cannot be loaded for any reason.
         source_words = self._tokenize_text(source_text)
         target_words = self._tokenize_text(target_text)
 
@@ -1062,54 +1061,97 @@ class ComparativeAnalysisService:
                 target_unique.append(w)
                 seen_tgt.add(w)
 
-        # Use deterministic seeded embeddings as a lightweight semantic proxy.
-        # This avoids heavy ML deps but still compares words by vector cosine
-        # similarity. Embeddings are reproducible because the RNG is seeded
-        # from the word text.
-        import hashlib
-        import numpy as _np
+        # Try to use a lightweight semantic model for token similarity
+        use_semantic = False
+        semantic_model = None
+        try:
+            # Prefer a cached model on the service if present
+            semantic_model = getattr(self, 'model', None)
+            if semantic_model is None:
+                # Lazily load the lightweight multilingual MiniLM model
+                from sentence_transformers import SentenceTransformer
+                semantic_model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
+                # Cache for future calls
+                self.model = semantic_model
+            use_semantic = True
+        except Exception:
+            use_semantic = False
 
-        def _word_embedding(w: str, dim: int = 64) -> _np.ndarray:
-            seed_input = f"cmp_sub:{w}"
-            seed = int.from_bytes(hashlib.sha256(seed_input.encode()).digest()[:8], "big")
-            rng = _np.random.default_rng(seed)
-            vec = rng.random(dim)
-            norm = _np.linalg.norm(vec)
-            return vec / norm if norm > 0 else vec
+        if use_semantic and semantic_model is not None and len(target_unique) > 0 and len(source_unique) > 0:
+            try:
+                # Encode candidate tokens (as single-word strings)
+                # Limit candidates to avoid long encoding calls
+                src_candidates = [w for w in source_unique if len(w) > 4][:8]
+                tgt_candidates = [w for w in target_unique if len(w) > 4][:32]
 
-        def _cos_sim(a: _np.ndarray, b: _np.ndarray) -> float:
-            return float(_np.dot(a, b) / (_np.linalg.norm(a) * _np.linalg.norm(b)))
+                if src_candidates and tgt_candidates:
+                    src_embs = semantic_model.encode(src_candidates, convert_to_tensor=True)
+                    tgt_embs = semantic_model.encode(tgt_candidates, convert_to_tensor=True)
+                    from sentence_transformers import util as _util
 
-        for s_word in source_unique[:5]:
-            # skip very short tokens (likely function words)
-            if len(s_word) <= 4:
-                continue
+                    for i, s_word in enumerate(src_candidates):
+                        # Compute cosine similarity scores against all target candidates
+                        sims = _util.pytorch_cos_sim(src_embs[i], tgt_embs)[0].cpu().numpy()
+                        best_idx = int(sims.argmax())
+                        best_score = float(sims[best_idx])
+                        best_t = tgt_candidates[best_idx]
 
-            best_t = None
-            best_score = -1.0
-            s_vec = _word_embedding(s_word)
-            for t_word in list(target_unique):
-                # only consider reasonably long target tokens
-                if len(t_word) <= 4:
+                        # Accept matches even with modest similarity to prefer semantic closeness
+                        substitutions.append({
+                                'source': s_word,
+                                'target': best_t,
+                                'type': 'lexical_substitution'
+                            })
+            except Exception:
+                # Fall back to seeded heuristic on any failure
+                use_semantic = False
+
+        if not use_semantic:
+            # Fallback deterministic seeded embeddings as a lightweight proxy
+            import hashlib
+            import numpy as _np
+
+            def _word_embedding(w: str, dim: int = 64) -> _np.ndarray:
+                seed_input = f"cmp_sub:{w}"
+                seed = int.from_bytes(hashlib.sha256(seed_input.encode()).digest()[:8], "big")
+                rng = _np.random.default_rng(seed)
+                vec = rng.random(dim)
+                norm = _np.linalg.norm(vec)
+                return vec / norm if norm > 0 else vec
+
+            def _cos_sim(a: _np.ndarray, b: _np.ndarray) -> float:
+                return float(_np.dot(a, b) / (_np.linalg.norm(a) * _np.linalg.norm(b)))
+
+            for s_word in source_unique[:5]:
+                # skip very short tokens (likely function words)
+                if len(s_word) <= 4:
                     continue
-                if abs(len(s_word) - len(t_word)) <= 6:
-                    t_vec = _word_embedding(t_word)
-                    score = _cos_sim(s_vec, t_vec)
-                    if score > best_score:
-                        best_score = score
-                        best_t = t_word
 
-            if best_t is not None and best_score >= 0:
-                substitutions.append({
-                    'source': s_word,
-                    'target': best_t,
-                    'type': 'lexical_substitution'
-                })
-                try:
-                    target_unique.remove(best_t)
-                except ValueError:
-                    pass
-        
+                best_t = None
+                best_score = -1.0
+                s_vec = _word_embedding(s_word)
+                for t_word in list(target_unique):
+                    # only consider reasonably long target tokens
+                    if len(t_word) <= 4:
+                        continue
+                    if abs(len(s_word) - len(t_word)) <= 6:
+                        t_vec = _word_embedding(t_word)
+                        score = _cos_sim(s_vec, t_vec)
+                        if score > best_score:
+                            best_score = score
+                            best_t = t_word
+
+                if best_t is not None and best_score >= 0:
+                    substitutions.append({
+                        'source': s_word,
+                        'target': best_t,
+                        'type': 'lexical_substitution'
+                    })
+                    try:
+                        target_unique.remove(best_t)
+                    except ValueError:
+                        pass
+
         return substitutions
 
     def _identify_structural_changes(self, source_text: str, target_text: str) -> List[Dict[str, Any]]:
