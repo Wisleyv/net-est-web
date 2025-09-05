@@ -1,3 +1,36 @@
+"""Top-level test configuration and compatibility shims.
+
+This file auto-marks coroutine test functions with pytest.mark.asyncio so that
+tests declared as `async def` in demonstration scripts (e.g., test_confidence_*.py)
+are executed under the asyncio plugin during CI and local runs.
+
+This is a small, safe shim to avoid editing demonstration test files directly.
+"""
+import inspect
+import os
+import pytest
+
+# When running tests we often want to avoid loading large ML models (torch/spaCy)
+# which can cause memory/OS-level issues in CI or constrained environments.
+# Set an env var here so services can skip heavy model initialization during tests.
+os.environ.setdefault("NET_EST_DISABLE_MODELS", "1")
+
+
+def pytest_collection_modifyitems(config, items):
+    """Auto-apply asyncio marker to coroutine test functions.
+
+    Some demo/test scripts declare `async def` tests without explicit markers.
+    When pytest-asyncio is installed this shim ensures those tests are executed
+    by adding the `pytest.mark.asyncio` marker at collection time.
+    """
+    for item in items:
+        try:
+            fn = getattr(item, "obj", None)
+            if inspect.iscoroutinefunction(fn):
+                item.add_marker(pytest.mark.asyncio)
+        except Exception:
+            # Be conservative: do not fail collection if something goes wrong here.
+            continue
 """
 Repository-level pytest configuration helpers.
 

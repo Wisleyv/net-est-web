@@ -61,8 +61,20 @@ class MesoStageEvaluator:
                 evidences.append(rp_evidence)
                 self.logger.info(f"✅ RP+ detected with confidence {rp_evidence.confidence:.3f}")
                 # Add position tracking for RP+ - positions should be tuples, not dicts
-                if not rp_evidence.positions:  # If no positions set, add default
-                    rp_evidence.positions = [(0, 10)]  # Default character position range
+                if not rp_evidence.positions:  # If no positions set, add distributed defaults across the text
+                    try:
+                        src_sentences = self._split_into_sentences(source_text)
+                        positions = []
+                        if src_sentences:
+                            num_positions = min(3, len(src_sentences))
+                            for i in range(num_positions):
+                                idx = min(int(i * len(src_sentences) / max(num_positions, 1)), len(src_sentences) - 1)
+                                char_start = sum(len(s) + 1 for s in src_sentences[:idx])
+                                char_end = char_start + len(src_sentences[idx])
+                                positions.append((char_start, char_end))
+                        rp_evidence.positions = positions if positions else [(0, 10)]
+                    except Exception:
+                        rp_evidence.positions = [(0, 10)]  # Fallback
                 self.logger.info(f"   📍 RP+ positions: {rp_evidence.positions}")
             else:
                 self.logger.debug("❌ RP+ not detected")
@@ -147,7 +159,8 @@ class MesoStageEvaluator:
             src_words = self._tokenize_text(src_sent)
 
             # Consider sentences of reasonable length for fragmentation (academic research requirement)
-            if len(src_words) < 6:  # Reduced from 12 to ensure we process more sentences
+            # Allow shorter sentences for complete analysis to avoid skipping many segments
+            if len(src_words) < 3:
                 continue
 
             # Find semantically related target sentences

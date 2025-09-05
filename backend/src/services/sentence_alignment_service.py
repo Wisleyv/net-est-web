@@ -15,7 +15,19 @@ class SentenceAlignmentService:
                     self.nlp = spacy.load("pt_core_news_sm")
                 except OSError:
                     self.nlp = spacy.blank("pt")
-                    print("Portuguese model not found. Using blank spaCy model.")
+                    # blank pipelines do not include sentence boundary detection by
+                    # default. Add the lightweight sentencizer so `doc.sents` is available
+                    # even when the language model is missing.
+                    try:
+                        if 'sentencizer' not in self.nlp.pipe_names:
+                            self.nlp.add_pipe('sentencizer')
+                    except Exception:
+                        # Defensive: if add_pipe fails for any reason, fall back to
+                        # regex splitter at runtime (split_sentences handles this when
+                        # enable_spacy is False or nlp is None).
+                        self.nlp = None
+                    else:
+                        print("Portuguese model not found. Using blank spaCy model with sentencizer.")
             except ImportError:
                 print("spaCy not installed. Using fallback sentence splitter.")
                 self.enable_spacy = False

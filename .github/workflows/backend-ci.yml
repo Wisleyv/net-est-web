@@ -20,12 +20,27 @@ jobs:
       with:
         python-version: "3.11"
     
-    - name: Install dependencies
+    - name: Install runtime and dev dependencies
       run: |
         cd backend
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install -r requirements-dev.txt
+        if [ -f requirements.txt ]; then
+          echo 'Installing runtime requirements...'
+          pip install -r requirements.txt
+        else
+          echo 'No runtime requirements file found.'
+        fi
+        if [ -f requirements-dev.txt ]; then
+          echo 'Installing developer/test requirements...'
+          pip install -r requirements-dev.txt
+        else
+          echo 'No dev requirements file found.'
+        fi
+        if [ ! -f requirements.txt -a ! -f requirements-dev.txt ]; then
+          pip install pytest
+        fi
+  # Ensure optional NLP/text libs are present at collection time
+  pip install textstat spacy
     
     - name: Lint with flake8
       run: |
