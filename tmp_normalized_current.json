@@ -1,0 +1,86 @@
+{
+  "analysis_id": "<redacted>",
+  "timestamp": "<redacted>",
+  "source_text": "A reunião foi adiada devido a circunstâncias imprevistas.",
+  "target_text": "O encontro foi cancelado por motivos inesperados.",
+  "source_length": 57,
+  "target_length": 49,
+  "compression_ratio": 0.8596491228070176,
+  "overall_score": 51,
+  "overall_assessment": "Moderate simplification with some readability gains",
+  "lexical_analysis": {
+    "source_unique_words": 7,
+    "target_unique_words": 7,
+    "source_complexity": 6.125,
+    "target_complexity": 6.0,
+    "vocabulary_overlap": 0.07692307692307693,
+    "complexity_reduction": 0.02040816326530612,
+    "substitutions": [
+      {
+        "source": "reunião",
+        "target": "encontro",
+        "type": "lexical_substitution"
+      },
+      {
+        "source": "adiada",
+        "target": "encontro",
+        "type": "lexical_substitution"
+      },
+      {
+        "source": "devido",
+        "target": "motivos",
+        "type": "lexical_substitution"
+      },
+      {
+        "source": "circunstâncias",
+        "target": "motivos",
+        "type": "lexical_substitution"
+      },
+      {
+        "source": "imprevistas",
+        "target": "inesperados",
+        "type": "lexical_substitution"
+      }
+    ]
+  },
+  "syntactic_analysis": {
+    "source_avg_sentence_length": 8.0,
+    "target_avg_sentence_length": 7.0,
+    "source_avg_clause_length": 8.0,
+    "target_avg_clause_length": 7.0,
+    "sentence_simplification_ratio": 0.875,
+    "clause_reduction": 0.0,
+    "structural_changes": []
+  },
+  "semantic_analysis": {
+    "semantic_similarity": 0.9154633283615112,
+    "meaning_preservation": 91.54633283615112,
+    "information_loss": 8.453667163848877,
+    "concept_simplification": [
+      {
+        "concept": "Technical terminology",
+        "simplification": "Replaced with common language"
+      }
+    ]
+  },
+  "readability_metrics": {
+    "flesch_reading_ease": {
+      "label": "Flesch Reading Ease",
+      "source": -12.784999999999997,
+      "target": -5.727142857142809,
+      "improvement": 7.057857142857188,
+      "description": "Higher scores indicate easier reading"
+    }
+  },
+  "simplification_strategies": [
+    {
+      "name": "Reinterpretação Perspectiva",
+      "type": "lexical",
+      "code": "MOD+"
+    }
+  ],
+  "strategies_count": 1,
+  "hierarchical_analysis": {
+    "present": true
+  }
+}

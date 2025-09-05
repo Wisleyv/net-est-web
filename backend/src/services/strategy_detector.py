@@ -48,6 +48,16 @@ def _initialize_models():
     if _model_cache['initialized']:
         return _model_cache['nlp'], _model_cache['semantic_model']
 
+    # Allow tests and constrained environments to disable heavy model loading
+    try:
+        import os
+        if os.environ.get("NET_EST_DISABLE_MODELS", "0") == "1":
+            logging.info("🔒 NET_EST_DISABLE_MODELS=1 set — skipping heavy model initialization")
+            _model_cache['initialized'] = True
+            return None, None
+    except Exception:
+        pass
+
     # Try to load spaCy model
     try:
         _model_cache['nlp'] = spacy.load("pt_core_news_sm")
