@@ -48,13 +48,16 @@ jobs:
           }
           # Ensure a couple of optional NLP/text libs are present at collection time
           pip install textstat spacy
+          # Ensure async pytest plugins are available for async tests
+          pip install pytest-asyncio anyio
 
       - name: Run tests
         shell: pwsh
         run: |
-          python -m pytest -q
+          # Load the pytest-asyncio plugin explicitly to ensure async tests run in CI
+          python -m pytest -q -p pytest_asyncio
 
       - name: Snapshot check (no update)
         shell: pwsh
         run: |
-          python -m pytest tests/snapshot_tests -q
+          python -m pytest tests/snapshot_tests -q -p pytest_asyncio
