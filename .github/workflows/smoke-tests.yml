@@ -26,6 +26,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
+          # Ensure runtime NLP helpers used during import are available in the CI job
+          pip install textstat spacy
 
       - name: Run smoke tests (fast)
         run: |
