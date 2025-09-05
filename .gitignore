@@ -261,3 +261,12 @@ Thumbs.db
 # Diretórios temporários
 tmp/
 temp/
+
+# Local pip cache and frontend build cache
+.pip-cache/
+.vite/
+
+# Local temporary comparative outputs
+tmp_comparative_response.json
+tmp_normalized_current.json
+tmp_normalized_snapshot.json
