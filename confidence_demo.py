@@ -14,6 +14,7 @@ from backend.src.models.comparative_analysis import ComparativeAnalysisRequest, 
 import asyncio
 import json
 
+
 def confidence_engine_directly():
     """Test confidence engine with direct examples"""
     print("=" * 60)
@@ -133,6 +134,7 @@ def confidence_engine_directly():
     print(f"High Confidence Strategies: {summary['high_confidence_strategies']}")
     print(f"Low Confidence Strategies: {summary['low_confidence_strategies']}")
 
+
 async def confidence_engine_via_api():
     """Test confidence engine through the comparative analysis API"""
     print("\n\n" + "=" * 60)
@@ -204,6 +206,7 @@ async def confidence_engine_via_api():
         traceback.print_exc()
         return False
 
+
 def main():
     """Main demonstration function"""
     print("🚀 M5: Confidence & Weighting Engine - Live Demonstration")
@@ -215,7 +218,7 @@ def main():
 
     # Test via API
     try:
-    result = asyncio.run(confidence_engine_via_api())
+        result = asyncio.run(confidence_engine_via_api())
         if result:
             print("\n🎉 All tests completed successfully!")
             print("✅ Confidence Engine is working correctly")
@@ -234,6 +237,7 @@ def main():
     print("  ✅ Backward compatibility maintained")
     print("  ✅ Real-time confidence calculations")
     print("=" * 60)
+
 
 if __name__ == "__main__":
     main()
