@@ -26,15 +26,23 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      - name: Install dependencies (dev)
+      - name: Install runtime and dev dependencies
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
-          if (Test-Path backend/requirements-dev.txt) {
-            pip install -r backend/requirements-dev.txt
-          } elseif (Test-Path backend/requirements.txt) {
+          if (Test-Path backend/requirements.txt) {
+            Write-Host 'Installing runtime requirements...' -ForegroundColor Cyan
             pip install -r backend/requirements.txt
           } else {
+            Write-Host 'No runtime requirements file found.' -ForegroundColor Yellow
+          }
+          if (Test-Path backend/requirements-dev.txt) {
+            Write-Host 'Installing developer/test requirements...' -ForegroundColor Cyan
+            pip install -r backend/requirements-dev.txt
+          } else {
+            Write-Host 'No dev requirements file found.' -ForegroundColor Yellow
+          }
+          if (-not (Test-Path backend/requirements.txt) -and -not (Test-Path backend/requirements-dev.txt)) {
             # fallback: ensure pytest is available so the test step doesn't fail early
             pip install pytest
           }
