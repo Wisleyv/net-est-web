@@ -22,8 +22,9 @@ class TestSemanticAlignmentService:
     @pytest.fixture
     def service(self):
         """Create a service instance for testing"""
+        from src.core.config import settings as runtime_settings
         config = AlignmentConfiguration(
-            bertimbau_model="neuralmind/bert-base-portuguese-cased",
+            bertimbau_model=runtime_settings.BERTIMBAU_MODEL,
             similarity_threshold=0.7,
             max_sequence_length=512,
             batch_size=8,
@@ -51,25 +52,28 @@ class TestSemanticAlignmentService:
 
     def test_service_initialization(self, service):
         """Test service initialization"""
-        assert service.config.bertimbau_model == "neuralmind/bert-base-portuguese-cased"
-        assert service.config.similarity_threshold == 0.7
-        assert service.model is None
-        assert service.embedding_cache is not None
-        assert service.executor is not None
+    from src.core.config import settings as runtime_settings
+    assert service.config.bertimbau_model == runtime_settings.BERTIMBAU_MODEL
+    assert service.config.similarity_threshold == 0.7
+    assert service.model is None
+    assert service.embedding_cache is not None
+    assert service.executor is not None
 
     def test_service_initialization_with_defaults(self):
         """Test service initialization with default config"""
-        service = SemanticAlignmentService()
-        assert service.config.bertimbau_model == "neuralmind/bert-base-portuguese-cased"
-        assert service.config.similarity_threshold == 0.7
-        assert service.config.device == "cpu"
+    service = SemanticAlignmentService()
+    from src.core.config import settings as runtime_settings
+    assert service.config.bertimbau_model == runtime_settings.BERTIMBAU_MODEL
+    assert service.config.similarity_threshold == 0.7
+    assert service.config.device == "cpu"
 
     @pytest.mark.asyncio
     async def test_generate_embeddings_fallback(self, service):
         """Test embedding generation with fallback when ML libraries not available"""
+        from src.core.config import settings as runtime_settings
         request = EmbeddingRequest(
             texts=["Texto de teste", "Outro texto"],
-            model_name="neuralmind/bert-base-portuguese-cased",
+            model_name=runtime_settings.BERTIMBAU_MODEL,
             normalize=True,
         )
 
@@ -85,9 +89,10 @@ class TestSemanticAlignmentService:
     @pytest.mark.asyncio
     async def test_generate_embeddings_with_cache(self, service):
         """Test embedding generation with caching"""
+        from src.core.config import settings as runtime_settings
         request = EmbeddingRequest(
             texts=["Texto repetido", "Novo texto", "Texto repetido"],
-            model_name="neuralmind/bert-base-portuguese-cased",
+            model_name=runtime_settings.BERTIMBAU_MODEL,
             normalize=True,
         )
 

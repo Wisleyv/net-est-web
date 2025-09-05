@@ -9,6 +9,7 @@ from unittest.mock import patch, Mock
 
 # Import the FastAPI app
 from src.main import app
+from src.core.config import settings as runtime_settings
 
 
 class TestSemanticAlignmentAPI:
@@ -48,7 +49,7 @@ class TestSemanticAlignmentAPI:
                 "Segunda frase para teste.",
                 "Terceira frase com conteúdo diferente.",
             ],
-            "model_name": "neuralmind/bert-base-portuguese-cased",
+            "model_name": runtime_settings.BERTIMBAU_MODEL,
             "normalize": True,
         }
 
@@ -119,7 +120,7 @@ class TestSemanticAlignmentAPI:
         """Test successful embedding generation via POST /semantic-alignment/embeddings"""
         mock_response = Mock()
         mock_response.embeddings = [[0.1] * 768] * 3
-        mock_response.model_used = "neuralmind/bert-base-portuguese-cased"
+        mock_response.model_used = runtime_settings.BERTIMBAU_MODEL
         mock_response.embedding_dim = 768
         mock_response.processing_time = 0.25
 
@@ -136,9 +137,11 @@ class TestSemanticAlignmentAPI:
 
     def test_generate_embeddings_empty_texts(self, client):
         """Test embedding generation with empty texts list"""
+        from src.core.config import settings as runtime_settings
+
         data = {
             "texts": [],
-            "model_name": "neuralmind/bert-base-portuguese-cased",
+            "model_name": runtime_settings.BERTIMBAU_MODEL,
         }
 
         response = client.post("/semantic-alignment/embeddings", json=data)
@@ -147,9 +150,11 @@ class TestSemanticAlignmentAPI:
 
     def test_generate_embeddings_too_many_texts(self, client):
         """Test embedding generation with too many texts"""
+        from src.core.config import settings as runtime_settings
+
         data = {
             "texts": ["text"] * 101,  # Over the limit
-            "model_name": "neuralmind/bert-base-portuguese-cased",
+            "model_name": runtime_settings.BERTIMBAU_MODEL,
         }
 
         response = client.post("/semantic-alignment/embeddings", json=data)
@@ -164,7 +169,7 @@ class TestSemanticAlignmentAPI:
             "model_loaded": False,
             "cache_size": 0,
             "config": {
-                "model": "neuralmind/bert-base-portuguese-cased",
+                "model": runtime_settings.BERTIMBAU_MODEL,
                 "device": "cpu",
                 "similarity_threshold": 0.7,
                 "batch_size": 8,
@@ -208,7 +213,7 @@ class TestSemanticAlignmentAPI:
     def test_update_config(self, client):
         """Test update configuration endpoint POST /semantic-alignment/config"""
         new_config = {
-            "bertimbau_model": "neuralmind/bert-base-portuguese-cased",
+            "bertimbau_model": runtime_settings.BERTIMBAU_MODEL,
             "similarity_threshold": 0.8,
             "max_sequence_length": 256,
             "batch_size": 16,
