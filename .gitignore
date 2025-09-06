@@ -269,3 +269,4 @@ Thumbs.db
 tmp/
 temp/
 .vite/
+tools/debug-powershell/
