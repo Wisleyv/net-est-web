@@ -55,19 +55,19 @@ def test_pdf_cleanup():
                     continue
                 else:
                     print(f"❌ Falha final após 5 tentativas: {e}")
-                    return False
+                    assert False, f"Falha final após 5 tentativas: {e}"
 
         # Verificar se arquivo foi realmente deletado
         if os.path.exists(temp_path):
             print("❌ Arquivo ainda existe após cleanup")
-            return False
+            assert False, "Arquivo ainda existe após cleanup"
         else:
             print("✅ Arquivo removido com sucesso")
-            return True
+            assert True
 
     except Exception as e:
         print(f"❌ Erro durante teste: {e}")
-        return False
+        assert False, f"Erro durante teste: {e}"
 
 
 def list_temp_pdf_files():

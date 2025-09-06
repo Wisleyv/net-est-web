@@ -5,7 +5,7 @@ Handles dual-input comparative analysis for simplification strategy identificati
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Body
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 import structlog
 import base64
@@ -160,7 +160,11 @@ async def perform_comparative_analysis(
 
         # Fill minimal required fields with sensible defaults
         result_dict.setdefault('analysis_id', str(uuid.uuid4()))
-        result_dict.setdefault('timestamp', datetime.utcnow().isoformat())
+        # Use timezone-aware UTC timestamp to avoid deprecation warnings
+        try:
+            result_dict.setdefault('timestamp', datetime.now(timezone.utc).isoformat())
+        except Exception:
+            result_dict.setdefault('timestamp', datetime.utcnow().isoformat())
         result_dict.setdefault('source_text', request.get('source_text', ''))
         result_dict.setdefault('target_text', request.get('target_text', ''))
         result_dict.setdefault('source_length', len(result_dict.get('source_text', '')))
