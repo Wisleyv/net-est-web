@@ -200,6 +200,10 @@ pids
 /.huggingface/
 backend/.huggingface-cache/
 backend/.huggingface/
+/.huggingface-cache/
+
+# Frontend temporary comparative response
+frontend/tmp_comparative_response.json
 
 # Data files (if sensitive)
 # data/
@@ -261,12 +265,3 @@ Thumbs.db
 # Diretórios temporários
 tmp/
 temp/
-
-# Local pip cache and frontend build cache
-.pip-cache/
-.vite/
-
-# Local temporary comparative outputs
-tmp_comparative_response.json
-tmp_normalized_current.json
-tmp_normalized_snapshot.json
