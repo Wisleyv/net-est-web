@@ -205,6 +205,8 @@ backend/.huggingface/
 # Frontend temporary comparative response
 frontend/tmp_comparative_response.json
 tmp_comparative_response.json
+# Normalized runtime snapshots
+tmp_normalized_*.json
 
 # Data files (if sensitive)
 # data/
