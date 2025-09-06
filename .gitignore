@@ -268,3 +268,4 @@ Thumbs.db
 # Diretórios temporários
 tmp/
 temp/
+.vite/
