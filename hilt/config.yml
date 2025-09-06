@@ -1,0 +1,14 @@
+# HILT configuration - minimal safe defaults
+models:
+  semantic_model: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+  simplification_model: "local-or-remote-placeholder"
+timeouts:
+  model_load_seconds: 120
+  per_example_seconds: 30
+data:
+  input_dir: "hilt/data/in"
+  output_dir: "hilt/data/out"
+logging:
+  level: INFO
+  file: "hilt/hilt.log"
+# Do not store credentials here; use environment variables or GitHub Secrets
