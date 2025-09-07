@@ -96,14 +96,30 @@ class ComparativeAnalysisService:
                         request.analysis_options = AnalysisOptions()
 
             # M4: propagate top-level override flags into nested analysis_options if present
-            if request.include_micro_spans is not None:
-                request.analysis_options.include_micro_spans = request.include_micro_spans
-            if request.include_visual_salience is not None:
-                request.analysis_options.include_visual_salience = request.include_visual_salience
-            if request.micro_span_mode is not None:
-                request.analysis_options.micro_span_mode = request.micro_span_mode
-            if request.salience_visual_mode is not None:
-                request.analysis_options.salience_visual_mode = request.salience_visual_mode
+            # Some tests construct a SimpleNamespace without these optional attributes; use getattr safely.
+            try:
+                if getattr(request, 'include_micro_spans', None) is not None:
+                    request.analysis_options.include_micro_spans = getattr(request, 'include_micro_spans')
+                if getattr(request, 'include_visual_salience', None) is not None:
+                    request.analysis_options.include_visual_salience = getattr(request, 'include_visual_salience')
+                if getattr(request, 'micro_span_mode', None) is not None:
+                    request.analysis_options.micro_span_mode = getattr(request, 'micro_span_mode')
+                if getattr(request, 'salience_visual_mode', None) is not None:
+                    request.analysis_options.salience_visual_mode = getattr(request, 'salience_visual_mode')
+            except AttributeError:
+                # Defensive: if analysis_options missing entirely, create a minimal container
+                from types import SimpleNamespace
+                if not hasattr(request, 'analysis_options') or request.analysis_options is None:
+                    request.analysis_options = SimpleNamespace()
+                # Re-run assignment logic after creating container
+                if getattr(request, 'include_micro_spans', None) is not None:
+                    request.analysis_options.include_micro_spans = getattr(request, 'include_micro_spans')
+                if getattr(request, 'include_visual_salience', None) is not None:
+                    request.analysis_options.include_visual_salience = getattr(request, 'include_visual_salience')
+                if getattr(request, 'micro_span_mode', None) is not None:
+                    request.analysis_options.micro_span_mode = getattr(request, 'micro_span_mode')
+                if getattr(request, 'salience_visual_mode', None) is not None:
+                    request.analysis_options.salience_visual_mode = getattr(request, 'salience_visual_mode')
             # Basic metrics
             source_length = len(request.source_text)
             target_length = len(request.target_text)
