@@ -55,6 +55,7 @@ class ComparativeAnalysisService:
         self.sentence_alignment_service = SentenceAlignmentService()
         # M3: Salience provider (lazy/simple instantiation; frequency fallback if advanced libs absent)
         try:
+            import uuid
             self.salience_provider = SalienceProvider(method=os.getenv('SALIENCE_METHOD', 'frequency'))
         except Exception:  # pragma: no cover
             self.salience_provider = None
@@ -179,6 +180,21 @@ class ComparativeAnalysisService:
             # Calculate processing time
             end_time = datetime.now()
             response.processing_time = (end_time - start_time).total_seconds()
+
+            # Phase 1 enrichment: attach model_version and detection_config
+            try:
+                from src.core.config import settings as core_settings
+                response.model_version = getattr(core_settings, 'HITL_MODEL_VERSION', response.model_version)
+                if getattr(core_settings, 'HITL_EXPOSE_DETECTION_CONFIG', True):
+                    response.detection_config = {
+                        'allow_auto_omission': getattr(core_settings, 'HITL_ALLOW_AUTO_OMISSION', False),
+                        'allow_auto_problem': getattr(core_settings, 'HITL_ALLOW_AUTO_PROBLEM', False),
+                        'position_offsets': getattr(core_settings, 'HITL_ENABLE_POSITION_OFFSETS', True),
+                        'strategy_id_method': getattr(core_settings, 'HITL_STRATEGY_ID_METHOD', 'uuid4'),
+                        'model_version': getattr(core_settings, 'HITL_MODEL_VERSION', ''),
+                    }
+            except Exception as e:  # pragma: no cover
+                logging.warning(f"Failed to enrich response with detection_config: {e}")
             
             # Store in history
             history_item = AnalysisHistoryItem(
@@ -384,11 +400,28 @@ class ComparativeAnalysisService:
             logging.info("✅ StrategyDetector created successfully")
             
             # Get strategies based on Tabela Simplificação Textual
+            from src.core.config import settings as core_settings
+            allow_om = getattr(core_settings, 'HITL_ALLOW_AUTO_OMISSION', False)
+            allow_pro = getattr(core_settings, 'HITL_ALLOW_AUTO_PROBLEM', False)
             detected_strategies = strategy_detector.identify_strategies(
                 source_text=source_text,
                 target_text=target_text
             )
             logging.info(f"✅ Strategy detection completed: {len(detected_strategies)} strategies")
+
+            # Phase 1 guardrails: filter OM+ / PRO+ unless flags enabled
+            if detected_strategies:
+                filtered = []
+                for ds in detected_strategies:
+                    code_val = getattr(ds, 'sigla', getattr(ds, 'code', None))
+                    if code_val == 'OM+' and not allow_om:
+                        continue
+                    if code_val == 'PRO+' and not allow_pro:
+                        continue
+                    filtered.append(ds)
+                if len(filtered) != len(detected_strategies):
+                    logging.info(f"Guardrails removed {len(detected_strategies) - len(filtered)} restricted strategies (OM+/PRO+)")
+                detected_strategies = filtered
             
             # Debug log
             logging.info(f"Detected strategies: {len(detected_strategies)}")
@@ -429,6 +462,74 @@ class ComparativeAnalysisService:
                 target_position = getattr(strategy, 'targetPosition', {"sentence": index % self._get_target_sentence_count(source_text, target_text), "type": "sentence"})
                 source_position = getattr(strategy, 'sourcePosition', {"sentence": index % self._get_source_sentence_count(source_text), "type": "sentence"})
 
+                # Extended offsets (paragraph, sentence, char range) - heuristic mapping using sentence index
+                def _sentence_offsets(text: str, global_sentence_index: int):
+                    sentences = re.split(r'([.!?]+)', text)
+                    # Reconstruct full sentences including punctuation tokens
+                    full_sentences = []
+                    current = ''
+                    for token in sentences:
+                        if token.strip() == '':
+                            continue
+                        if re.match(r'[.!?]+', token):
+                            current += token
+                            full_sentences.append(current)
+                            current = ''
+                        else:
+                            if current:
+                                current += ' ' + token
+                            else:
+                                current = token
+                    if current:
+                        full_sentences.append(current)
+                    char_cursor = 0
+                    for i, sent in enumerate(full_sentences):
+                        start = char_cursor
+                        end = start + len(sent)
+                        if i == global_sentence_index:
+                            return start, end
+                        char_cursor = end + 1  # account for space/newline
+                    return None, None
+
+                # Attempt to derive sentence index from position structures
+                tgt_sent_idx = target_position.get('sentence') if isinstance(target_position, dict) else None
+                src_sent_idx = source_position.get('sentence') if isinstance(source_position, dict) else None
+                src_start, src_end = (None, None)
+                tgt_start, tgt_end = (None, None)
+                if tgt_sent_idx is not None:
+                    tgt_start, tgt_end = _sentence_offsets(target_text, tgt_sent_idx)
+                if src_sent_idx is not None:
+                    src_start, src_end = _sentence_offsets(source_text, src_sent_idx)
+
+                source_offsets = None
+                target_offsets = None
+                if getattr(core_settings, 'HITL_ENABLE_POSITION_OFFSETS', True):
+                    if src_start is not None:
+                        source_offsets = {
+                            'paragraph': 0,  # TODO: integrate real paragraph mapping in later phase
+                            'sentence': src_sent_idx,
+                            'char_start': src_start,
+                            'char_end': src_end
+                        }
+                    if tgt_start is not None:
+                        target_offsets = {
+                            'paragraph': 0,
+                            'sentence': tgt_sent_idx,
+                            'char_start': tgt_start,
+                            'char_end': tgt_end
+                        }
+
+                # Stable strategy_id generation
+                strategy_id = getattr(strategy, 'strategy_id', None)
+                if not strategy_id:
+                    method = getattr(core_settings, 'HITL_STRATEGY_ID_METHOD', 'uuid4')
+                    if method == 'content-hash':
+                        import hashlib
+                        hash_basis = f"{sigla}|{nome}|{descricao}|{confianca}|{tgt_sent_idx}|{src_sent_idx}".encode('utf-8')
+                        strategy_id = hashlib.sha256(hash_basis).hexdigest()[:16]
+                    else:
+                        strategy_id = str(uuid.uuid4())
+
                 # Create SimplificationStrategy object with all required fields
                 strategy_obj = SimplificationStrategy(
                     name=nome,
@@ -443,7 +544,10 @@ class ComparativeAnalysisService:
                     code=sigla,  # Frontend expects 'code' field
                     color=self._get_strategy_color(sigla),  # Add color information
                     targetPosition=target_position,
-                    sourcePosition=source_position
+                    sourcePosition=source_position,
+                    strategy_id=strategy_id,
+                    target_offsets=target_offsets,
+                    source_offsets=source_offsets
                 )
                 strategies.append(strategy_obj)
             

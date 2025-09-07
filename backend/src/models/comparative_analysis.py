@@ -102,11 +102,27 @@ class SimplificationStrategy(BaseModel):
     confidence: float = Field(..., ge=0.0, le=1.0)
     examples: List[Dict[str, str]] = Field(default_factory=list)
 
+    # Phase 1: stable identifier & metadata (additive)
+    strategy_id: Optional[str] = Field(
+        default=None,
+        description="Stable unique ID for this strategy instance (UUIDv4 or content-hash)."
+    )
+
     # Additional fields for frontend compatibility
     code: Optional[str] = Field(None, description="Strategy code (e.g., 'SL+', 'RP+')")
     color: Optional[str] = Field(None, description="Hex color code for UI highlighting")
-    targetPosition: Optional[Dict[str, Any]] = Field(None, description="Position in target text")
-    sourcePosition: Optional[Dict[str, Any]] = Field(None, description="Position in source text")
+    targetPosition: Optional[Dict[str, Any]] = Field(None, description="Legacy coarse position (sentence-level)")
+    sourcePosition: Optional[Dict[str, Any]] = Field(None, description="Legacy coarse position (sentence-level)")
+
+    # Phase 1: extended granular offsets (paragraph/sentence/char)
+    target_offsets: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Detailed target offsets: {paragraph, sentence, char_start, char_end}"
+    )
+    source_offsets: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Detailed source offsets: {paragraph, sentence, char_start, char_end}"
+    )
 
 
 class ReadabilityMetric(BaseModel):
@@ -193,6 +209,10 @@ class ComparativeAnalysisResponse(BaseModel):
     # Metadata
     processing_time: float
     model_version: str = "1.0.0"
+    detection_config: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Runtime detection configuration & feature flags (additive)."
+    )
     hierarchical_analysis: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Hierarchical analysis tree when requested (versioned).",

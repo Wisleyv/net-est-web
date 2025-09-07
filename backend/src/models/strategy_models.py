@@ -31,6 +31,20 @@ class SimplificationStrategy(BaseModel):
     confianca: float = Field(..., description="The confidence score of the detection (0.0 to 1.0).")
     exemplos: List[StrategyExample] = Field(..., description="Examples of the strategy in action.")
 
+    # Phase 1 additive fields (kept optional to preserve backward compatibility)
+    strategy_id: Optional[str] = Field(
+        default=None,
+        description="Stable unique identifier for this strategy instance."
+    )
+    source_offsets: Optional[dict] = Field(
+        default=None,
+        description="Extended source offsets {paragraph, sentence, char_start, char_end}."
+    )
+    target_offsets: Optional[dict] = Field(
+        default=None,
+        description="Extended target offsets {paragraph, sentence, char_start, char_end}."
+    )
+
     # Enhanced confidence features (M5)
     confidence_explanation: Optional[Dict[str, Any]] = Field(
         None,

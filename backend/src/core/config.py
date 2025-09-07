@@ -67,6 +67,14 @@ class Settings(BaseSettings):
     BERTIMBAU_MODEL: str = "paraphrase-multilingual-MiniLM-L12-v2"
     SIMILARITY_THRESHOLD: float = 0.5
 
+    # HITL Phase 1 Feature Flags (additive, safe defaults)
+    HITL_MODEL_VERSION: str = "hitl-phase1-0.1"
+    HITL_ALLOW_AUTO_OMISSION: bool = False  # OM+ auto detection disabled unless explicitly enabled
+    HITL_ALLOW_AUTO_PROBLEM: bool = False   # PRO+ auto detection never enabled by default
+    HITL_ENABLE_POSITION_OFFSETS: bool = True  # expose paragraph/sentence/char offsets
+    HITL_EXPOSE_DETECTION_CONFIG: bool = True  # include detection_config block in responses
+    HITL_STRATEGY_ID_METHOD: str = "uuid4"  # future: 'content-hash'
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True,
