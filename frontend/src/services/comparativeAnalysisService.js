@@ -112,11 +112,14 @@ export class ComparativeAnalysisService {
         }
       });
 
-      // Add success field for frontend compatibility
-      return {
-        success: true,
-        ...response.data
-      };
+      // Add success field + normalize strategies (Phase 2a additive)
+      const data = response.data || {};
+      const strategies = (data.simplification_strategies || []).map((s, idx) => ({
+        ...s,
+        strategy_id: s.strategy_id || s.id || `strategy_${idx}`,
+        target_offsets: s.target_offsets || s.targetOffsets || [],
+      }));
+      return { success: true, ...data, simplification_strategies: strategies };
     } catch (error) {
       console.error('Comparative analysis error:', error);
       throw new Error(

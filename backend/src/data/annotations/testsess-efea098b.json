@@ -1,0 +1,36 @@
+{
+  "annotations": [
+    {
+      "id": "1c83cdcc-aced-4759-be7e-b4ccbafebacd",
+      "strategy_code": "SL+",
+      "source_offsets": null,
+      "target_offsets": [
+        {
+          "start": 0,
+          "end": 4
+        }
+      ],
+      "confidence": null,
+      "origin": "human",
+      "status": "created",
+      "original_code": null,
+      "created_at": "2025-09-08T20:05:55.628522+00:00",
+      "updated_at": "2025-09-08T20:05:55.628525+00:00",
+      "updated_by": null,
+      "evidence": null,
+      "comment": "test"
+    }
+  ],
+  "audit": [
+    {
+      "annotation_id": "1c83cdcc-aced-4759-be7e-b4ccbafebacd",
+      "action": "create",
+      "timestamp": "2025-09-08T20:05:55.628539+00:00",
+      "session_id": "testsess-efea098b",
+      "from_status": null,
+      "to_status": "created",
+      "from_code": null,
+      "to_code": "SL+"
+    }
+  ]
+}

@@ -1,4 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import StrategySuperscriptRenderer from './strategies/StrategySuperscriptRenderer.jsx';
+import useAppStore from '../stores/useAppStore.js';
+import useAnnotationStore from '../stores/useAnnotationStore.js';
 import PropTypes from 'prop-types';
 import { getStrategyColor, getStrategyInfo, getStrategyClassName, generateStrategyCSSClasses, STRATEGY_METADATA } from '../services/strategyColorMapping.js';
 import './SideBySideTextDisplay.css';
@@ -40,6 +43,9 @@ const SideBySideTextDisplay = ({
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
   // Process analysis result to extract strategies and evidence
+  const enableFeedbackActions = useAppStore(s => s.config.enableFeedbackActions);
+  const { annotations, createAnnotation } = useAnnotationStore();
+
   const strategiesDetected = useMemo(() => {
     console.log('SideBySideTextDisplay - analysisResult:', analysisResult);
     
@@ -50,7 +56,7 @@ const SideBySideTextDisplay = ({
     
     console.log('Found strategies:', analysisResult.simplification_strategies);
     
-    const mappedStrategies = analysisResult.simplification_strategies.map((strategy, index) => {
+  const mappedStrategies = analysisResult.simplification_strategies.map((strategy, index) => {
       console.log('Processing strategy:', strategy);
       const strategyCode = getStrategyCode(strategy.name);
       const mapped = {
@@ -71,6 +77,99 @@ const SideBySideTextDisplay = ({
     console.log('Final mapped strategies:', mappedStrategies);
     return mappedStrategies;
   }, [analysisResult, useColorblindFriendly]);
+
+  // Merge with human / modified / accepted annotations (feature flag)
+  const mergedStrategies = useMemo(() => {
+    if (!enableFeedbackActions) return strategiesDetected;
+    if (!Array.isArray(annotations) || annotations.length === 0) return strategiesDetected;
+    const extra = annotations.map(a => ({
+      id: a.id || a.strategy_id,
+      strategy_id: a.id || a.strategy_id,
+      code: a.strategy_code || a.code,
+      status: a.status,
+      original_code: a.original_code,
+      origin: a.origin,
+      target_offsets: a.target_offsets,
+      evidence: a.evidence || [],
+      confidence: a.confidence,
+      info: STRATEGY_METADATA[a.strategy_code || a.code] || { name: a.strategy_code || a.code, description: '' }
+    }));
+    return [...strategiesDetected, ...extra];
+  }, [strategiesDetected, annotations, enableFeedbackActions]);
+
+  // Selection workflow (target text only)
+  const targetPanelRef = useRef(null);
+  const [selectionState, setSelectionState] = useState({ active: false, start: null, end: null, text: '', top: 0, left: 0 });
+  const [createForm, setCreateForm] = useState({ code: '', comment: '' });
+  const liveRegionRef = useRef(null);
+
+  const canonicalCodes = useMemo(() => Object.keys(STRATEGY_METADATA || {}), []);
+
+  const computeOffsets = (container, range) => {
+    const preRange = range.cloneRange();
+    preRange.selectNodeContents(container);
+    preRange.setEnd(range.startContainer, range.startOffset);
+    const start = preRange.toString().length;
+    const selectionText = range.toString();
+    const end = start + selectionText.length;
+    return { start, end, selectionText };
+  };
+
+  const clearSelectionState = () => setSelectionState({ active: false, start: null, end: null, text: '', top: 0, left: 0 });
+
+  useEffect(() => {
+    if (!enableFeedbackActions) return;
+    const handler = () => {
+      if (!targetPanelRef.current) return;
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) { clearSelectionState(); return; }
+      const range = sel.getRangeAt(0);
+      if (!targetPanelRef.current.contains(range.commonAncestorContainer)) { clearSelectionState(); return; }
+      const text = sel.toString();
+      if (!text || text.trim().length === 0) { clearSelectionState(); return; }
+      // Compute offsets relative to target full text
+      const { start, end, selectionText } = computeOffsets(targetPanelRef.current, range);
+      const rect = range.getBoundingClientRect();
+      setSelectionState({ active: true, start, end, text: selectionText, top: window.scrollY + rect.top - 36, left: rect.left, });
+      setCreateForm(f => ({ ...f, code: f.code || canonicalCodes[0] }));
+      // Announce
+      if (liveRegionRef.current) liveRegionRef.current.textContent = 'Seleção pronta. Pressione Enter para atribuir estratégia.';
+    };
+    document.addEventListener('mouseup', handler);
+    document.addEventListener('keyup', (e) => { if (e.key === 'Enter') handler(); });
+    return () => {
+      document.removeEventListener('mouseup', handler);
+    };
+  }, [enableFeedbackActions, canonicalCodes]);
+
+  const submitCreate = () => {
+    if (!selectionState.active) return;
+    createAnnotation({ strategy_code: createForm.code, target_offsets: [{ start: selectionState.start, end: selectionState.end }], comment: createForm.comment });
+    clearSelectionState();
+  };
+
+  // Focus trap for popover
+  const popoverRef = useRef(null);
+  useEffect(() => {
+    if (selectionState.active && popoverRef.current) {
+      const focusable = popoverRef.current.querySelectorAll('select,textarea,button');
+      if (focusable.length) focusable[0].focus();
+      const keyHandler = (e) => {
+        if (!popoverRef.current) return;
+        if (e.key === 'Escape') { clearSelectionState(); return; }
+        if (e.key === 'Tab') {
+          const items = Array.from(popoverRef.current.querySelectorAll('select,textarea,button'));
+            if (items.length === 0) return;
+            const first = items[0];
+            const last = items[items.length - 1];
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        }
+      };
+      document.addEventListener('keydown', keyHandler);
+      return () => document.removeEventListener('keydown', keyHandler);
+    }
+  }, [selectionState.active]);
 
   // Generate CSS for strategy highlighting
   useEffect(() => {
@@ -418,7 +517,7 @@ const SideBySideTextDisplay = ({
           </div>
         </div>
 
-        <div className="text-panel target-panel">
+  <div className="text-panel target-panel" ref={targetPanelRef}>
           <div className="panel-header">
             <h3>Texto Alvo</h3>
             <div className="text-stats">
@@ -430,6 +529,66 @@ const SideBySideTextDisplay = ({
             </div>
           </div>
           <div className="text-content">
+            {/* Phase 2a superscript layer (additive, non-destructive) */}
+            <div className="superscript-layer-wrapper">
+              <StrategySuperscriptRenderer
+                targetText={analysisResult?.target_text || ''}
+                strategies={mergedStrategies.map(s => ({
+                  strategy_id: s.strategy_id || s.id,
+                  code: s.code,
+                  status: s.status,
+                  original_code: s.original_code,
+                  origin: s.origin,
+                  target_offsets: s.target_offsets,
+                  confidence: s.confidence,
+                  evidence: s.evidence
+                }))}
+                onMarkerActivate={(id) => onStrategyClick && onStrategyClick(id)}
+              />
+        {enableFeedbackActions && selectionState.active && (
+                <div
+                  className="absolute z-50 bg-white border border-gray-300 shadow-md rounded p-2 flex flex-col gap-2 text-xs"
+                  style={{ top: selectionState.top, left: selectionState.left, minWidth: '220px' }}
+                  role="dialog" aria-label="Criar nova estratégia"
+          ref={popoverRef}
+                >
+                  <div className="flex flex-col gap-1">
+                    <label className="font-semibold" htmlFor="new-strategy-code">Estratégia</label>
+                    <select
+                      id="new-strategy-code"
+                      className="border rounded px-1 py-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={createForm.code}
+                      onChange={e => setCreateForm(f => ({ ...f, code: e.target.value }))}
+                    >
+                      {canonicalCodes.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="font-semibold" htmlFor="new-strategy-comment">Comentário (opcional)</label>
+                    <textarea
+                      id="new-strategy-comment"
+                      className="border rounded px-1 py-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      rows={2}
+                      value={createForm.comment}
+                      onChange={e => setCreateForm(f => ({ ...f, comment: e.target.value }))}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => { submitCreate(); }}
+                      className="px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >Adicionar</button>
+                    <button
+                      type="button"
+                      onClick={() => { clearSelectionState(); }}
+                      className="px-2 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                    >Cancelar</button>
+                  </div>
+                </div>
+              )}
+              <div aria-live="polite" ref={liveRegionRef} className="sr-only" />
+            </div>
             {targetParas.map((para, index) => (
               <div key={index} className="text-paragraph">
                 {highlightText(para, true, index)}

@@ -41,6 +41,19 @@ To revert Phase 1: revert commits in this branch or cherry-pick excluding files:
 ## Forward Plan Considerations
 Phase 2 will rely on `strategy_id` and offsets; removing them later would break the HITL UI layer. Keep stable.
 
+## Phase 2a (UI Superscripts Addition)
+Date: 2025-09-07
+Scope: Additive front-end only changes introducing superscript markers tied to `strategy_id` and `target_offsets`.
+- No API contract changes.
+- Added utilities: `frontend/src/utils/strategyOffsets.js`.
+- Added component: `StrategySuperscriptRenderer` integrated into `SideBySideTextDisplay` target panel.
+- Normalized strategies in `comparativeAnalysisService` to guarantee `strategy_id` presence.
+- Fallback sentence-based marker placement when offsets absent preserves resilience and testability.
+- Accessibility: keyboard activation (Enter/Space), focus outline, semantic <sup> usage.
+
+Rollback: Remove new utility/component imports; delete superscript CSS; original highlighting path unaffected.
+
+
 /*
 Desenvolvido com ❤️ pelo Núcleo de Estudos de Tradução - PIPGLA/UFRJ | Contém código assistido por IA
 */

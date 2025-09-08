@@ -4,11 +4,16 @@
  */
 
 import React, { useState } from 'react';
+import './App.css'; // Ensure global styles (including strategy marker highlight) are applied
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Components
 import EnhancedTextInput from './components/EnhancedTextInput';
 import AboutCredits from './components/AboutCredits';
+import useAppStore from './stores/useAppStore.js';
+import useAnnotationStore from './stores/useAnnotationStore.js';
+import AnnotationTimeline from './components/dashboard/AnnotationTimeline.jsx';
+import AuditSearchPanel from './components/dashboard/AuditSearchPanel.jsx';
 
 // React Query client
 const queryClient = new QueryClient({
@@ -74,6 +79,8 @@ class ErrorBoundary extends React.Component {
 // Main Application Component
 function MainApp() {
   const [currentView, setCurrentView] = useState('input');
+  const enableFeedbackActions = useAppStore(s => s.config.enableFeedbackActions);
+  const { exportAnnotations } = useAnnotationStore();
 
   const handleTextProcessed = (_result) => {
     // Analysis completed successfully
@@ -166,6 +173,20 @@ function MainApp() {
             >
               ℹ️ Sobre
             </button>
+            {enableFeedbackActions && (
+              <div style={{ display:'flex', gap:'0.5rem' }} aria-label="Exportar anotações">
+                <button
+                  onClick={() => exportAnnotations('jsonl')}
+                  style={{ padding:'0.625rem 1.0rem', background:'#805ad5', color:'#fff', border:'none', borderRadius:'0.5rem', cursor:'pointer', fontSize:'0.75rem' }}
+                  aria-label="Exportar anotações em JSONL"
+                >Export JSONL</button>
+                <button
+                  onClick={() => exportAnnotations('csv')}
+                  style={{ padding:'0.625rem 1.0rem', background:'#6b46c1', color:'#fff', border:'none', borderRadius:'0.5rem', cursor:'pointer', fontSize:'0.75rem' }}
+                  aria-label="Exportar anotações em CSV"
+                >Export CSV</button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -179,6 +200,20 @@ function MainApp() {
           boxShadow: '0 4px 25px rgba(0, 0, 0, 0.1)'
         }}>
           {renderCurrentView()}
+          {/* Phase 4a Timeline (client-derived) */}
+          {enableFeedbackActions && enableFeedbackActions && enableFeedbackActions && null}
+          {enableFeedbackActions && enableFeedbackActions && null}
+          {/** separate flag for timeline */}
+          {useAppStore.getState().config.enableTimelineView && (
+            <div style={{ marginTop:'2rem' }}>
+              <AnnotationTimeline />
+            </div>
+          )}
+          {useAppStore.getState().config.enableAuditSearch && (
+            <div style={{ marginTop:'2rem' }}>
+              <AuditSearchPanel />
+            </div>
+          )}
         </div>
       </div>
     </div>

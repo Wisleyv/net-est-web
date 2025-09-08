@@ -118,6 +118,40 @@ export const comparativeAnalysisAPI = {
 
 export default api;
 
+// Annotations Search API (Phase 4b)
+export const annotationsAPI = {
+  search: ({ sessionId, statuses, codes }) =>
+    api.get('/api/v1/annotations/search', {
+      params: {
+        session_id: sessionId,
+        statuses,
+        strategy_codes: codes,
+      },
+      paramsSerializer: (params) => {
+        const usp = new URLSearchParams();
+        if (params.session_id) usp.append('session_id', params.session_id);
+        (params.statuses || []).forEach((s) => usp.append('statuses', s));
+        (params.strategy_codes || []).forEach((c) => usp.append('strategy_codes', c));
+        return usp.toString();
+      },
+    }),
+  audit: ({ sessionId, annotationId, actions }) =>
+    api.get('/api/v1/annotations/audit', {
+      params: {
+        session_id: sessionId,
+        annotation_id: annotationId || undefined,
+        actions,
+      },
+      paramsSerializer: (params) => {
+        const usp = new URLSearchParams();
+        if (params.session_id) usp.append('session_id', params.session_id);
+        if (params.annotation_id) usp.append('annotation_id', params.annotation_id);
+        (params.actions || []).forEach((a) => usp.append('actions', a));
+        return usp.toString();
+      },
+    }),
+};
+
 /*
 UFRJ
 Projeto: NET-EST - Sistema de Análise de Estratégias de Simplificação Textual em Tradução Intralingual

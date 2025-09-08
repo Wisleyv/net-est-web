@@ -26,6 +26,10 @@ const useAppStore = create(
         maxFileSize: 10 * 1024 * 1024, // 10MB
         supportedFormats: ['txt', 'md', 'docx', 'odt', 'pdf'],
         autoSave: true,
+  // Feature flags (Phase 3)
+  enableFeedbackActions: false,
+  enableTimelineView: false,
+  enableAuditSearch: false,
       },
 
       // Actions

@@ -58,3 +58,41 @@ textarea:focus {
     font-size: 1rem;
   }
 }
+
+/* Phase 2a Superscript strategy markers (additive) */
+.strategy-marker {
+  font-size: 0.55rem;
+  margin-left: 4px;
+  cursor: pointer;
+  user-select: none;
+  color: #222;
+  vertical-align: super;
+  font-weight: 700;
+  background: #eef2f7;
+  padding: 1px 3px;
+  border-radius: 3px;
+  border: 1px solid #d0d7e2;
+}
+.strategy-marker:focus {
+  outline: 2px solid #005fcc;
+  outline-offset: 1px;
+}
+.strategy-marker[data-active='true'] {
+  background: #005fcc !important;
+  color: #fff !important;
+  border-color: #004a9d !important;
+  box-shadow: 0 0 0 2px #e3f2ff !important;
+  transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+.strategy-marker[data-active='true']:focus {
+  outline-color: #fff;
+}
+
+/* Panel header focus visibility */
+.animate-slide-in { animation: slideIn 160ms ease-out; }
+@keyframes slideIn { from { transform: translateX(16px); opacity: 0;} to { transform: translateX(0); opacity:1;} }
+.superscript-layer-wrapper {
+  border-bottom: 1px dashed #ccc;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.25rem;
+}

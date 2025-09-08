@@ -30,6 +30,14 @@ import {
   generateStrategyCSSClasses,
   STRATEGY_METADATA
 } from '../services/strategyColorMapping.js';
+// Phase 2a superscript markers
+import StrategySuperscriptRenderer from './strategies/StrategySuperscriptRenderer.jsx';
+// Phase 2b detail panel
+import StrategyDetailPanel from './strategies/StrategyDetailPanel.jsx';
+import StrategyFilterBar from './strategies/StrategyFilterBar.jsx';
+import HighContrastPatternLegend from './strategies/HighContrastPatternLegend.jsx';
+// Unified mapping (Phase 2d Step1/2)
+import { buildUnifiedStrategyMap, segmentTextForHighlights, injectUnifiedCSS } from '../services/unifiedStrategyMapping.js';
 
 // Create reverse mapping from Portuguese names to strategy codes
 const NAME_TO_CODE_MAPPING = {};
@@ -76,6 +84,50 @@ const ComparativeResultsDisplay = ({
   const [selectedStrategy, setSelectedStrategy] = useState('');
   const [contextMenu, setContextMenu] = useState(null);
   const [selectedText, setSelectedText] = useState(null);
+  // Phase 2b: active strategy detail panel state
+  const [activeStrategyId, setActiveStrategyId] = useState(null);
+  const lastFocusedMarkerRef = React.useRef(null);
+  // Phase 2c filtering + accessibility states
+  const [activeCodes, setActiveCodes] = useState([]); // populated after strategies load
+  const [confidenceMin, setConfidenceMin] = useState(0); // percent
+  const [colorblindMode, setColorblindMode] = useState(useColorblindFriendly);
+  const [rovingIndex, setRovingIndex] = useState(0);
+  // Feature flag for dark launch of unified highlighting
+  const [enableUnifiedHighlighting] = useState(true); // set false to rollback quickly
+
+  // Build unified map (strategies include filtered list for color scope determinism)
+  const unifiedStrategyMap = useMemo(() => {
+    if (!enableUnifiedHighlighting) return {};
+    return buildUnifiedStrategyMap(filteredRawStrategies, { colorblindMode, enablePatterns: colorblindMode });
+  }, [filteredRawStrategies, colorblindMode, enableUnifiedHighlighting]);
+
+  // Inject CSS when map changes
+  useEffect(() => {
+    if (enableUnifiedHighlighting) {
+      injectUnifiedCSS(unifiedStrategyMap);
+    }
+  }, [unifiedStrategyMap, enableUnifiedHighlighting]);
+
+  // Guard: clear active strategy only if it no longer exists after analysis updates
+  useEffect(() => {
+    if (!activeStrategyId) return;
+    const exists = (analysisResult?.simplification_strategies || []).some(s => (s.strategy_id || s.id) === activeStrategyId);
+    if (!exists) {
+      setActiveStrategyId(null);
+    }
+  }, [analysisResult?.simplification_strategies, activeStrategyId]);
+
+  // Initialize active codes when strategies change
+  useEffect(() => {
+    const codes = (analysisResult?.simplification_strategies || []).map(s => s.code).filter(Boolean);
+    const uniq = Array.from(new Set(codes));
+    setActiveCodes(uniq);
+  }, [analysisResult?.simplification_strategies]);
+
+  const filteredRawStrategies = useMemo(() => {
+    const list = analysisResult?.simplification_strategies || [];
+    return list.filter(s => activeCodes.includes(s.code) && ((s.confidence ?? s.confidence_score ?? 0) * 100) >= confidenceMin);
+  }, [analysisResult?.simplification_strategies, activeCodes, confidenceMin]);
 
   // Helper function to convert Portuguese strategy name to code
   // (Keeping this utility as it's used in strategy processing)
@@ -117,7 +169,7 @@ const ComparativeResultsDisplay = ({
         confidence: strategy.confidence,
         evidence: strategy.evidence || [],
         // Use backend-provided color if available, otherwise generate
-        color: strategy.color || getStrategyColor(strategyCode, useColorblindFriendly),
+        color: strategy.color || getStrategyColor(strategyCode, colorblindMode),
         info: getStrategyInfo(strategyCode),
         isAutomatic: true,
         // Include backend-provided position data
@@ -139,7 +191,7 @@ const ComparativeResultsDisplay = ({
     }
 
     return strategies;
-  }, [analysisResult, useColorblindFriendly]);
+  }, [analysisResult, colorblindMode]);
 
   // Generate CSS for strategy highlighting
   useEffect(() => {
@@ -152,8 +204,8 @@ const ComparativeResultsDisplay = ({
       document.head.appendChild(styleElement);
     }
     
-    styleElement.textContent = generateStrategyCSSClasses(useColorblindFriendly);
-  }, [useColorblindFriendly]);
+    styleElement.textContent = generateStrategyCSSClasses(colorblindMode);
+  }, [colorblindMode]);
 
   const handleExport = async (format) => {
     setIsLocalExporting(true);
@@ -307,6 +359,39 @@ const ComparativeResultsDisplay = ({
     }
 
     // For source text, just return the text
+    // Unified highlighting path (source & target) when enabled
+    if (enableUnifiedHighlighting) {
+      const scope = isTarget ? 'target' : 'source';
+      const segments = segmentTextForHighlights(text, filteredRawStrategies, { scope });
+      if (segments.length === 0) {
+        return <div className="highlighted-text-container">{text}</div>;
+      }
+      // For now sentence-based segmentation; simple reconstruction
+      const sentences = text.split(/[.!?]+/).filter(s => s.trim()).map(s => s.trim() + '.');
+      return (
+        <div className="highlighted-text-container" data-scope={scope}>
+          {sentences.map((sentence, idx) => {
+            const seg = segments.find(s => s.sentenceIndex === idx);
+            if (!seg) return <span key={idx}>{sentence + ' '}</span>;
+            const mapEntry = unifiedStrategyMap[seg.code];
+            const cls = 'unified-highlight ' + (scope === 'source' ? 'source' : 'target');
+            const style = mapEntry ? { color: mapEntry.textColor } : {};
+            return (
+              <span
+                key={idx}
+                className={cls}
+                data-code={seg.code}
+                data-strategy-id={seg.strategy_id}
+                style={style}
+                title={`${seg.code}`}
+              >{sentence + ' '}</span>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // Legacy path (unchanged) below when not enabled
     if (!isTarget) {
       return (
         <div
@@ -506,6 +591,7 @@ const ComparativeResultsDisplay = ({
   };
 
   return (
+    <>
     <div className={`space-y-6 ${className}`}>
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-lg p-4">
@@ -709,12 +795,37 @@ const ComparativeResultsDisplay = ({
                   </span>
                 </div>
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4 max-h-96 overflow-y-auto">
-                  {highlightText(analysisResult.target_text || analysisResult.targetText, true, 0)}
+                  {/* Phase 2a superscript marker layer (additive, non-breaking) */}
+      {filteredRawStrategies.length > 0 && (
+                    <div
+                      className="superscript-layer-wrapper selectable-text"
+                      aria-label="Marcadores de estratégias detectadas"
+                      onMouseUp={handleTextSelection} // Preserve manual selection handler
+                      style={{ cursor: 'text', userSelect: 'text' }}
+                    >
+                      <StrategySuperscriptRenderer
+                        targetText={analysisResult.target_text || analysisResult.targetText}
+                        strategies={filteredRawStrategies}
+                        colorblindMode={colorblindMode}
+                        activeStrategyId={activeStrategyId}
+        rovingIndex={rovingIndex}
+        onRovingIndexChange={setRovingIndex}
+                        onMarkerActivate={(id, el, idx) => {
+                          if (id) {
+                            lastFocusedMarkerRef.current = el || document.querySelector(`[data-strategy-id="${id}"]`);
+                            setActiveStrategyId(id);
+                            if (typeof idx === 'number') setRovingIndex(idx);
+                          }
+                        }}
+                        unifiedMap={unifiedStrategyMap}
+                      />
+                    </div>
+                  )}
+                  {/* Legacy color-mapped sentence highlighting removed to avoid duplicate rendering */}
                 </div>
                 {strategiesDetected.length > 0 && (
                   <div className="text-xs text-gray-600 bg-blue-50 p-2 rounded">
-                    💡 As tags coloridas [{'{'}código{'}'}] indicam onde as estratégias foram detectadas.
-                    Selecione texto para adicionar estratégias manuais.
+                    💡 Os marcadores sobrescritos (¹²³…) indicam onde as estratégias foram detectadas. Selecione texto para adicionar estratégias manuais.
                   </div>
                 )}
               </div>
@@ -904,6 +1015,30 @@ const ComparativeResultsDisplay = ({
       {/* Tooltip for strategy hover */}
       {renderTooltip()}
     </div>
+    {/* Phase 2b: strategy detail side panel */}
+    <StrategyDetailPanel
+      targetText={analysisResult.target_text || analysisResult.targetText}
+      sourceText={analysisResult.source_text || analysisResult.sourceText}
+      rawStrategies={filteredRawStrategies}
+      activeStrategyId={activeStrategyId}
+      onClose={() => setActiveStrategyId(null)}
+      useColorblindFriendly={colorblindMode}
+      returnFocusTo={lastFocusedMarkerRef.current}
+    />
+    {/* Strategy Filter Bar (Phase 2c) */}
+    <div style={{ marginTop: '1rem' }}>
+      <StrategyFilterBar
+        strategies={analysisResult.simplification_strategies || []}
+        activeCodes={activeCodes}
+        onCodesChange={(codes) => { setActiveCodes(codes); setRovingIndex(0); }}
+        confidenceMin={confidenceMin}
+        onConfidenceChange={(val) => { setConfidenceMin(val); setRovingIndex(0); }}
+        colorblindMode={colorblindMode}
+        onColorblindToggle={setColorblindMode}
+      />
+  <HighContrastPatternLegend unifiedMap={unifiedStrategyMap} show={colorblindMode} />
+    </div>
+    </>
   );
 };
 

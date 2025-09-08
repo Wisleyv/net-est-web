@@ -42,6 +42,8 @@ Consulte nossa documentação estruturada para mais informações:
 - [Arquitetura](./ARCHITECTURE.md) - Visão detalhada da arquitetura do sistema
 - [Guia de Desenvolvimento](./DEVELOPMENT.md) - Instruções para desenvolvedores
 - [Recursos de Desenvolvimento](./DEVELOPMENT_RESOURCES.md) - Guias de solução de problemas e recursos
+- [Migração e Persistência (FS/SQLite)](./docs/repository_migration_notes.md) - Modos de persistência, dual-write, fallback, migração e rollback
+- [HITL Plan (Phase 4)](./docs/HITL_PHASE4_PLAN.md) - Notas das fases 4b–4d e flags
 
 ## 📊 Módulos do Sistema
 
@@ -69,6 +71,12 @@ Consulte nossa documentação estruturada para mais informações:
 - [Documentação da API](http://localhost:8000/docs) (após executar backend)
 - [Repositório GitHub](https://github.com/Wisleyv/net-est-web)
 - [Issues e Sugestões](https://github.com/Wisleyv/net-est-web/issues)
+
+## ✅ NEXT STEPS (Phase 4)
+
+- 4e: Alinhar esquema de exportação para ML/gold datasets (campos consistentes, versionamento de schema)
+- 4f: Acessibilidade (ARIA, navegação teclado) + testes E2E
+- Opcional: Toolbar global de exportação, toasts de confirmação, paginação da timeline
 
 ## � Demos / Example scripts
 

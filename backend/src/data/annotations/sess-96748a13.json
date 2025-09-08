@@ -1,0 +1,76 @@
+{
+  "annotations": [
+    {
+      "id": "6d6af167-6b8b-423d-8a50-bda5d64dbaaf",
+      "strategy_code": "SL+",
+      "source_offsets": null,
+      "target_offsets": [
+        {
+          "start": 0,
+          "end": 1
+        }
+      ],
+      "confidence": null,
+      "origin": "human",
+      "status": "created",
+      "original_code": null,
+      "created_at": "2025-09-08T21:01:18.176605+00:00",
+      "updated_at": "2025-09-08T21:01:18.176607+00:00",
+      "updated_by": null,
+      "evidence": null,
+      "comment": null
+    },
+    {
+      "id": "0ddcc846-47b9-4edf-9e54-1a8c60798008",
+      "strategy_code": "RF+",
+      "source_offsets": null,
+      "target_offsets": [
+        {
+          "start": 2,
+          "end": 3
+        }
+      ],
+      "confidence": null,
+      "origin": "human",
+      "status": "modified",
+      "original_code": "RF+",
+      "created_at": "2025-09-08T21:01:18.176627+00:00",
+      "updated_at": "2025-09-08T21:01:18.176637+00:00",
+      "updated_by": "sess-96748a13",
+      "evidence": null,
+      "comment": null
+    }
+  ],
+  "audit": [
+    {
+      "annotation_id": "6d6af167-6b8b-423d-8a50-bda5d64dbaaf",
+      "action": "create",
+      "timestamp": "2025-09-08T21:01:18.176615+00:00",
+      "session_id": "sess-96748a13",
+      "from_status": null,
+      "to_status": "created",
+      "from_code": null,
+      "to_code": "SL+"
+    },
+    {
+      "annotation_id": "0ddcc846-47b9-4edf-9e54-1a8c60798008",
+      "action": "create",
+      "timestamp": "2025-09-08T21:01:18.176631+00:00",
+      "session_id": "sess-96748a13",
+      "from_status": null,
+      "to_status": "created",
+      "from_code": null,
+      "to_code": "RF+"
+    },
+    {
+      "annotation_id": "0ddcc846-47b9-4edf-9e54-1a8c60798008",
+      "action": "modify",
+      "timestamp": "2025-09-08T21:01:18.176641+00:00",
+      "session_id": "sess-96748a13",
+      "from_status": "created",
+      "to_status": "modified",
+      "from_code": "RF+",
+      "to_code": "RF+"
+    }
+  ]
+}

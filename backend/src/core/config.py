@@ -75,6 +75,16 @@ class Settings(BaseSettings):
     HITL_EXPOSE_DETECTION_CONFIG: bool = True  # include detection_config block in responses
     HITL_STRATEGY_ID_METHOD: str = "uuid4"  # future: 'content-hash'
 
+    # Phase 4c - Persistence Abstraction
+    # fs | sqlite (default fs for compatibility in ephemeral deployments)
+    PERSISTENCE_BACKEND: str = "fs"
+    # When true, writes go to FS (primary) and SQLite (shadow). Reads remain FS.
+    ENABLE_DUAL_WRITE: bool = False
+    # SQLite file path (only used when SQLite is selected or dual-write enabled)
+    SQLITE_DB_PATH: str = "src/data/net_est.sqlite3"
+    # Phase 4d - FS fallback when SQLite is primary
+    ENABLE_FS_FALLBACK: bool = True
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True,
