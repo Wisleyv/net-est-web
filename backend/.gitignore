@@ -11,6 +11,13 @@ backend/archived/
 # Virtual env (if present under backend)
 venv/
 backend/venv/
+/.venv/
+/.venv_*/
+/.venv_py*/
+/.pip-cache/
+/.pytest_cache/
+__pycache__/
+*.py[cod]
 
 # OS artifacts
 Thumbs.db
