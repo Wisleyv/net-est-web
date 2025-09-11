@@ -34,6 +34,7 @@ from ..models.semantic_alignment import (
     EmbeddingResponse,
     UnalignedParagraph,
 )
+from src.core.config import settings
 
 
 logger = logging.getLogger(__name__)
@@ -81,10 +82,11 @@ class SemanticAlignmentService:
     """Service for semantic alignment of paragraphs"""
 
     def __init__(self, config: AlignmentConfiguration | None = None):
+        # Use global settings as the single source of truth for model defaults
+        default_model = getattr(settings, 'BERTIMBAU_MODEL', 'paraphrase-multilingual-MiniLM-L12-v2')
         self.config = config or AlignmentConfiguration(
-                # Use the test-suite expected default model for compatibility
-                bertimbau_model="neuralmind/bert-base-portuguese-cased",
-            similarity_threshold=0.7,
+            bertimbau_model=default_model,
+            similarity_threshold=getattr(settings, 'SIMILARITY_THRESHOLD', 0.5),
             max_sequence_length=512,
             batch_size=8,
             device="cpu",
