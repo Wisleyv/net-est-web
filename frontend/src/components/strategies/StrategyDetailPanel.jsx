@@ -4,6 +4,7 @@ import useAnnotationStore from '../../stores/useAnnotationStore.js';
 import { X } from 'lucide-react';
 import { normalizeStrategies, buildInsertionPoints, buildSentenceFallback, assignDisplayIndices } from '../../utils/strategyOffsets.js';
 import { STRATEGY_METADATA, getStrategyColor, getStrategyInfo } from '../../services/strategyColorMapping.js';
+import FeedbackCollection from './FeedbackCollection.jsx';
 
 /**
  * Phase 2b: StrategyDetailPanel
@@ -140,6 +141,12 @@ export default function StrategyDetailPanel({
                typeof active.confidence === 'number' ? `${(active.confidence * 100).toFixed(1)}%` : 'N/A'}
             </div>
           </section>
+          {active.explanation && (
+            <section>
+              <h3 className="font-medium text-gray-800 mb-1">Explicação</h3>
+              <p className="text-xs text-gray-700" data-testid="strategy-explanation">{active.explanation}</p>
+            </section>
+          )}
           {/* Evidence: prefer evidence array; fallback to examples */}
           {(Array.isArray(active.evidence) && active.evidence.length > 0) || (Array.isArray(active.examples) && active.examples.length > 0) ? (
             <section>
@@ -250,6 +257,7 @@ export default function StrategyDetailPanel({
         <div className="p-3 border-t border-gray-200 flex justify-end">
           {enableFeedbackActions && (
             <div className="flex gap-2 items-center mr-auto" aria-label="Ações de validação">
+              <FeedbackCollection strategy={active} onModifyStart={() => { setModifying(true); setNewCode(active.code); }} />
               <button
                 type="button"
                 onClick={() => acceptAnnotation(active.strategy_id)}

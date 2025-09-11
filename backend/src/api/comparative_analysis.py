@@ -149,7 +149,10 @@ async def perform_comparative_analysis(
         # Coerce result to dict and ensure required fields exist so FastAPI
         # response_model validation succeeds and tests relying on analysis_id work.
         try:
-            if hasattr(result, 'dict'):
+            if hasattr(result, 'model_dump'):
+                result_dict = result.model_dump()
+            elif hasattr(result, 'dict'):
+                # Fallback for legacy pydantic objects
                 result_dict = result.dict()
             elif isinstance(result, dict):
                 result_dict = result
@@ -271,7 +274,9 @@ async def perform_comparative_analysis(
         # Ensure analysis_id present in returned JSON-serializable result
         # Ensure analysis_id present in returned JSON-serializable result
         try:
-            if hasattr(result, 'dict'):
+            if hasattr(result, 'model_dump'):
+                result_dict = result.model_dump()
+            elif hasattr(result, 'dict'):
                 result_dict = result.dict()
             elif isinstance(result, dict):
                 result_dict = result

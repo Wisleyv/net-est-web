@@ -39,7 +39,7 @@ Risks/rollback:
 - Disable dual-write by setting `ENABLE_DUAL_WRITE=false`.
 - Force FS-only with `PERSISTENCE_BACKEND=fs`.
 
-## Phase 4d: SQLite as Primary with FS Fallback
+## Phase 4d: SQLite as Primary with FS Fallback — COMPLETED
 
 - Env:
 	- `PERSISTENCE_BACKEND=sqlite`
@@ -52,3 +52,31 @@ Risks/rollback:
 - 4e: Export schema alignment for ML/gold datasets (consistent fields, schema version, CSV/JSONL equivalence)
 - 4f: Accessibility hardening + E2E tests (keyboard focus traps, ARIA labels, high contrast)
 - Optional refinements: global export toolbar, toast confirmations for actions, timeline pagination
+
+### Phase 4e — Export Schema Alignment & Tooling
+- Align FS and SQLite export schemas; provide deterministic export for analytics. — COMPLETED
+- Export CLI implemented: `python -m src.tools.export --format {jsonl,csv}` with filters. — COMPLETED
+- Schema documented in `docs/EXPORT_SCHEMA.md`. — COMPLETED
+- Round-trip import tool and tests — COMPLETED
+- Audit export (audit.jsonl/csv) — COMPLETED
+
+Linkage & guardrails:
+- Persistence modes: validate against both `PERSISTENCE_BACKEND=fs|sqlite` and dual-write/fallback combos.
+- Feature flags: ensure exports integrate with `enableAuditSearch` datasets to avoid regressions.
+
+### Phase 4f — Accessibility, E2E, and Observability
+- Frontend accessibility sweep (WCAG) and keyboard navigation for audit search UI.
+- Add E2E tests (Playwright) for annotation flow and audit filtering.
+- Add lightweight request/trace logging and timing in backend (structlog fields).
+- Error budget metrics in diagnostics endpoint.
+
+Status (2025-09-10):
+- Base E2E (stubbed backend) passing.
+- Accessibility audit test added (axe-core) for main analysis page; no serious/critical violations yet.
+- Real-backend integration spec scaffolded behind `REAL_BACKEND` env flag.
+- Next: extend a11y coverage to strategy tab + audit search UI; implement keyboard focus outline enhancements.
+ - In Progress: Core HITL actions (accept/modify/reject) UI wiring and explanation field generation for RP+/SL+.
+
+Linkage & guardrails:
+- Respect frontend feature flags (e.g., `enableAuditSearch`) in E2E paths.
+- Exercise both persistence modes in E2E matrix.

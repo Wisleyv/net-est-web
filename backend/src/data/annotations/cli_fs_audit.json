@@ -1,0 +1,178 @@
+{
+  "annotations": [
+    {
+      "id": "d8e64c98-92f1-433c-a501-e620c996077c",
+      "strategy_code": "SL+",
+      "source_offsets": null,
+      "target_offsets": [
+        {
+          "start": 0,
+          "end": 3
+        }
+      ],
+      "confidence": null,
+      "origin": "human",
+      "status": "modified",
+      "validated": false,
+      "manually_assigned": true,
+      "original_code": "OM+",
+      "created_at": "2025-09-11T17:23:58.716101+00:00",
+      "updated_at": "2025-09-11T17:23:58.716119+00:00",
+      "updated_by": "cli_fs_audit",
+      "evidence": null,
+      "comment": "c1",
+      "explanation": "Adequação de Vocabulário: substituições léxicas sugerem simplificação (confiança 0%)."
+    },
+    {
+      "id": "54e0015a-2084-4785-9d28-ba6b2ea4c31d",
+      "strategy_code": "RF+",
+      "source_offsets": null,
+      "target_offsets": [
+        {
+          "start": 4,
+          "end": 7
+        }
+      ],
+      "confidence": null,
+      "origin": "human",
+      "status": "accepted",
+      "validated": true,
+      "manually_assigned": true,
+      "original_code": null,
+      "created_at": "2025-09-11T17:23:58.716138+00:00",
+      "updated_at": "2025-09-11T17:23:58.716144+00:00",
+      "updated_by": "cli_fs_audit",
+      "evidence": null,
+      "comment": "c2",
+      "explanation": null
+    },
+    {
+      "id": "b120e784-ba9e-4cfa-ac2e-91ebefdd6851",
+      "strategy_code": "SL+",
+      "source_offsets": null,
+      "target_offsets": [
+        {
+          "start": 0,
+          "end": 3
+        }
+      ],
+      "confidence": null,
+      "origin": "human",
+      "status": "modified",
+      "validated": false,
+      "manually_assigned": true,
+      "original_code": "OM+",
+      "created_at": "2025-09-11T17:23:58.728625+00:00",
+      "updated_at": "2025-09-11T17:23:58.728640+00:00",
+      "updated_by": "cli_fs_audit",
+      "evidence": null,
+      "comment": "c1",
+      "explanation": "Adequação de Vocabulário: substituições léxicas sugerem simplificação (confiança 0%)."
+    },
+    {
+      "id": "085ba5e8-80b8-4ec6-aa33-9c748f3874a4",
+      "strategy_code": "RF+",
+      "source_offsets": null,
+      "target_offsets": [
+        {
+          "start": 4,
+          "end": 7
+        }
+      ],
+      "confidence": null,
+      "origin": "human",
+      "status": "accepted",
+      "validated": true,
+      "manually_assigned": true,
+      "original_code": null,
+      "created_at": "2025-09-11T17:23:58.728679+00:00",
+      "updated_at": "2025-09-11T17:23:58.728686+00:00",
+      "updated_by": "cli_fs_audit",
+      "evidence": null,
+      "comment": "c2",
+      "explanation": null
+    }
+  ],
+  "audit": [
+    {
+      "annotation_id": "d8e64c98-92f1-433c-a501-e620c996077c",
+      "action": "create",
+      "timestamp": "2025-09-11T17:23:58.716113+00:00",
+      "session_id": "cli_fs_audit",
+      "from_status": null,
+      "to_status": "created",
+      "from_code": null,
+      "to_code": "OM+"
+    },
+    {
+      "annotation_id": "d8e64c98-92f1-433c-a501-e620c996077c",
+      "action": "modify",
+      "timestamp": "2025-09-11T17:23:58.716127+00:00",
+      "session_id": "cli_fs_audit",
+      "from_status": "created",
+      "to_status": "modified",
+      "from_code": "OM+",
+      "to_code": "SL+"
+    },
+    {
+      "annotation_id": "54e0015a-2084-4785-9d28-ba6b2ea4c31d",
+      "action": "create",
+      "timestamp": "2025-09-11T17:23:58.716141+00:00",
+      "session_id": "cli_fs_audit",
+      "from_status": null,
+      "to_status": "created",
+      "from_code": null,
+      "to_code": "RF+"
+    },
+    {
+      "annotation_id": "54e0015a-2084-4785-9d28-ba6b2ea4c31d",
+      "action": "accept",
+      "timestamp": "2025-09-11T17:23:58.716146+00:00",
+      "session_id": "cli_fs_audit",
+      "from_status": "created",
+      "to_status": "accepted",
+      "from_code": "RF+",
+      "to_code": "RF+"
+    },
+    {
+      "annotation_id": "b120e784-ba9e-4cfa-ac2e-91ebefdd6851",
+      "action": "create",
+      "timestamp": "2025-09-11T17:23:58.728635+00:00",
+      "session_id": "cli_fs_audit",
+      "from_status": null,
+      "to_status": "created",
+      "from_code": null,
+      "to_code": "OM+"
+    },
+    {
+      "annotation_id": "b120e784-ba9e-4cfa-ac2e-91ebefdd6851",
+      "action": "modify",
+      "timestamp": "2025-09-11T17:23:58.728653+00:00",
+      "session_id": "cli_fs_audit",
+      "from_status": "created",
+      "to_status": "modified",
+      "from_code": "OM+",
+      "to_code": "SL+"
+    },
+    {
+      "annotation_id": "085ba5e8-80b8-4ec6-aa33-9c748f3874a4",
+      "action": "create",
+      "timestamp": "2025-09-11T17:23:58.728683+00:00",
+      "session_id": "cli_fs_audit",
+      "from_status": null,
+      "to_status": "created",
+      "from_code": null,
+      "to_code": "RF+"
+    },
+    {
+      "annotation_id": "085ba5e8-80b8-4ec6-aa33-9c748f3874a4",
+      "action": "accept",
+      "timestamp": "2025-09-11T17:23:58.728689+00:00",
+      "session_id": "cli_fs_audit",
+      "from_status": "created",
+      "to_status": "accepted",
+      "from_code": "RF+",
+      "to_code": "RF+"
+    }
+  ]
+}

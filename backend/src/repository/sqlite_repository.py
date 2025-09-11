@@ -6,6 +6,7 @@ from pathlib import Path
 from datetime import datetime
 
 from src.models.annotation import Annotation, AuditEntry, Offset
+from src.services.explanation_generator import generate_explanation
 from src.repository.base import AnnotationRepository
 
 
@@ -67,15 +68,30 @@ class SQLiteAnnotationRepository(AnnotationRepository):
                     confidence REAL,
                     origin TEXT,
                     status TEXT,
+                    validated INTEGER DEFAULT 0,
+                    manually_assigned INTEGER DEFAULT 0,
                     original_code TEXT,
                     created_at TEXT,
                     updated_at TEXT,
                     updated_by TEXT,
                     evidence TEXT,
-                    comment TEXT
+                    comment TEXT,
+                    explanation TEXT
                 );
                 """
             )
+            # Backfill explanation column if DB existed without it
+            try:
+                cur.execute("PRAGMA table_info(annotations);")
+                cols = [r[1] for r in cur.fetchall()]
+                if 'validated' not in cols:
+                    cur.execute("ALTER TABLE annotations ADD COLUMN validated INTEGER DEFAULT 0;")
+                if 'manually_assigned' not in cols:
+                    cur.execute("ALTER TABLE annotations ADD COLUMN manually_assigned INTEGER DEFAULT 0;")
+                if 'explanation' not in cols:
+                    cur.execute("ALTER TABLE annotations ADD COLUMN explanation TEXT;")
+            except Exception:
+                pass
             cur.execute("CREATE INDEX IF NOT EXISTS idx_annotations_session ON annotations(session_id);")
             cur.execute(
                 """
@@ -113,12 +129,15 @@ class SQLiteAnnotationRepository(AnnotationRepository):
             confidence=row["confidence"],
             origin=row["origin"],
             status=row["status"],
+            validated=bool(row["validated"]) if "validated" in row.keys() else False,
+            manually_assigned=bool(row["manually_assigned"]) if "manually_assigned" in row.keys() else False,
             original_code=row["original_code"],
             created_at=_parse_dt(row["created_at"]),
             updated_at=_parse_dt(row["updated_at"]),
             updated_by=row["updated_by"],
             evidence=json.loads(row["evidence"]) if row["evidence"] else None,
             comment=row["comment"],
+            explanation=row["explanation"],
         )
 
     def list_visible(self) -> List[Annotation]:
@@ -163,9 +182,9 @@ class SQLiteAnnotationRepository(AnnotationRepository):
         cur = con.cursor()
         cur.execute(
             """
-            INSERT INTO annotations (id, session_id, strategy_code, source_offsets, target_offsets, confidence, origin,
-                                     status, original_code, created_at, updated_at, updated_by, evidence, comment)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    INSERT INTO annotations (id, session_id, strategy_code, source_offsets, target_offsets, confidence, origin,
+                                     status, validated, manually_assigned, original_code, created_at, updated_at, updated_by, evidence, comment, explanation)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(id) DO UPDATE SET
                 session_id=excluded.session_id,
                 strategy_code=excluded.strategy_code,
@@ -174,12 +193,15 @@ class SQLiteAnnotationRepository(AnnotationRepository):
                 confidence=excluded.confidence,
                 origin=excluded.origin,
                 status=excluded.status,
+                validated=excluded.validated,
+                manually_assigned=excluded.manually_assigned,
                 original_code=excluded.original_code,
                 created_at=excluded.created_at,
                 updated_at=excluded.updated_at,
                 updated_by=excluded.updated_by,
                 evidence=excluded.evidence,
-                comment=excluded.comment
+                comment=excluded.comment,
+                explanation=excluded.explanation
             """,
             (
                 ann.id,
@@ -190,12 +212,15 @@ class SQLiteAnnotationRepository(AnnotationRepository):
                 ann.confidence,
                 ann.origin,
                 ann.status,
+                1 if getattr(ann, 'validated', False) else 0,
+                1 if getattr(ann, 'manually_assigned', False) else 0,
                 ann.original_code,
                 _iso(ann.created_at),
                 _iso(ann.updated_at),
                 ann.updated_by,
                 json.dumps(ann.evidence) if ann.evidence is not None else None,
                 ann.comment,
+                ann.explanation,
             ),
         )
 
@@ -207,6 +232,10 @@ class SQLiteAnnotationRepository(AnnotationRepository):
             raise ValueError("cannot_accept_modified")
         from_status = ann.status
         ann.status = "accepted"
+        ann.validated = True
+        if not ann.explanation:
+            # Populate explanation lazily to match FS behavior
+            ann.explanation = generate_explanation(ann)
         ann.updated_by = session_id
         ann.updated_at = datetime.now(ann.updated_at.tzinfo) if ann.updated_at else datetime.now()
         entry = AuditEntry(
@@ -230,6 +259,7 @@ class SQLiteAnnotationRepository(AnnotationRepository):
             raise KeyError("annotation_not_found")
         from_status = ann.status
         ann.status = "rejected"
+        ann.validated = False
         ann.updated_by = session_id
         ann.updated_at = datetime.now(ann.updated_at.tzinfo) if ann.updated_at else datetime.now()
         entry = AuditEntry(
@@ -258,6 +288,8 @@ class SQLiteAnnotationRepository(AnnotationRepository):
             ann.original_code = ann.strategy_code
         ann.strategy_code = new_code
         ann.status = "modified"
+        ann.validated = False
+        ann.explanation = generate_explanation(ann)
         ann.updated_by = session_id
         ann.updated_at = datetime.now(ann.updated_at.tzinfo) if ann.updated_at else datetime.now()
         entry = AuditEntry(
@@ -277,7 +309,8 @@ class SQLiteAnnotationRepository(AnnotationRepository):
 
     def create(self, session_id: str, strategy_code: str, target_offsets: List[dict], comment: Optional[str] = None) -> Annotation:
         offsets = [Offset(**o) if not isinstance(o, Offset) else o for o in target_offsets]
-        ann = Annotation(strategy_code=strategy_code, target_offsets=offsets, origin='human', status='created', comment=comment)
+        ann = Annotation(strategy_code=strategy_code, target_offsets=offsets, origin='human', status='created', comment=comment, manually_assigned=True, validated=False)
+        ann.explanation = generate_explanation(ann)
         entry = AuditEntry(annotation_id=ann.id, action='create', session_id=session_id, from_status=None, to_status=ann.status, from_code=None, to_code=ann.strategy_code)
         with self._connect() as con:
             self._upsert_annotation(con, ann, session_id)
@@ -334,7 +367,21 @@ class SQLiteAnnotationRepository(AnnotationRepository):
                 f"SELECT * FROM annotations WHERE session_id=? AND status IN ({qmarks})",
                 (sess, *statuses),
             )
-            return [self._row_to_annotation(r) for r in cur.fetchall()]
+            anns = [self._row_to_annotation(r) for r in cur.fetchall()]
+            # Lazy fill explanation like FS repo for accepted annotations missing explanation
+            changed = False
+            for a in anns:
+                if a.strategy_code in ('SL+','RP+') and not a.explanation:
+                    a.explanation = generate_explanation(a)
+                    changed = True
+            if changed:
+                # Persist any newly generated explanations
+                with self._connect() as con2:
+                    for a in anns:
+                        if a.explanation:
+                            self._upsert_annotation(con2, a, sess)
+                    con2.commit()
+            return anns
 
     def query(self, statuses: Optional[List[str]] = None, strategy_codes: Optional[List[str]] = None, session_id: Optional[str] = None) -> List[Annotation]:
         sess = session_id or self._current_session

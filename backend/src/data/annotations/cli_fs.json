@@ -1,0 +1,178 @@
+{
+  "annotations": [
+    {
+      "id": "614ee9c5-9dd9-432b-943f-1da4fe268994",
+      "strategy_code": "SL+",
+      "source_offsets": null,
+      "target_offsets": [
+        {
+          "start": 0,
+          "end": 3
+        }
+      ],
+      "confidence": null,
+      "origin": "human",
+      "status": "modified",
+      "validated": false,
+      "manually_assigned": true,
+      "original_code": "OM+",
+      "created_at": "2025-09-11T17:23:58.685786+00:00",
+      "updated_at": "2025-09-11T17:23:58.685807+00:00",
+      "updated_by": "cli_fs",
+      "evidence": null,
+      "comment": "c1",
+      "explanation": "Adequação de Vocabulário: substituições léxicas sugerem simplificação (confiança 0%)."
+    },
+    {
+      "id": "ec2dab9b-daba-423f-83f1-489750c434a3",
+      "strategy_code": "RF+",
+      "source_offsets": null,
+      "target_offsets": [
+        {
+          "start": 4,
+          "end": 7
+        }
+      ],
+      "confidence": null,
+      "origin": "human",
+      "status": "accepted",
+      "validated": true,
+      "manually_assigned": true,
+      "original_code": null,
+      "created_at": "2025-09-11T17:23:58.685825+00:00",
+      "updated_at": "2025-09-11T17:23:58.685861+00:00",
+      "updated_by": "cli_fs",
+      "evidence": null,
+      "comment": "c2",
+      "explanation": null
+    },
+    {
+      "id": "a8a83211-6584-4602-8640-1c98be222b53",
+      "strategy_code": "SL+",
+      "source_offsets": null,
+      "target_offsets": [
+        {
+          "start": 0,
+          "end": 3
+        }
+      ],
+      "confidence": null,
+      "origin": "human",
+      "status": "modified",
+      "validated": false,
+      "manually_assigned": true,
+      "original_code": "OM+",
+      "created_at": "2025-09-11T17:23:58.702029+00:00",
+      "updated_at": "2025-09-11T17:23:58.702044+00:00",
+      "updated_by": "cli_fs",
+      "evidence": null,
+      "comment": "c1",
+      "explanation": "Adequação de Vocabulário: substituições léxicas sugerem simplificação (confiança 0%)."
+    },
+    {
+      "id": "78cabc8b-c269-4a78-bb41-aa76171abbcc",
+      "strategy_code": "RF+",
+      "source_offsets": null,
+      "target_offsets": [
+        {
+          "start": 4,
+          "end": 7
+        }
+      ],
+      "confidence": null,
+      "origin": "human",
+      "status": "accepted",
+      "validated": true,
+      "manually_assigned": true,
+      "original_code": null,
+      "created_at": "2025-09-11T17:23:58.702064+00:00",
+      "updated_at": "2025-09-11T17:23:58.702070+00:00",
+      "updated_by": "cli_fs",
+      "evidence": null,
+      "comment": "c2",
+      "explanation": null
+    }
+  ],
+  "audit": [
+    {
+      "annotation_id": "614ee9c5-9dd9-432b-943f-1da4fe268994",
+      "action": "create",
+      "timestamp": "2025-09-11T17:23:58.685799+00:00",
+      "session_id": "cli_fs",
+      "from_status": null,
+      "to_status": "created",
+      "from_code": null,
+      "to_code": "OM+"
+    },
+    {
+      "annotation_id": "614ee9c5-9dd9-432b-943f-1da4fe268994",
+      "action": "modify",
+      "timestamp": "2025-09-11T17:23:58.685815+00:00",
+      "session_id": "cli_fs",
+      "from_status": "created",
+      "to_status": "modified",
+      "from_code": "OM+",
+      "to_code": "SL+"
+    },
+    {
+      "annotation_id": "ec2dab9b-daba-423f-83f1-489750c434a3",
+      "action": "create",
+      "timestamp": "2025-09-11T17:23:58.685829+00:00",
+      "session_id": "cli_fs",
+      "from_status": null,
+      "to_status": "created",
+      "from_code": null,
+      "to_code": "RF+"
+    },
+    {
+      "annotation_id": "ec2dab9b-daba-423f-83f1-489750c434a3",
+      "action": "accept",
+      "timestamp": "2025-09-11T17:23:58.685865+00:00",
+      "session_id": "cli_fs",
+      "from_status": "created",
+      "to_status": "accepted",
+      "from_code": "RF+",
+      "to_code": "RF+"
+    },
+    {
+      "annotation_id": "a8a83211-6584-4602-8640-1c98be222b53",
+      "action": "create",
+      "timestamp": "2025-09-11T17:23:58.702039+00:00",
+      "session_id": "cli_fs",
+      "from_status": null,
+      "to_status": "created",
+      "from_code": null,
+      "to_code": "OM+"
+    },
+    {
+      "annotation_id": "a8a83211-6584-4602-8640-1c98be222b53",
+      "action": "modify",
+      "timestamp": "2025-09-11T17:23:58.702052+00:00",
+      "session_id": "cli_fs",
+      "from_status": "created",
+      "to_status": "modified",
+      "from_code": "OM+",
+      "to_code": "SL+"
+    },
+    {
+      "annotation_id": "78cabc8b-c269-4a78-bb41-aa76171abbcc",
+      "action": "create",
+      "timestamp": "2025-09-11T17:23:58.702067+00:00",
+      "session_id": "cli_fs",
+      "from_status": null,
+      "to_status": "created",
+      "from_code": null,
+      "to_code": "RF+"
+    },
+    {
+      "annotation_id": "78cabc8b-c269-4a78-bb41-aa76171abbcc",
+      "action": "accept",
+      "timestamp": "2025-09-11T17:23:58.702072+00:00",
+      "session_id": "cli_fs",
+      "from_status": "created",
+      "to_status": "accepted",
+      "from_code": "RF+",
+      "to_code": "RF+"
+    }
+  ]
+}

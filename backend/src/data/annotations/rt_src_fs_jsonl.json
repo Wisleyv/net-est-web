@@ -1,0 +1,82 @@
+{
+  "annotations": [
+    {
+      "id": "69586426-96b6-48e1-a3e0-e56d0ea6ffb8",
+      "strategy_code": "OM+",
+      "source_offsets": null,
+      "target_offsets": [
+        {
+          "start": 0,
+          "end": 1
+        }
+      ],
+      "confidence": null,
+      "origin": "human",
+      "status": "created",
+      "validated": false,
+      "manually_assigned": true,
+      "original_code": null,
+      "created_at": "2025-09-11T17:25:35.605688+00:00",
+      "updated_at": "2025-09-11T17:25:35.605691+00:00",
+      "updated_by": null,
+      "evidence": null,
+      "comment": "a",
+      "explanation": null
+    },
+    {
+      "id": "95ad4b14-fdcd-453e-b4aa-a1a236b6405d",
+      "strategy_code": "RF+",
+      "source_offsets": null,
+      "target_offsets": [
+        {
+          "start": 2,
+          "end": 3
+        }
+      ],
+      "confidence": null,
+      "origin": "human",
+      "status": "accepted",
+      "validated": true,
+      "manually_assigned": true,
+      "original_code": null,
+      "created_at": "2025-09-11T17:25:35.605717+00:00",
+      "updated_at": "2025-09-11T17:25:35.605726+00:00",
+      "updated_by": "rt_src_fs_jsonl",
+      "evidence": null,
+      "comment": "b",
+      "explanation": null
+    }
+  ],
+  "audit": [
+    {
+      "annotation_id": "69586426-96b6-48e1-a3e0-e56d0ea6ffb8",
+      "action": "create",
+      "timestamp": "2025-09-11T17:25:35.605702+00:00",
+      "session_id": "rt_src_fs_jsonl",
+      "from_status": null,
+      "to_status": "created",
+      "from_code": null,
+      "to_code": "OM+"
+    },
+    {
+      "annotation_id": "95ad4b14-fdcd-453e-b4aa-a1a236b6405d",
+      "action": "create",
+      "timestamp": "2025-09-11T17:25:35.605722+00:00",
+      "session_id": "rt_src_fs_jsonl",
+      "from_status": null,
+      "to_status": "created",
+      "from_code": null,
+      "to_code": "RF+"
+    },
+    {
+      "annotation_id": "95ad4b14-fdcd-453e-b4aa-a1a236b6405d",
+      "action": "accept",
+      "timestamp": "2025-09-11T17:25:35.605730+00:00",
+      "session_id": "rt_src_fs_jsonl",
+      "from_status": "created",
+      "to_status": "accepted",
+      "from_code": "RF+",
+      "to_code": "RF+"
+    }
+  ]
+}

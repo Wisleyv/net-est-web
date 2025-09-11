@@ -1,5 +1,11 @@
 # NET-EST - Sistema de Análise de Estratégias de Simplificação Textual
 
+## Status
+
+Core HITL (human-in-the-loop) functionality is complete and production-ready. Gold annotation persistence (FS/SQLite), CRUD actions (accept/modify/reject), and ML-ready scoped exports are implemented and covered by tests and E2E checks.
+
+For running the live integration E2E and environment considerations, see the Troubleshooting note in ONBOARDING: [ONBOARDING.md › Troubleshooting](./ONBOARDING.md#troubleshooting).
+
 Sistema de análise computacional para estratégias de simplificação em tradução intralingual desenvolvido pelo Núcleo de Estudos de Tradução da UFRJ em parceria com o Politécnico de Leiria.
 
 ## 🎯 Sobre o Projeto

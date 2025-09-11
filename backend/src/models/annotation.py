@@ -18,12 +18,18 @@ class Annotation(BaseModel):
     confidence: Optional[float] = None
     origin: Literal['machine','human'] = 'machine'
     status: AnnotationStatus = 'pending'
+    # Gold annotation flags (Phase 4e)
+    # validated: True when accepted by a human (or created by a human as gold)
+    # manually_assigned: True when created by a human directly
+    validated: bool = False
+    manually_assigned: bool = False
     original_code: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_by: Optional[str] = None
     evidence: Optional[List[str]] = None
     comment: Optional[str] = None
+    explanation: Optional[str] = None  # Simple human-readable rationale (Phase 4 feature)
 
 class AnnotationAction(BaseModel):
     action: Literal['accept','reject','modify']

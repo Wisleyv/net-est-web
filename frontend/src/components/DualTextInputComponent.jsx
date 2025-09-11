@@ -230,6 +230,8 @@ const DualTextInputComponent = ({ onComparativeAnalysis, className = "" }) => {
               className={`w-full p-3 border rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                 validationErrors.source ? 'border-red-300 bg-red-50' : 'border-gray-300'
               }`}
+              aria-label="Texto fonte"
+              data-testid="source-textarea"
             />
             {validationErrors.source && (
               <div className="flex items-center gap-1 text-sm text-red-600">
@@ -245,7 +247,7 @@ const DualTextInputComponent = ({ onComparativeAnalysis, className = "" }) => {
           <div className="flex items-center gap-2">
             <FileText className="w-5 h-5 text-green-600" />
             <h4 className="font-medium text-gray-900">Texto Simplificado (Tradução)</h4>
-            <span className="text-sm text-green-600">• Simplificado</span>
+            <span className="text-sm text-green-700">• Simplificado</span>
           </div>
           
           {/* Target File Upload */}
@@ -283,6 +285,8 @@ const DualTextInputComponent = ({ onComparativeAnalysis, className = "" }) => {
               className={`w-full p-3 border rounded-lg resize-none focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
                 validationErrors.target ? 'border-red-300 bg-red-50' : 'border-gray-300'
               }`}
+              aria-label="Texto simplificado"
+              data-testid="target-textarea"
             />
             {validationErrors.target && (
               <div className="flex items-center gap-1 text-sm text-red-600">
@@ -318,6 +322,8 @@ const DualTextInputComponent = ({ onComparativeAnalysis, className = "" }) => {
             onClick={handleSubmit}
             disabled={isProcessing || !sourceText || !targetText}
             className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            aria-label="Iniciar análise comparativa"
+            data-testid="analyze-button"
           >
             {isProcessing ? (
               <>

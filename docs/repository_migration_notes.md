@@ -59,3 +59,18 @@ See `backend/tests/test_sqlite_repository.py` for:
 - Dual-write consistency check
 - Export parity (FS vs SQLite)
 - Migration from existing FS JSON sessions
+
+## Environment Setup
+
+On systems where the default VS Code shell is PowerShell 7 (pwsh), tasks that call `powershell` may fail. Update task definitions to use `pwsh` instead of `powershell` to ensure compatibility. Alternatively, run commands directly in a pwsh terminal.
+
+Status:
+- `NET-est-optimized.code-workspace` tasks now use `pwsh` consistently for backend and frontend (Run Backend Tests, Start Backend Server, Run Frontend Tests, Start Frontend Server).
+- If you still see any task invoking `powershell`, update it to:
+	- `"command": "pwsh"`
+	- Include `-NoLogo -NoProfile -Command` or `-File` as needed.
+	- Prefer fully-qualified paths like `backend/venv/Scripts/python.exe`.
+
+Examples:
+- Replace task command `powershell -ExecutionPolicy Bypass -Command ...` with `pwsh -NoLogo -NoProfile -Command ...`.
+- For backend tasks that call the venv Python, prefer fully qualified paths like `backend/venv/Scripts/python.exe` to avoid activation issues.

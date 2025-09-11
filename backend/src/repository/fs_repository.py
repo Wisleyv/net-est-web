@@ -7,6 +7,7 @@ from src.models.annotation import Annotation, AuditEntry, Offset
 from src.repository.base import AnnotationRepository
 from src.core.config import settings
 from src.repository.sqlite_repository import SQLiteAnnotationRepository
+from src.services.explanation_generator import generate_explanation
 
 DATA_DIR = Path(__file__).parent.parent / 'data' / 'annotations'
 DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -69,8 +70,11 @@ class FSAnnotationRepository(AnnotationRepository):
             raise ValueError('cannot_accept_modified')
         from_status = ann.status
         ann.status = 'accepted'
+        ann.validated = True
         ann.updated_at = datetime.now(timezone.utc)
         ann.updated_by = session_id
+        if not ann.explanation:
+            ann.explanation = generate_explanation(ann)
         self._audit.append(AuditEntry(annotation_id=ann.id, action='accept', session_id=session_id, from_status=from_status, to_status=ann.status, from_code=ann.strategy_code, to_code=ann.strategy_code))
         return ann
 
@@ -80,6 +84,7 @@ class FSAnnotationRepository(AnnotationRepository):
             raise KeyError('annotation_not_found')
         from_status = ann.status
         ann.status = 'rejected'
+        ann.validated = False
         ann.updated_at = datetime.now(timezone.utc)
         ann.updated_by = session_id
         self._audit.append(AuditEntry(annotation_id=ann.id, action='reject', session_id=session_id, from_status=from_status, to_status=ann.status, from_code=ann.strategy_code, to_code=ann.strategy_code))
@@ -96,14 +101,27 @@ class FSAnnotationRepository(AnnotationRepository):
             ann.original_code = ann.strategy_code
         ann.strategy_code = new_code
         ann.status = 'modified'
+        ann.validated = False
         ann.updated_at = datetime.now(timezone.utc)
         ann.updated_by = session_id
-        self._audit.append(AuditEntry(annotation_id=ann.id, action='modify', session_id=session_id, from_status=from_status, to_status=ann.status, from_code=ann.original_code, to_code=ann.strategy_code))
+        ann.explanation = generate_explanation(ann)
+        self._audit.append(
+            AuditEntry(
+                annotation_id=ann.id,
+                action='modify',
+                session_id=session_id,
+                from_status=from_status,
+                to_status=ann.status,
+                from_code=ann.original_code,
+                to_code=ann.strategy_code,
+            )
+        )
         return ann
 
     def create(self, session_id: str, strategy_code: str, target_offsets: List[dict], comment: Optional[str] = None) -> Annotation:
         offsets = [Offset(**o) if not isinstance(o, Offset) else o for o in target_offsets]
-        ann = Annotation(strategy_code=strategy_code, target_offsets=offsets, origin='human', status='created', comment=comment)
+        ann = Annotation(strategy_code=strategy_code, target_offsets=offsets, origin='human', status='created', comment=comment, manually_assigned=True, validated=False)
+        ann.explanation = generate_explanation(ann)
         self._annotations[ann.id] = ann
         self._audit.append(AuditEntry(annotation_id=ann.id, action='create', session_id=session_id, from_status=None, to_status=ann.status, from_code=None, to_code=ann.strategy_code))
         return ann
@@ -360,6 +378,14 @@ class FallbackRepository(AnnotationRepository):
 
 # Factory: choose repo based on env settings
 _REPO: AnnotationRepository | None = None
+
+def reset_repository() -> None:
+    """Reset the process-wide repository singleton (for tests).
+
+    Allows tests to switch persistence modes by clearing the cached instance.
+    """
+    global _REPO
+    _REPO = None
 
 def get_repository() -> AnnotationRepository:
     """Return process-wide singleton repository based on settings.

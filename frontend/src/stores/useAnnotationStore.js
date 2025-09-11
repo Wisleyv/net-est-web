@@ -36,15 +36,19 @@ const useAnnotationStore = create(devtools((set, get) => ({
     const { sessionId, annotations } = get();
     // Optimistic update: mark as accepted
     const idx = annotations.findIndex(a => a.id === id || a.strategy_id === id);
-    if (idx === -1) return;
-    const prev = annotations[idx];
-    const updated = { ...prev, status: 'accepted' };
-    set({ annotations: [...annotations.slice(0, idx), updated, ...annotations.slice(idx + 1)] }, false, 'annotation/accept/optimistic');
+    const prev = idx !== -1 ? annotations[idx] : null;
+    if (prev) {
+      const updated = { ...prev, status: 'accepted' };
+      set({ annotations: [...annotations.slice(0, idx), updated, ...annotations.slice(idx + 1)] }, false, 'annotation/accept/optimistic');
+    }
     try {
-      await api.patch(`/api/v1/annotations/${prev.id || prev.strategy_id}?session_id=${encodeURIComponent(sessionId)}`, { action: 'accept', session_id: sessionId });
+      const targetId = prev?.id || prev?.strategy_id || id;
+      await api.patch(`/api/v1/annotations/${targetId}?session_id=${encodeURIComponent(sessionId)}`, { action: 'accept', session_id: sessionId });
     } catch (error) {
       // rollback
-      set({ annotations: [...annotations.slice(0, idx), prev, ...annotations.slice(idx + 1)] }, false, 'annotation/accept/rollback');
+      if (prev) {
+        set({ annotations: [...annotations.slice(0, idx), prev, ...annotations.slice(idx + 1)] }, false, 'annotation/accept/rollback');
+      }
       useAppStore.getState().addNotification({ type: 'error', message: 'Falha ao aceitar anotação' });
     }
   },
@@ -52,15 +56,19 @@ const useAnnotationStore = create(devtools((set, get) => ({
   rejectAnnotation: async (id) => {
     const { sessionId, annotations } = get();
     const idx = annotations.findIndex(a => a.id === id || a.strategy_id === id);
-    if (idx === -1) return;
-    const prev = annotations[idx];
-    // Optimistic: remove from list (hidden)
-    set({ annotations: annotations.filter((_, i) => i !== idx) }, false, 'annotation/reject/optimistic');
+    const prev = idx !== -1 ? annotations[idx] : null;
+    // Optimistic: remove from list (hidden) only if present
+    if (prev) {
+      set({ annotations: annotations.filter((_, i) => i !== idx) }, false, 'annotation/reject/optimistic');
+    }
     try {
-      await api.patch(`/api/v1/annotations/${prev.id || prev.strategy_id}?session_id=${encodeURIComponent(sessionId)}`, { action: 'reject', session_id: sessionId });
+      const targetId = prev?.id || prev?.strategy_id || id;
+      await api.patch(`/api/v1/annotations/${targetId}?session_id=${encodeURIComponent(sessionId)}`, { action: 'reject', session_id: sessionId });
     } catch (error) {
       // rollback
-      set({ annotations: [...annotations.slice(0, idx), prev, ...annotations.slice(idx + 1)] }, false, 'annotation/reject/rollback');
+      if (prev) {
+        set({ annotations: [...annotations.slice(0, idx), prev, ...annotations.slice(idx + 1)] }, false, 'annotation/reject/rollback');
+      }
       useAppStore.getState().addNotification({ type: 'error', message: 'Falha ao rejeitar anotação' });
     }
   }

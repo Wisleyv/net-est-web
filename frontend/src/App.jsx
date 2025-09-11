@@ -3,7 +3,7 @@
  * Enhanced for strategy detection and visual analysis
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css'; // Ensure global styles (including strategy marker highlight) are applied
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -82,6 +82,16 @@ function MainApp() {
   const enableFeedbackActions = useAppStore(s => s.config.enableFeedbackActions);
   const { exportAnnotations } = useAnnotationStore();
 
+  // Test-only hook: allow E2E to enable feedback actions by setting a global flag
+  // Security: only honor this in development/test modes to avoid production exposure
+  useEffect(() => {
+    const isNonProd = (typeof import.meta !== 'undefined' && import.meta.env && (import.meta.env.DEV || import.meta.env.MODE === 'test'));
+    if (isNonProd && typeof window !== 'undefined' && window.__ENABLE_FEEDBACK_FLAG__) {
+      const st = useAppStore.getState();
+      useAppStore.setState({ config: { ...st.config, enableFeedbackActions: true } });
+    }
+  }, []);
+
   const handleTextProcessed = (_result) => {
     // Analysis completed successfully
     // The EnhancedTextInput component handles the display
@@ -145,31 +155,39 @@ function MainApp() {
               onClick={() => setCurrentView('input')}
               style={{
                 padding: '0.625rem 1.25rem',
-                backgroundColor: currentView === 'input' || currentView === 'results' ? '#3182ce' : '#e2e8f0',
-                color: currentView === 'input' || currentView === 'results' ? 'white' : '#4a5568',
-                border: 'none',
+                backgroundColor: currentView === 'input' || currentView === 'results' ? '#2563eb' : '#e2e8f0', // darker blue for contrast
+                color: currentView === 'input' || currentView === 'results' ? '#ffffff' : '#2d3748',
+                border: '2px solid transparent',
                 borderRadius: '0.5rem',
                 cursor: 'pointer',
                 fontSize: '0.875rem',
-                fontWeight: '500',
-                transition: 'all 0.2s ease'
+                fontWeight: '600',
+                transition: 'all 0.2s ease',
+                outline: 'none'
               }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = '#1d4ed8'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = 'transparent'; }}
+              aria-current={currentView === 'input' || currentView === 'results' ? 'page' : undefined}
             >
-              � Análise de Textos
+              📝 Análise de Textos
             </button>
             <button
               onClick={() => setCurrentView('about')}
               style={{
                 padding: '0.625rem 1.25rem',
-                backgroundColor: currentView === 'about' ? '#3182ce' : '#e2e8f0',
-                color: currentView === 'about' ? 'white' : '#4a5568',
-                border: 'none',
+                backgroundColor: currentView === 'about' ? '#2563eb' : '#e2e8f0',
+                color: currentView === 'about' ? '#ffffff' : '#2d3748',
+                border: '2px solid transparent',
                 borderRadius: '0.5rem',
                 cursor: 'pointer',
                 fontSize: '0.875rem',
-                fontWeight: '500',
-                transition: 'all 0.2s ease'
+                fontWeight: '600',
+                transition: 'all 0.2s ease',
+                outline: 'none'
               }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = '#1d4ed8'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = 'transparent'; }}
+              aria-current={currentView === 'about' ? 'page' : undefined}
             >
               ℹ️ Sobre
             </button>

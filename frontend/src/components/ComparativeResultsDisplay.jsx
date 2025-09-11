@@ -95,6 +95,12 @@ const ComparativeResultsDisplay = ({
   // Feature flag for dark launch of unified highlighting
   const [enableUnifiedHighlighting] = useState(true); // set false to rollback quickly
 
+  // Filter raw strategies early (must be declared before unifiedStrategyMap useMemo)
+  const filteredRawStrategies = useMemo(() => {
+    const list = analysisResult?.simplification_strategies || [];
+    return list.filter(s => activeCodes.includes(s.code) && ((s.confidence ?? s.confidence_score ?? 0) * 100) >= confidenceMin);
+  }, [analysisResult?.simplification_strategies, activeCodes, confidenceMin]);
+
   // Build unified map (strategies include filtered list for color scope determinism)
   const unifiedStrategyMap = useMemo(() => {
     if (!enableUnifiedHighlighting) return {};
@@ -123,11 +129,6 @@ const ComparativeResultsDisplay = ({
     const uniq = Array.from(new Set(codes));
     setActiveCodes(uniq);
   }, [analysisResult?.simplification_strategies]);
-
-  const filteredRawStrategies = useMemo(() => {
-    const list = analysisResult?.simplification_strategies || [];
-    return list.filter(s => activeCodes.includes(s.code) && ((s.confidence ?? s.confidence_score ?? 0) * 100) >= confidenceMin);
-  }, [analysisResult?.simplification_strategies, activeCodes, confidenceMin]);
 
   // Helper function to convert Portuguese strategy name to code
   // (Keeping this utility as it's used in strategy processing)
@@ -592,7 +593,7 @@ const ComparativeResultsDisplay = ({
 
   return (
     <>
-    <div className={`space-y-6 ${className}`}>
+  <div className={`space-y-6 ${className}`} data-testid="results-container">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-lg p-4">
         <div className="flex items-start justify-between">
@@ -894,19 +895,19 @@ const ComparativeResultsDisplay = ({
             <h4 className="font-medium text-gray-900">Estratégias de Simplificação Identificadas</h4>
             
             <div className="space-y-3">
-              {analysisResult.simplification_strategies?.map((strategy, index) => {
+      {analysisResult.simplification_strategies?.map((strategy, index) => {
                 // Use backend-provided code if available
                 const strategyCode = strategy.code || getStrategyCode(strategy.name);
                 const strategyColor = strategy.color || getStrategyColor(strategyCode, useColorblindFriendly);
 
                 return (
-                  <div key={index} className="bg-white border border-gray-200 rounded-lg p-4">
+        <div key={index} className="bg-white border border-gray-200 rounded-lg p-4" data-testid="strategy-result">
                     <div className="flex items-start gap-3">
                       <div
                         className="p-2 rounded-full flex items-center justify-center"
                         style={{ backgroundColor: strategyColor }}
                       >
-                        <span className="text-xs font-bold text-white">{strategyCode}</span>
+                        <span className="text-xs font-bold text-white" data-testid="strategy-name">{strategyCode}</span>
                       </div>
                       <div className="flex-1">
                         <div className="flex items-start justify-between">

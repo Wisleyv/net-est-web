@@ -1,6 +1,6 @@
 
-import api from './api';
-import config from './config';
+import api from './api.js';
+import config from './config.js';
 
 const { API_BASE_URL } = config;
 

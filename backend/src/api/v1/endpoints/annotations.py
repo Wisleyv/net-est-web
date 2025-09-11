@@ -72,10 +72,20 @@ async def list_audit(session_id: str = Depends(get_session_id), annotation_id: s
     return repo.list_audit(annotation_id, actions=actions, session_id=session_id)
 
 @router.post('/export')
-async def export_annotations(format: str = Query('jsonl', enum=['jsonl','csv']), session_id: str = Depends(get_session_id)):
+async def export_annotations(
+    format: str = Query('jsonl', enum=['jsonl','csv']),
+    scope: str = Query('both', enum=['gold','raw','both'], description='Which annotations to include'),
+    session_id: str = Depends(get_session_id)
+):
     repo = get_repository()
     repo.load_session(session_id)
-    anns = repo.export()
+    # Scope filtering: gold => validated true and status in accepted/created; raw => pending/modified (and unvalidated)
+    if scope == 'gold':
+        anns = [a for a in repo.export(include_statuses=['accepted','created']) if getattr(a, 'validated', False)]
+    elif scope == 'raw':
+        anns = repo.export(include_statuses=['pending','modified'])
+    else:
+        anns = repo.export()
     if format == 'jsonl':
         def convert(obj):
             if isinstance(obj, list):
@@ -89,6 +99,12 @@ async def export_annotations(format: str = Query('jsonl', enum=['jsonl','csv']),
         lines = []
         for a in anns:
             base = convert(a.model_dump())
+            # Ensure explanation present in export payload for API parity with CLI (Phase 4f)
+            base['explanation'] = a.explanation
+            # ML alignment: expose gold flags and decision fields
+            base['validated'] = getattr(a, 'validated', False)
+            base['manually_assigned'] = getattr(a, 'manually_assigned', False)
+            base['decision'] = a.status
             lines.append(json.dumps(base, ensure_ascii=False))
         content = '\n'.join(lines)
         return Response(content=content, media_type='application/x-ndjson', headers={
@@ -97,9 +113,9 @@ async def export_annotations(format: str = Query('jsonl', enum=['jsonl','csv']),
     # CSV
     buf = io.StringIO()
     writer = csv.writer(buf)
-    writer.writerow(['id','strategy_code','status','origin','created_at','updated_at','original_code','comment'])
+    writer.writerow(['id','strategy_code','status','decision','origin','created_at','updated_at','original_code','comment','explanation','validated','manually_assigned'])
     for a in anns:
-        writer.writerow([a.id,a.strategy_code,a.status,a.origin,a.created_at.isoformat(),a.updated_at.isoformat(),a.original_code or '', a.comment or ''])
+        writer.writerow([a.id,a.strategy_code,a.status,a.status,a.origin,a.created_at.isoformat(),a.updated_at.isoformat(),a.original_code or '', a.comment or '', a.explanation or '', int(getattr(a,'validated',False)), int(getattr(a,'manually_assigned',False))])
     return Response(content=buf.getvalue(), media_type='text/csv', headers={
         'Content-Disposition': 'attachment; filename="annotations.csv"'
     })

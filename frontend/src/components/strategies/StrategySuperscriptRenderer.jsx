@@ -50,6 +50,9 @@ export default function StrategySuperscriptRenderer({ targetText, strategies, on
               tabIndex={0}
               data-strategy-id={r.id}
               data-code={label}
+              data-status={accepted ? 'accepted' : (modified ? 'modified' : (created ? 'created' : undefined))}
+              data-origin={created ? 'human' : undefined}
+              data-testid="strategy-marker"
         style={{ background: bg, color: textColor, borderColor: bg, ...borderStyle }}
               onClick={() => onMarkerActivate && onMarkerActivate(r.id)}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onMarkerActivate && onMarkerActivate(r.id); } }}
@@ -87,8 +90,11 @@ export default function StrategySuperscriptRenderer({ targetText, strategies, on
           tabIndex={rovingIndex === idx ? 0 : -1}
           data-strategy-id={p.id}
           data-code={label}
+          data-status={accepted ? 'accepted' : (modified ? 'modified' : (created ? 'created' : undefined))}
+          data-origin={created ? 'human' : undefined}
           data-active={isActive ? 'true' : 'false'}
           data-roving-index={idx}
+          data-testid="strategy-marker"
           aria-current={isActive ? 'true' : undefined}
           onClick={(e) => onMarkerActivate && onMarkerActivate(p.id, e.currentTarget, idx)}
           onKeyDown={(e) => {
@@ -122,5 +128,5 @@ export default function StrategySuperscriptRenderer({ targetText, strategies, on
     }
   }, [rovingIndex, nodes]);
 
-  return <div ref={containerRef} className="strategy-superscript-layer" role="group" aria-label="Marcadores de estratégias" >{nodes}</div>;
+  return <div ref={containerRef} className="strategy-superscript-layer" role="group" aria-label="Marcadores de estratégias" data-testid="strategy-superscript-layer">{nodes}</div>;
 }

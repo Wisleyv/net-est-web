@@ -4,7 +4,7 @@
  */
 
 import axios from 'axios';
-import config from './config';
+import config from './config.js';
 
 // Criar instância do axios
 const api = axios.create({

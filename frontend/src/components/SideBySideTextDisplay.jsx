@@ -403,7 +403,7 @@ const SideBySideTextDisplay = ({
   };
 
   return (
-    <div className="side-by-side-container">
+    <div className="side-by-side-container" data-testid="results-container">
       {/* Analysis Summary */}
       {analysisResult && (
         <div className="analysis-summary">

@@ -1,0 +1,72 @@
+{
+  "annotations": [
+    {
+      "id": "450493d6-e54a-4acd-b4cf-4cf4ea11d43b",
+      "strategy_code": "OM+",
+      "source_offsets": null,
+      "target_offsets": [
+        {
+          "start": 0,
+          "end": 1
+        }
+      ],
+      "confidence": null,
+      "origin": "human",
+      "status": "created",
+      "validated": false,
+      "manually_assigned": true,
+      "original_code": null,
+      "created_at": "2025-09-11T17:25:35.627588+00:00",
+      "updated_at": "2025-09-11T17:25:35.627591+00:00",
+      "updated_by": null,
+      "evidence": null,
+      "comment": "a",
+      "explanation": null
+    },
+    {
+      "id": "3b3304d7-d482-4b47-8de7-9ed2cb3398ad",
+      "strategy_code": "RF+",
+      "source_offsets": null,
+      "target_offsets": [
+        {
+          "start": 2,
+          "end": 3
+        }
+      ],
+      "confidence": null,
+      "origin": "human",
+      "status": "created",
+      "validated": false,
+      "manually_assigned": true,
+      "original_code": null,
+      "created_at": "2025-09-11T17:25:35.627619+00:00",
+      "updated_at": "2025-09-11T17:25:35.627619+00:00",
+      "updated_by": null,
+      "evidence": null,
+      "comment": "b",
+      "explanation": null
+    }
+  ],
+  "audit": [
+    {
+      "annotation_id": "450493d6-e54a-4acd-b4cf-4cf4ea11d43b",
+      "action": "create",
+      "timestamp": "2025-09-11T17:25:35.627603+00:00",
+      "session_id": "rt_dst_fs_jsonl",
+      "from_status": null,
+      "to_status": "created",
+      "from_code": null,
+      "to_code": "OM+"
+    },
+    {
+      "annotation_id": "3b3304d7-d482-4b47-8de7-9ed2cb3398ad",
+      "action": "create",
+      "timestamp": "2025-09-11T17:25:35.627622+00:00",
+      "session_id": "rt_dst_fs_jsonl",
+      "from_status": null,
+      "to_status": "created",
+      "from_code": null,
+      "to_code": "RF+"
+    }
+  ]
+}

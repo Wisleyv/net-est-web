@@ -2,11 +2,16 @@
  * Configurações centralizadas do frontend
  */
 
+// Support running under Vitest/Node where import.meta.env may be undefined
+const env = (typeof import.meta !== 'undefined' && import.meta.env)
+  ? import.meta.env
+  : (typeof process !== 'undefined' && process.env ? process.env : {});
+
 const config = {
-  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
-  APP_NAME: import.meta.env.VITE_APP_NAME || 'NET-EST',
-  VERSION: import.meta.env.VITE_VERSION || '1.0.0',
-  DEBUG: import.meta.env.VITE_DEBUG === 'true' || false,
+  API_BASE_URL: env.VITE_API_BASE_URL || 'http://localhost:8000',
+  APP_NAME: env.VITE_APP_NAME || 'NET-EST',
+  VERSION: env.VITE_VERSION || '1.0.0',
+  DEBUG: (env.VITE_DEBUG === 'true') || false,
 
   // Limites de interface
   MAX_WORDS_WARNING: 2000,
