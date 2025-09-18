@@ -18,11 +18,19 @@ const api = axios.create({
 // Interceptor para requests
 api.interceptors.request.use(
   config => {
+    const fullUrl = `${config.baseURL}${config.url}`;
     if (import.meta.env.DEV) {
       // eslint-disable-next-line no-console
       console.log(
-        `🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`
+        `🚀 API Request: ${config.method?.toUpperCase()} ${fullUrl}`
       );
+      console.log('🔧 Request config:', { 
+        baseURL: config.baseURL, 
+        url: config.url, 
+        method: config.method,
+        headers: config.headers,
+        data: config.data 
+      });
     }
     return config;
   },
@@ -37,11 +45,34 @@ api.interceptors.response.use(
   response => {
     if (import.meta.env.DEV) {
       // eslint-disable-next-line no-console
-      console.log(`✅ API Response: ${response.status} ${response.config.url}`);
+      console.log(`✅ API Response: ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`);
     }
     return response;
   },
   error => {
+    const errorDetails = {
+      message: error.message,
+      code: error.code,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      url: error.config?.url,
+      baseURL: error.config?.baseURL,
+      method: error.config?.method,
+      isNetworkError: !error.response,
+      isTimeout: error.code === 'ECONNABORTED'
+    };
+    
+    console.error('❌ API Response Error:', errorDetails);
+    console.error('🔍 Full error object:', error);
+    
+    if (errorDetails.isNetworkError) {
+      console.error('🌐 Network Error Details:', {
+        message: 'This could be a CORS issue, server not running, or incorrect URL',
+        attemptedUrl: `${error.config?.baseURL}${error.config?.url}`,
+        suggestion: 'Check if backend server is running and CORS is properly configured'
+      });
+    }
+    
     console.error(
       '❌ API Response Error:',
       error.response?.data || error.message
@@ -109,7 +140,8 @@ export const analyticsAPI = {
 
 // Comparative Analysis API
 export const comparativeAnalysisAPI = {
-  analyze: (data) => api.post('/api/v1/comparative-analysis/analyze', data),
+  // Backend exposes POST /api/v1/comparative-analysis/ for main analysis
+  analyze: (data) => api.post('/api/v1/comparative-analysis/', data),
   validateTexts: (data) => api.post('/api/v1/comparative-analysis/validate-texts', data),
   uploadText: (formData) => api.post('/api/v1/comparative-analysis/upload-text', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },

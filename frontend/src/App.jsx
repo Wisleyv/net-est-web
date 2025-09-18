@@ -82,13 +82,74 @@ function MainApp() {
   const enableFeedbackActions = useAppStore(s => s.config.enableFeedbackActions);
   const { exportAnnotations } = useAnnotationStore();
 
-  // Test-only hook: allow E2E to enable feedback actions by setting a global flag
-  // Security: only honor this in development/test modes to avoid production exposure
+  // Dev-only flag: enable feedback actions during development/testing.
+  // Also provide a compatibility alias window.ENABLE_FEEDBACK_FLAG for convenience.
   useEffect(() => {
-    const isNonProd = (typeof import.meta !== 'undefined' && import.meta.env && (import.meta.env.DEV || import.meta.env.MODE === 'test'));
-    if (isNonProd && typeof window !== 'undefined' && window.__ENABLE_FEEDBACK_FLAG__) {
-      const st = useAppStore.getState();
-      useAppStore.setState({ config: { ...st.config, enableFeedbackActions: true } });
+    const env = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : {};
+    const isNonProd = !!(env && (env.DEV || env.MODE === 'test'));
+
+    if (typeof window !== 'undefined' && isNonProd) {
+      // Dev diagnostics: log initial flag state
+      try {
+        // eslint-disable-next-line no-console
+        console.log('[NET-EST][dev] ENABLE_FEEDBACK diagnostics', {
+          VITE_ENABLE_FEEDBACK: env?.VITE_ENABLE_FEEDBACK,
+          VITE_DISABLE_FEEDBACK: env?.VITE_DISABLE_FEEDBACK,
+          existingWindowFlag: typeof window.__ENABLE_FEEDBACK_FLAG__,
+        });
+      } catch {}
+      // Provide a readable/writable alias without underscores for convenience in DevTools
+      try {
+        if (!Object.getOwnPropertyDescriptor(window, 'ENABLE_FEEDBACK_FLAG')) {
+          Object.defineProperty(window, 'ENABLE_FEEDBACK_FLAG', {
+            get() { return window.__ENABLE_FEEDBACK_FLAG__; },
+            set(v) { window.__ENABLE_FEEDBACK_FLAG__ = v; },
+            configurable: true,
+          });
+        }
+      } catch (_) {
+        // no-op: defining property can fail in some hardened contexts; safe to ignore in dev
+      }
+
+      // Auto-enable in dev unless explicitly disabled via VITE_DISABLE_FEEDBACK === 'true'
+      const explicitlyDisabled = env && env.VITE_DISABLE_FEEDBACK === 'true';
+      const explicitlyEnabled = env && env.VITE_ENABLE_FEEDBACK === 'true';
+      const shouldEnable = !explicitlyDisabled && (explicitlyEnabled || window.__ENABLE_FEEDBACK_FLAG__ !== false);
+
+      if (shouldEnable) {
+        window.__ENABLE_FEEDBACK_FLAG__ = true;
+        const st = useAppStore.getState();
+        if (!st?.config?.enableFeedbackActions) {
+          useAppStore.setState({ config: { ...st.config, enableFeedbackActions: true } });
+        }
+        try {
+          // eslint-disable-next-line no-console
+          console.log('[NET-EST][dev] Feedback actions enabled:', {
+            windowFlag: window.__ENABLE_FEEDBACK_FLAG__,
+            enableFeedbackActions: useAppStore.getState().config.enableFeedbackActions,
+          });
+        } catch {}
+      }
+
+      // Dev helpers: expose methods to inspect/toggle flag at runtime
+      try {
+        window.NET_EST = window.NET_EST || {};
+        window.NET_EST.getStore = () => useAppStore.getState();
+        window.NET_EST.enableFeedback = () => {
+          window.__ENABLE_FEEDBACK_FLAG__ = true;
+          const st = useAppStore.getState();
+          useAppStore.setState({ config: { ...st.config, enableFeedbackActions: true } });
+          // eslint-disable-next-line no-console
+          console.log('[NET-EST][dev] enableFeedback ->', useAppStore.getState().config.enableFeedbackActions);
+        };
+        window.NET_EST.disableFeedback = () => {
+          window.__ENABLE_FEEDBACK_FLAG__ = false;
+          const st = useAppStore.getState();
+          useAppStore.setState({ config: { ...st.config, enableFeedbackActions: false } });
+          // eslint-disable-next-line no-console
+          console.log('[NET-EST][dev] disableFeedback ->', useAppStore.getState().config.enableFeedbackActions);
+        };
+      } catch {}
     }
   }, []);
 

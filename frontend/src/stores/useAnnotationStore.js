@@ -53,6 +53,55 @@ const useAnnotationStore = create(devtools((set, get) => ({
     }
   },
 
+  // Modify strategy code of an existing annotation (HITL)
+  modifyAnnotation: async (id, newCode) => {
+    const { sessionId, annotations } = get();
+    const idx = annotations.findIndex(a => a.id === id || a.strategy_id === id);
+    const prev = idx !== -1 ? annotations[idx] : null;
+    if (!prev) return; // nothing to do
+    // Optimistic update
+    const updated = { ...prev, status: 'modified', original_code: prev.code || prev.strategy_code, code: newCode, strategy_code: newCode };
+    set({ annotations: [...annotations.slice(0, idx), updated, ...annotations.slice(idx + 1)] }, false, 'annotation/modify/optimistic');
+    try {
+      const targetId = prev.id || prev.strategy_id || id;
+      await api.patch(`/api/v1/annotations/${targetId}?session_id=${encodeURIComponent(sessionId)}`, { action: 'modify', session_id: sessionId, new_code: newCode });
+    } catch (error) {
+      // rollback
+      set({ annotations: [...annotations.slice(0, idx), prev, ...annotations.slice(idx + 1)] }, false, 'annotation/modify/rollback');
+      useAppStore.getState().addNotification({ type: 'error', message: 'Falha ao modificar código da anotação' });
+    }
+  },
+
+  // Span editing flow (beta): select new offsets for an existing annotation
+  editingAnnotationId: null,
+  setEditingAnnotation: (annotationId) => set({ editingAnnotationId: annotationId }, false, 'annotation/editing/set'),
+  clearEditingAnnotation: () => set({ editingAnnotationId: null }, false, 'annotation/editing/clear'),
+
+  modifyAnnotationSpan: async (id, newTargetOffsets) => {
+    const { sessionId, annotations } = get();
+    const idx = annotations.findIndex(a => a.id === id || a.strategy_id === id);
+    const prev = idx !== -1 ? annotations[idx] : null;
+    if (!prev) return;
+    // Optimistic update
+    const updated = { ...prev, status: 'modified', target_offsets: newTargetOffsets };
+    set({ annotations: [...annotations.slice(0, idx), updated, ...annotations.slice(idx + 1)] }, false, 'annotation/modifySpan/optimistic');
+    try {
+      const targetId = prev.id || prev.strategy_id || id;
+      // Try a couple of common payload shapes
+      try {
+        await api.patch(`/api/v1/annotations/${targetId}?session_id=${encodeURIComponent(sessionId)}`, { action: 'modify_span', session_id: sessionId, target_offsets: newTargetOffsets });
+      } catch (_) {
+        await api.patch(`/api/v1/annotations/${targetId}?session_id=${encodeURIComponent(sessionId)}`, { action: 'modify', session_id: sessionId, target_offsets: newTargetOffsets });
+      }
+    } catch (error) {
+      // rollback
+      set({ annotations: [...annotations.slice(0, idx), prev, ...annotations.slice(idx + 1)] }, false, 'annotation/modifySpan/rollback');
+      useAppStore.getState().addNotification({ type: 'error', message: 'Falha ao ajustar intervalo da anotação' });
+    } finally {
+      set({ editingAnnotationId: null }, false, 'annotation/editing/clear');
+    }
+  },
+
   rejectAnnotation: async (id) => {
     const { sessionId, annotations } = get();
     const idx = annotations.findIndex(a => a.id === id || a.strategy_id === id);
@@ -74,13 +123,22 @@ const useAnnotationStore = create(devtools((set, get) => ({
   }
   ,
 
-  createAnnotation: async ({ strategy_code, target_offsets, comment }) => {
+  createAnnotation: async ({ strategy_code, target_offsets, comment }, options = {}) => {
     const { sessionId, annotations } = get();
-    // optimistic local id
-    const tempId = `temp_${Date.now()}`;
+    const originalId = options.originalId; // preserve mapping to predicted strategy_id if provided
+    
+    // Test connectivity first
+    try {
+      await api.get('/health');
+    } catch (connectivityError) {
+      throw new Error('Backend não está acessível. Verifique se o servidor está executando.');
+    }
+    
+    // optimistic id: if originalId provided, use it; else use temp
+    const tempId = originalId || `temp_${Date.now()}`;
     const newAnn = {
       id: tempId,
-      strategy_id: tempId,
+      strategy_id: originalId || tempId,
       strategy_code,
       code: strategy_code,
       target_offsets,
@@ -98,12 +156,28 @@ const useAnnotationStore = create(devtools((set, get) => ({
         comment
       });
       const real = res.data.annotation;
-      // Replace temp
-      set({ annotations: get().annotations.map(a => a.id === tempId ? { ...real, code: real.strategy_code, strategy_id: real.id } : a) }, false, 'annotation/create/commit');
+      // Replace temp but preserve originalId mapping in strategy_id so UI actions using predicted id continue to work
+      set({ annotations: get().annotations.map(a => (a.id === tempId)
+        ? { ...real, code: real.strategy_code, strategy_code: real.strategy_code, strategy_id: originalId || real.id }
+        : a) }, false, 'annotation/create/commit');
     } catch (error) {
+      
       // rollback
       set({ annotations: get().annotations.filter(a => a.id !== tempId) }, false, 'annotation/create/rollback');
-      useAppStore.getState().addNotification({ type: 'error', message: 'Falha ao criar anotação' });
+      
+      // Provide specific error feedback
+      let errorMessage = 'Falha ao criar anotação';
+      if (error.code === 'ERR_NETWORK' || error.message.includes('ERR_INTERNET_DISCONNECTED')) {
+        errorMessage = 'Erro de rede: verifique a conexão com o servidor';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Endpoint de anotações não encontrado';
+      } else if (error.response?.status >= 500) {
+        errorMessage = 'Erro interno do servidor';
+      }
+      
+      console.error('Create annotation error:', error);
+      useAppStore.getState().addNotification({ type: 'error', message: errorMessage });
+      throw error; // Re-throw to allow caller to handle if needed
     }
   }
   ,

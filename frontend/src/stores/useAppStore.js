@@ -114,6 +114,12 @@ const useAppStore = create(
           'clearNotifications'
         ),
 
+      // Feature flag toggles (dev-friendly)
+      setEnableFeedbackActions: (enabled) =>
+        set((state) => ({
+          config: { ...state.config, enableFeedbackActions: !!enabled },
+        }), false, 'setEnableFeedbackActions'),
+
       // Navigation helpers
       navigateToPhase: (phase) => {
         const { setCurrentPhase, clearGlobalError } = get();

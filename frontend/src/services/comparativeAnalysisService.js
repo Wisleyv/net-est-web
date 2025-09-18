@@ -174,8 +174,8 @@ export class ComparativeAnalysisService {
    */
   static async identifySimplificationStrategies(sourceText, targetText) {
     try {
-      // Use the main comparative analysis endpoint which includes strategies
-      const response = await api.post('/api/v1/comparative-analysis', {
+    // Use the main comparative analysis endpoint which includes strategies
+    const response = await api.post('/api/v1/comparative-analysis/', {
         source_text: sourceText,
         target_text: targetText,
         analysis_options: {
@@ -183,7 +183,7 @@ export class ComparativeAnalysisService {
           include_syntactic_analysis: true,
           include_semantic_analysis: true,
           include_readability_metrics: true,
-          include_strategy_detection: true
+      include_strategy_detection: true
         }
       });
 

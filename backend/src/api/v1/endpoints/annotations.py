@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Body, Depends, Query, Response
+import logging
 from typing import List
 from src.models.annotation import AnnotationAction, AnnotationResponse, AnnotationsList, Annotation, AnnotationCreate, AuditEntry
 from src.repository.fs_repository import get_repository
@@ -7,6 +8,7 @@ import csv
 import io
 
 router = APIRouter(prefix="/api/v1/annotations", tags=["annotations"])
+logger = logging.getLogger("netest.annotations")
 
 def get_session_id(session_id: str = Query(..., description="Session identifier")):
     return session_id
@@ -44,8 +46,16 @@ async def patch_annotation(annotation_id: str, payload: AnnotationAction = Body(
         else:
             raise HTTPException(status_code=400, detail='unsupported_action')
         repo.persist_session(payload.session_id)
+        try:
+            logger.info("annotation_action", action=payload.action, annotation_id=annotation_id, session_id=payload.session_id)
+        except Exception:
+            pass
         return AnnotationResponse(annotation=ann)
     except KeyError:
+        try:
+            logger.warning("annotation_not_found", annotation_id=annotation_id, session_id=payload.session_id)
+        except Exception:
+            pass
         raise HTTPException(status_code=404, detail='annotation_not_found')
     except ValueError as ve:
         if str(ve) == 'cannot_accept_modified':

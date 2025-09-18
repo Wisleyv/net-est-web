@@ -84,28 +84,81 @@ export function buildUnifiedStrategyMap(strategies = [], { colorblindMode = fals
   return Object.fromEntries(byCode.entries());
 }
 
-// Segment text for highlights based on sentence-level positions (non-overlapping assumption)
-// strategies: filtered strategies having sourcePosition/targetPosition with type === 'sentence'
-export function segmentTextForHighlights(text, strategies, { scope = 'target', sentenceSplitter = defaultSentenceSplit } = {}) {
+// Segment text for highlights based on precise character-level offsets
+// strategies: filtered strategies having target_offsets/source_offsets with char_start/char_end
+export function segmentTextForHighlights(text, strategies, { scope = 'target' } = {}) {
   if (!text) return [];
-  const sentences = sentenceSplitter(text);
+  
+  // Extract character-level offsets for the specified scope
   const segments = [];
-  sentences.forEach((sentence, idx) => {
-    // collect strategies matching this sentence index
-    const matching = strategies.filter(s => {
-      const pos = scope === 'target' ? s.targetPosition : s.sourcePosition;
-      return pos && pos.type === 'sentence' && pos.sentence === idx;
-    });
-    if (matching.length === 0) return;
-    // choose highest confidence strategy for this sentence (placeholder rule)
-    const chosen = matching.slice().sort((a,b) => (b.confidence ?? 0) - (a.confidence ?? 0) || (a.code || '').localeCompare(b.code || '') )[0];
-    segments.push({
-      sentenceIndex: idx,
-      text: sentence,
-      code: chosen.code,
-      strategy_id: chosen.strategy_id || chosen.id
-    });
+  strategies.forEach(strategy => {
+    const offsets = scope === 'target' ? strategy.target_offsets : strategy.source_offsets;
+    
+    // Check for both new format (target_offsets) and legacy format (targetPosition)
+    let charStart, charEnd;
+    
+    if (offsets && typeof offsets === 'object' && 'char_start' in offsets) {
+      // New precise format (JavaScript object)
+      charStart = offsets.char_start;
+      charEnd = offsets.char_end;
+    } else if (typeof offsets === 'string' && offsets.includes('char_start')) {
+      // Handle PowerShell object string format: "@{paragraph=0; sentence=0; char_start=0; char_end=123}"
+      const charStartMatch = offsets.match(/char_start=(\d+)/);
+      const charEndMatch = offsets.match(/char_end=(\d+)/);
+      if (charStartMatch && charEndMatch) {
+        charStart = parseInt(charStartMatch[1], 10);
+        charEnd = parseInt(charEndMatch[1], 10);
+      }
+    } else {
+      // Legacy sentence-based fallback - convert to approximate character positions
+      const pos = scope === 'target' ? strategy.targetPosition : strategy.sourcePosition;
+      if (pos) {
+        let sentenceIndex = 0;
+        let posType = 'sentence';
+        
+        if (typeof pos === 'object' && pos.sentence !== undefined) {
+          // JavaScript object format
+          sentenceIndex = pos.sentence || 0;
+          posType = pos.type || 'sentence';
+        } else if (typeof pos === 'string' && pos.includes('sentence=')) {
+          // Handle PowerShell object string format: "@{sentence=0; type=sentence}"
+          const sentenceMatch = pos.match(/sentence=(\d+)/);
+          if (sentenceMatch) {
+            sentenceIndex = parseInt(sentenceMatch[1], 10);
+          }
+        }
+        
+        if (posType === 'sentence') {
+          const sentences = defaultSentenceSplit(text);
+          if (sentenceIndex < sentences.length) {
+            // Calculate approximate character position for the sentence
+            let charPos = 0;
+            for (let i = 0; i < sentenceIndex; i++) {
+              charPos += sentences[i].length + 1; // +1 for space/separator
+            }
+            charStart = charPos;
+            charEnd = charPos + sentences[sentenceIndex].length;
+          }
+        }
+      }
+    }
+    
+    // Only add segment if we have valid character positions
+    if (charStart !== undefined && charEnd !== undefined && 
+        charStart >= 0 && charEnd > charStart && charEnd <= text.length) {
+      segments.push({
+        charStart,
+        charEnd,
+        text: text.substring(charStart, charEnd),
+        code: strategy.code,
+        strategy_id: strategy.strategy_id || strategy.id,
+        confidence: strategy.confidence || 0
+      });
+    }
   });
+  
+  // Sort segments by start position for proper rendering
+  segments.sort((a, b) => a.charStart - b.charStart);
   return segments;
 }
 

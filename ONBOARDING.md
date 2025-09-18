@@ -70,6 +70,11 @@ Quick try:
 - Explanation field:
   Returned as `explanation` when available (currently RP+/SL+ heuristic templates).
 
+### UI Flow: Create and Adjust Annotations (HITL)
+- Create: In "Texto Simplificado", select a span with the mouse. A menu appears; pick a strategy to create a manual annotation.
+- Adjust span: Open a strategy in the side panel, click "Ajustar intervalo", then select the new span in "Texto Simplificado". The annotation offsets are updated.
+- Accept/Reject/Modify: Use the buttons in the Strategy Detail Panel. Modify lets you change the strategy code.
+
 ## Feedback UI Feature Flag
 - The interactive Accept/Modify/Reject controls are gated by `enableFeedbackActions` (frontend store/config). Disabled controls render read-only view.
  - Playwright spec `feedbackFeatureFlag.spec.js` covers toggle behavior.
@@ -95,6 +100,76 @@ npm run test:integration
 Notes:
 - The Playwright config spins up servers automatically for most specs; the integration spec expects a reachable backend at `http://127.0.0.1:8000`.
 - If port or host differ, update `playwright.config.ts` or set `VITE_API_BASE_URL` accordingly.
+
+## Start Backend and Frontend (Dev)
+
+Use these steps to run both services locally and ensure they talk to each other.
+
+1) Kill anything listening on ports 8000/5173 (optional cleanup):
+
+```powershell
+# Backend on 8000, Frontend on 5173
+$ports = 8000,5173
+foreach ($p in $ports) { Get-NetTCPConnection -LocalPort $p -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue } }
+```
+
+2) Start the backend (FastAPI + Uvicorn):
+
+```powershell
+cd backend
+# Ensure venv and deps (first run only):
+#  c:\Python313\python.exe -m venv venv
+#  .\venv\Scripts\pip.exe install -r requirements.txt
+$env:STRATEGY_DETECTION_MODE = 'performance'
+.\venv\Scripts\python.exe .\start_server.py
+# Server will listen on http://127.0.0.1:8000
+```
+
+3) Start the frontend (Vite dev server):
+
+```powershell
+cd ../frontend
+# First run only:
+# npm ci
+$env:VITE_API_BASE_URL = 'http://127.0.0.1:8000'
+npm run dev
+# App will be at http://localhost:5173
+```
+
+4) Verify connectivity:
+
+```powershell
+# Health
+Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/health | Select-Object -ExpandProperty Content
+# Ports
+foreach ($p in 8000,5173) { $c = Get-NetTCPConnection -LocalPort $p -State Listen -ErrorAction SilentlyContinue; if ($c) { "Port $p LISTENING" } else { "Port $p not listening" } }
+```
+
+Front-end uses `VITE_API_BASE_URL` (see `src/services/config.js`). In dev, setting the env variable before `npm run dev` is sufficient. Alternatively, edit `.env.development`.
+
+### Troubleshooting Frontend-Backend Communication
+
+- Frontend loads but actions are read-only: ensure feature flag `enableFeedbackActions` is enabled in dev. For E2E or manual QA, you can temporarily set in dev tools console:
+  `window.__ENABLE_FEEDBACK_FLAG__ = true; location.reload();` (only honored in dev/test builds).
+- 404/Network errors on API calls: confirm `VITE_API_BASE_URL` points to the running backend (default `http://127.0.0.1:8000`).
+- Backend healthy but requests fail CORS: backend runs with FastAPI/uvicorn defaults configured for local dev; if custom host/port is used, review CORS settings in backend config.
+- Timeouts on long analyses: set `STRATEGY_DETECTION_MODE=performance` and retry. Large models may load on first request.
+- After history rewrite or branch updates: stop dev servers, `git pull`, and restart both services.
+
+ - 405 Method Not Allowed on /api/v1/comparative-analysis/: This endpoint is POST-only in the backend (`@router.post("/")`). Ensure the frontend sends POST to `/api/v1/comparative-analysis/` with JSON `{ source_text, target_text, analysis_options }`. If you see a GET, clear Vite cache (`node_modules/.vite`, `dist`), restart `npm run dev`, and hard refresh (Ctrl+Shift+R). The canonical client helpers are:
+   - `comparativeAnalysisAPI.analyze(data)` -> POST `/api/v1/comparative-analysis/`
+   - `ComparativeAnalysisService.performComparativeAnalysis(analysisData)` -> POST `/api/v1/comparative-analysis/`
+   Validate in DevTools Network that the method is POST and payload has the fields above.
+
+ - Feature flag not taking effect: In dev, `.env.development` sets `VITE_ENABLE_FEEDBACK=true`. On app load, the app sets `window.__ENABLE_FEEDBACK_FLAG__ = true` and `useAppStore().config.enableFeedbackActions = true` (dev/test only). Check the console logs for `[NET-EST][dev] ENABLE_FEEDBACK diagnostics` and `[NET-EST][dev] Feedback actions enabled:`. If missing, ensure you restarted Vite after env changes.
+
+#### Debugging interactive controls not showing (frontend rendering)
+- Inspect store: In DevTools console run `useAppStore.getState().config.enableFeedbackActions` (or `window.NET_EST.getStore().config.enableFeedbackActions`). It should be `true`.
+- Force-enable from console (dev only): `window.NET_EST.enableFeedback()` or `window.__ENABLE_FEEDBACK_FLAG__ = true; location.reload()`.
+- Check component mounts: Open Console and look for `[NET-EST] FeedbackCollection mounted` and `[NET-EST] StrategyDetailPanel render` logs. If absent, the detail panel is not being opened.
+- Open the Strategy Detail Panel: Click a superscript marker (¹²…) in the target text. The panel renders `FeedbackCollection` only when a strategy is active.
+- Verify data: Ensure `analysisResult.simplification_strategies` exists and markers render. If not, hard reload and confirm POST to `/api/v1/comparative-analysis/` returns strategies.
+- Clear Vite cache if stale UI persists: stop dev server, delete `frontend/node_modules/.vite` and `frontend/dist`, then `npm ci` and `npm run dev`.
 
 ### Troubleshooting
 
@@ -130,3 +205,59 @@ Prefer this over manual file deletions for new tests to reduce flakiness.
 /*
 Desenvolvido com ❤️ pelo Núcleo de Estudos de Tradução - PIPGLA/UFRJ | Contém código assistido por IA
 */
+
+## Condensed Next-session Onboarding (copy-paste)
+
+Purpose: Minimal, copy-paste commands to start both backend and frontend on Windows (PowerShell). Use these as the first steps in the next chat to bring the workspace to an active state.
+
+1) Start the backend (recommended: use VS Code task "Start Backend Server")
+
+PowerShell (activate venv and run supervised start):
+
+```powershell
+# from repository root (C:\net)
+cd C:\net\backend
+# activate venv
+.\venv\Scripts\Activate.ps1
+# supervised start (recommended via VS Code task) or run the launcher
+python.exe start_server.py
+```
+
+Alternative (run uvicorn directly):
+
+```powershell
+cd C:\net\backend
+.\venv\Scripts\Activate.ps1
+python -m uvicorn src.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+Verify backend health (quick check):
+
+```powershell
+# from repo root
+.\backend\venv\Scripts\python.exe -c "import urllib.request;print(urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=5).read().decode())"
+```
+
+2) Start the frontend (Vite/React)
+
+PowerShell (from repo root):
+
+```powershell
+cd C:\net\frontend
+# install deps (once)
+npm install
+# start dev server
+npm run dev
+```
+
+Quick frontend smoke test (open the app):
+- Visit: http://localhost:5173
+- If using the frontend test harness, run the provided tests that exercise HITL flows.
+
+Notes / Recommendations:
+- Prefer using the provided VS Code tasks for supervised starts (Start Backend Server, Start Frontend Dev Server). They set the correct working directory and use the repository virtualenv.
+- If the backend fails to start, check `backend/uvicorn_launch.log` and the venv packages: `c:\net\backend\venv\Scripts\pip.exe list`.
+- Use the health endpoint first (`/health`) before running integration flows.
+
+Contact: This workspace was stabilized by the previous maintenance run; if you need me to start the servers now, say "Please start backend and frontend" in the next chat and I will.
+

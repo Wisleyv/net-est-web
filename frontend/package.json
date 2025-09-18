@@ -8,10 +8,10 @@
     "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-  "test": "vitest",
-  "test:e2e": "playwright test",
-  "test:a11y": "playwright test --grep @a11y",
-  "test:integration": "REAL_BACKEND=true playwright test --grep @integration"
+    "test": "vitest",
+    "test:e2e": "playwright test",
+    "test:a11y": "playwright test --grep @a11y",
+    "test:integration": "REAL_BACKEND=true playwright test --grep @integration"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.85.6",
@@ -23,13 +23,15 @@
     "zustand": "^4.4.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.1",
     "@playwright/test": "^1.44.0",
-  "@axe-core/playwright": "^4.10.1",
     "@testing-library/react": "^14.2.1",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@vitejs/plugin-react": "^4.2.1",
     "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.2",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",

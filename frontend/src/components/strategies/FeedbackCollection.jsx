@@ -8,6 +8,15 @@ export default function FeedbackCollection({ strategy, onModifyStart }) {
   const { acceptAnnotation, rejectAnnotation } = useAnnotationStore();
   if (!strategy) return null;
   const enabled = !!enable;
+      if (import.meta?.env?.DEV) {
+            try {
+                  // eslint-disable-next-line no-console
+                  console.log('[NET-EST] FeedbackCollection mounted', {
+                        enabled,
+                        strategyId: strategy?.strategy_id,
+                  });
+            } catch {}
+      }
   return (
   <div className="flex gap-2 mt-2" aria-label="Coleta de feedback" data-testid="feedback-collection" data-enabled={enabled ? 'true' : 'false'}>
   {enabled && <button

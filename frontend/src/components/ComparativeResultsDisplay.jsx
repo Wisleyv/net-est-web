@@ -34,6 +34,7 @@ import {
 import StrategySuperscriptRenderer from './strategies/StrategySuperscriptRenderer.jsx';
 // Phase 2b detail panel
 import StrategyDetailPanel from './strategies/StrategyDetailPanel.jsx';
+import useAnnotationStore from '../stores/useAnnotationStore.js';
 import StrategyFilterBar from './strategies/StrategyFilterBar.jsx';
 import HighContrastPatternLegend from './strategies/HighContrastPatternLegend.jsx';
 // Unified mapping (Phase 2d Step1/2)
@@ -84,6 +85,7 @@ const ComparativeResultsDisplay = ({
   const [selectedStrategy, setSelectedStrategy] = useState('');
   const [contextMenu, setContextMenu] = useState(null);
   const [selectedText, setSelectedText] = useState(null);
+  const { createAnnotation, editingAnnotationId, modifyAnnotationSpan, clearEditingAnnotation, setSession, fetchAnnotations, annotations, rejectAnnotation, setEditingAnnotation } = useAnnotationStore();
   // Phase 2b: active strategy detail panel state
   const [activeStrategyId, setActiveStrategyId] = useState(null);
   const lastFocusedMarkerRef = React.useRef(null);
@@ -94,25 +96,23 @@ const ComparativeResultsDisplay = ({
   const [rovingIndex, setRovingIndex] = useState(0);
   // Feature flag for dark launch of unified highlighting
   const [enableUnifiedHighlighting] = useState(true); // set false to rollback quickly
+  // Inline editing state for panel-free approach
+  const [inlineEditingStrategy, setInlineEditingStrategy] = useState(null);
+  const [inlineEditPosition, setInlineEditPosition] = useState(null);
 
-  // Filter raw strategies early (must be declared before unifiedStrategyMap useMemo)
-  const filteredRawStrategies = useMemo(() => {
-    const list = analysisResult?.simplification_strategies || [];
-    return list.filter(s => activeCodes.includes(s.code) && ((s.confidence ?? s.confidence_score ?? 0) * 100) >= confidenceMin);
-  }, [analysisResult?.simplification_strategies, activeCodes, confidenceMin]);
-
-  // Build unified map (strategies include filtered list for color scope determinism)
-  const unifiedStrategyMap = useMemo(() => {
-    if (!enableUnifiedHighlighting) return {};
-    return buildUnifiedStrategyMap(filteredRawStrategies, { colorblindMode, enablePatterns: colorblindMode });
-  }, [filteredRawStrategies, colorblindMode, enableUnifiedHighlighting]);
-
-  // Inject CSS when map changes
+  // Global click outside to dismiss selection menu
   useEffect(() => {
-    if (enableUnifiedHighlighting) {
-      injectUnifiedCSS(unifiedStrategyMap);
-    }
-  }, [unifiedStrategyMap, enableUnifiedHighlighting]);
+    const handleClickOutside = () => {
+      setContextMenu(null);
+      setSelectedText(null);
+      setInlineEditingStrategy(null);
+      setInlineEditPosition(null);
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  // Unified map will be defined after strategiesDetected
 
   // Guard: clear active strategy only if it no longer exists after analysis updates
   useEffect(() => {
@@ -122,6 +122,23 @@ const ComparativeResultsDisplay = ({
       setActiveStrategyId(null);
     }
   }, [analysisResult?.simplification_strategies, activeStrategyId]);
+
+  // Keep backend session aligned to current analysis_id so PATCH/POST use consistent session keys
+  useEffect(() => {
+    const session = analysisResult?.analysis_id || analysisResult?.id;
+    if (session) {
+      try { setSession(session); } catch {}
+    }
+  }, [analysisResult?.analysis_id, analysisResult?.id, setSession]);
+
+  // Ensure repository has corresponding annotations by refreshing after analysis (backend seeds them)
+  useEffect(() => {
+    const session = analysisResult?.analysis_id || analysisResult?.id;
+    const preds = analysisResult?.simplification_strategies || [];
+    if (!session || !Array.isArray(preds) || preds.length === 0) return;
+    // Request fresh list from backend (predictions are seeded server-side)
+    try { fetchAnnotations(); } catch {}
+  }, [analysisResult?.analysis_id, analysisResult?.simplification_strategies, fetchAnnotations]);
 
   // Initialize active codes when strategies change
   useEffect(() => {
@@ -160,39 +177,118 @@ const ComparativeResultsDisplay = ({
 
   // Process analysis result to extract strategies - use backend-provided data
   const strategiesDetected = useMemo(() => {
-    const strategies = analysisResult?.simplification_strategies?.map((strategy, index) => {
+    const rawStrategies = analysisResult?.simplification_strategies || [];
+    const strategies = rawStrategies.map((strategy, index) => {
       // Use backend-provided code if available, otherwise derive from name
       const strategyCode = strategy.code || getStrategyCode(strategy.name);
+      const strategyId = strategy.strategy_id || strategy.id || `strategy_${index}_${strategyCode}`;
+      
+      // Check if this strategy has been modified in the annotation store
+      const annotation = annotations.find(a => 
+        a.strategy_id === strategyId || 
+        a.id === strategyId || 
+        (a.strategy_id === strategy.strategy_id && strategy.strategy_id) ||
+        (a.id === strategy.id && strategy.id)
+      );
+      
+      // Use annotation data if available (for real-time updates), otherwise use original strategy data
+      const effectiveCode = annotation?.strategy_code || annotation?.code || strategyCode;
+      const effectiveStatus = annotation?.status || 'pending';
+      const isModified = annotation?.status === 'modified';
+      const originalCode = annotation?.original_code;
+      
       return {
-        id: `strategy_${index}_${strategyCode}`,
-        code: strategyCode,
+        id: strategyId,
+        strategy_id: strategyId,
+        code: effectiveCode,
+        strategy_code: effectiveCode,
         name: strategy.name,
         confidence: strategy.confidence,
         evidence: strategy.evidence || [],
-        // Use backend-provided color if available, otherwise generate
-        color: strategy.color || getStrategyColor(strategyCode, colorblindMode),
-        info: getStrategyInfo(strategyCode),
+        color: strategy.color || getStrategyColor(effectiveCode, colorblindMode),
+        info: getStrategyInfo(effectiveCode),
         isAutomatic: true,
         // Include backend-provided position data
         targetPosition: strategy.targetPosition,
-        sourcePosition: strategy.sourcePosition
+        sourcePosition: strategy.sourcePosition,
+        // Include annotation state for UI feedback
+        status: effectiveStatus,
+        original_code: originalCode,
+        validated: annotation?.validated || false,
+        manually_assigned: annotation?.manually_assigned || false
       };
-    }) || [];
+    });
 
-    // Debug logging to help identify issues (can be removed in production)
-    if (strategies.length > 0) {
-      console.log('🎯 Strategies detected:', strategies.length);
-      strategies.forEach((strategy, index) => {
-        console.log(`Strategy ${index + 1}: ${strategy.code} - ${strategy.name}`);
-        console.log(`  Position data:`, {
-          targetPosition: strategy.targetPosition,
-          sourcePosition: strategy.sourcePosition
-        });
+    // Add manual annotations that don't correspond to any original strategy
+    const manualAnnotations = annotations.filter(annotation => 
+      annotation.origin === 'human' && 
+      annotation.status === 'created' &&
+      !rawStrategies.some(strategy => {
+        const strategyId = strategy.strategy_id || strategy.id || `strategy_${rawStrategies.indexOf(strategy)}_${strategy.code || getStrategyCode(strategy.name)}`;
+        return annotation.strategy_id === strategyId || annotation.id === strategyId;
+      })
+    );
+
+    manualAnnotations.forEach(annotation => {
+      const strategyCode = annotation.strategy_code || annotation.code;
+      strategies.push({
+        id: annotation.id,
+        strategy_id: annotation.strategy_id || annotation.id,
+        code: strategyCode,
+        strategy_code: strategyCode,
+        name: getStrategyInfo(strategyCode)?.name || 'Manual Annotation',
+        confidence: 1.0, // Manual annotations have 100% confidence
+        evidence: [],
+        color: getStrategyColor(strategyCode, colorblindMode),
+        info: getStrategyInfo(strategyCode),
+        isAutomatic: false,
+        // Use annotation's target_offsets for position data
+        targetPosition: annotation.target_offsets?.[0] || null,
+        sourcePosition: null,
+        // Include annotation state
+        status: annotation.status,
+        validated: annotation.validated || false,
+        manually_assigned: true
       });
-    }
+    });
 
     return strategies;
-  }, [analysisResult, colorblindMode]);
+  }, [analysisResult, annotations, colorblindMode, getStrategyCode]);
+
+  // Filter raw strategies based on confidence and active codes
+  const filteredRawStrategies = useMemo(() => {
+    return strategiesDetected.filter(s => activeCodes.includes(s.code) && ((s.confidence ?? s.confidence_score ?? 0) * 100) >= confidenceMin);
+  }, [strategiesDetected, activeCodes, confidenceMin]);
+
+  // Build unified map (strategies include filtered list for color scope determinism)
+  const unifiedStrategyMap = useMemo(() => {
+    if (!enableUnifiedHighlighting) return {};
+    return buildUnifiedStrategyMap(filteredRawStrategies, { colorblindMode, enablePatterns: colorblindMode });
+  }, [filteredRawStrategies, colorblindMode, enableUnifiedHighlighting]);
+
+  // Inject CSS when map changes
+  useEffect(() => {
+    if (enableUnifiedHighlighting) {
+      injectUnifiedCSS(unifiedStrategyMap);
+    }
+  }, [unifiedStrategyMap, enableUnifiedHighlighting]);
+
+  // Store debug info for development
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      window.debugHitl = {
+        activeCodes,
+        confidenceMin,
+        strategiesDetected,
+        filteredRawStrategies,
+        unifiedStrategyMap,
+        enableUnifiedHighlighting,
+        hasAnalysisResult: !!analysisResult,
+        analysisResultStrategies: analysisResult?.simplification_strategies?.length || 0,
+        targetText: analysisResult?.target_text ? analysisResult.target_text.substring(0, 50) + '...' : 'none'
+      };
+    }
+  }, [activeCodes, confidenceMin, strategiesDetected, filteredRawStrategies, unifiedStrategyMap, enableUnifiedHighlighting, analysisResult]);
 
   // Generate CSS for strategy highlighting
   useEffect(() => {
@@ -219,14 +315,7 @@ const ComparativeResultsDisplay = ({
     }
   };
 
-  if (!analysisResult) {
-    return (
-      <div className={`text-center py-8 text-gray-500 ${className}`}>
-        <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-        <p>Nenhuma análise comparativa disponível</p>
-      </div>
-    );
-  }
+  // Do not early-return; hooks below must always run. Fallback is rendered in JSX.
 
   const toggleSection = (section) => {
     setExpandedSections(prev => ({
@@ -256,43 +345,94 @@ const ComparativeResultsDisplay = ({
   // Human-in-the-loop editing handlers
 
   // Simple handler to prevent ReferenceError - text selection functionality is commented out
-  const handleTextSelection = useCallback(() => {
-    // Text selection functionality is currently disabled
-    // This prevents the ReferenceError when clicking on target text
+  // Global context menu prevention for the results container
+  useEffect(() => {
+    const handleGlobalContextMenu = (e) => {
+      // Only prevent context menu within our component
+      const resultsContainer = document.querySelector('[data-testid="results-container"]');
+      if (resultsContainer && resultsContainer.contains(e.target)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    };
+
+    document.addEventListener('contextmenu', handleGlobalContextMenu, { capture: true });
+    return () => {
+      document.removeEventListener('contextmenu', handleGlobalContextMenu, { capture: true });
+    };
   }, []);
 
-  const handleAddManualTag = useCallback((strategyName) => {
+  // Text selection handler - defined first to avoid hoisting issues
+  const handleTextSelection = useCallback((e) => {
+    try {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) {
+        return;
+      }
+      const range = sel.getRangeAt(0);
+      // Try robust fallback: map selection string to target text indexes
+      const selectedString = sel.toString();
+      if (!selectedString || selectedString.trim().length === 0) {
+        return;
+      }
+      const full = (analysisResult?.target_text || analysisResult?.targetText || '');
+      const startOffset = full.indexOf(selectedString);
+      if (startOffset === -1) {
+        return; // couldn't map reliably
+      }
+      const endOffset = startOffset + selectedString.length;
+      // If we're editing an existing annotation's span, apply immediately
+      if (editingAnnotationId) {
+        modifyAnnotationSpan(editingAnnotationId, [{ start: startOffset, end: endOffset }])
+          .finally(() => clearEditingAnnotation());
+        try { window.getSelection().removeAllRanges(); } catch (e) { /* ignore selection clear errors */ }
+        return;
+      }
+      // Else open add-annotation context menu
+      setSelectedText({ text: selectedString, startIndex: startOffset, endIndex: endOffset });
+      setContextMenu({ x: (e?.clientX || 0), y: (e?.clientY || 0) });
+    } catch (err) { /* noop */ }
+  }, [analysisResult?.target_text, analysisResult?.targetText, editingAnnotationId, modifyAnnotationSpan, clearEditingAnnotation]);
+
+  // Enhanced context menu handler with robust Chrome support
+  const handleContextMenu = useCallback((e) => {
+    // Aggressive prevention for Chrome compatibility
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    
+    // Additional Chrome-specific prevention
+    if (e.nativeEvent) {
+      e.nativeEvent.preventDefault();
+      e.nativeEvent.stopPropagation();
+      e.nativeEvent.stopImmediatePropagation();
+    }
+    
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0 && sel.toString().trim()) {
+      handleTextSelection(e);
+    }
+    
+    return false; // Additional prevention
+  }, [handleTextSelection]);
+
+  const handleAddManualTag = useCallback(async (strategyName) => {
     if (!selectedText || !strategyName) return;
 
     const strategyCode = getStrategyCodeByName(strategyName);
     if (!strategyCode) return;
-
-    const newStrategy = {
-      id: `manual_${Date.now()}`,
-      code: strategyCode,
-      name: strategyName,
-      confidence: 1.0, // Manual tags have 100% confidence
-      evidence: [`Manually added: "${selectedText.text}"`],
-      color: getStrategyColor(strategyCode, useColorblindFriendly),
-      info: getStrategyInfo(strategyCode),
-      isAutomatic: false,
-      selectedText: selectedText.text,
-      startIndex: selectedText.startIndex,
-      endIndex: selectedText.endIndex
-    };
-
-    setManualStrategies(prev => [...prev, newStrategy]);
-    setContextMenu(null);
-    setSelectedText(null);
-    
-    // Clear selection
-    window.getSelection().removeAllRanges();
-
-    // Notify parent component if callback provided
-    if (onStrategyUpdate) {
-      onStrategyUpdate('add', newStrategy);
+    try {
+      await createAnnotation({ strategy_code: strategyCode, target_offsets: [{ start: selectedText.startIndex, end: selectedText.endIndex }], comment: null });
+    } catch (error) {
+      console.error('Failed to create annotation:', error);
+    } finally {
+      setContextMenu(null);
+      setSelectedText(null);
+      try { window.getSelection().removeAllRanges(); } catch (e) { /* ignore selection clear errors */ }
+      if (onStrategyUpdate) onStrategyUpdate('add', { strategy_code: strategyCode });
     }
-  }, [selectedText, getStrategyCodeByName, useColorblindFriendly, onStrategyUpdate]);
+  }, [selectedText, getStrategyCodeByName, createAnnotation, onStrategyUpdate]);
 
   // Commented out tag editing functions
   // const handleEditTag = useCallback((strategyId, currentStrategy) => {
@@ -342,16 +482,7 @@ const ComparativeResultsDisplay = ({
   //   setSelectedStrategy('');
   // }, []);
 
-  // Commented out context menu effect
-  // useEffect(() => {
-  //   const handleClickOutside = () => {
-  //     setContextMenu(null);
-  //     setSelectedText(null);
-  //   };
-
-  //   document.addEventListener('click', handleClickOutside);
-  //   return () => document.removeEventListener('click', handleClickOutside);
-  // }, []);
+  // moved clickOutside effect above to satisfy hook rules
 
   // Apply highlighting to text based on detected strategies with interactive editing
   const highlightText = (text, isTarget = false, paraIndex = 0) => {
@@ -364,30 +495,93 @@ const ComparativeResultsDisplay = ({
     if (enableUnifiedHighlighting) {
       const scope = isTarget ? 'target' : 'source';
       const segments = segmentTextForHighlights(text, filteredRawStrategies, { scope });
+      
       if (segments.length === 0) {
         return <div className="highlighted-text-container">{text}</div>;
       }
-      // For now sentence-based segmentation; simple reconstruction
-      const sentences = text.split(/[.!?]+/).filter(s => s.trim()).map(s => s.trim() + '.');
+      
+      // Character-based rendering with precise highlighting
+      const elements = [];
+      let currentPos = 0;
+      
+      segments.forEach((segment, idx) => {
+        // Add any unhighlighted text before this segment
+        if (currentPos < segment.charStart) {
+          elements.push(
+            <span key={`text-${idx}-before`}>
+              {text.substring(currentPos, segment.charStart)}
+            </span>
+          );
+        }
+        
+        // Add the highlighted segment
+        const mapEntry = unifiedStrategyMap[segment.code];
+        const cls = 'unified-highlight ' + (scope === 'source' ? 'source' : 'target');
+        const style = mapEntry ? { 
+          color: mapEntry.textColor,
+          backgroundColor: mapEntry.textColor + '20', // Add subtle background
+          borderRadius: '3px',
+          padding: '1px 2px',
+          cursor: isTarget ? 'pointer' : 'default'
+        } : {};
+        
+        elements.push(
+          <span
+            key={`highlight-${idx}`}
+            className={cls}
+            data-code={segment.code}
+            data-strategy-id={segment.strategy_id}
+            style={style}
+            title={`${segment.code} (${Math.round(segment.confidence * 100)}%)`}
+            onClick={isTarget ? (e) => {
+              e.stopPropagation();
+              // For automatically attributed tags, don't open any panels - just prevent default
+              // This prevents unwanted side panel opening as requested
+            } : undefined}
+            onMouseEnter={(e) => {
+              setHoveredStrategy(segment.code);
+              setTooltipPosition({ x: e.clientX, y: e.clientY });
+            }}
+            onMouseLeave={() => {
+              setHoveredStrategy(null);
+            }}
+          >
+            {segment.text}
+          </span>
+        );
+        
+        currentPos = segment.charEnd;
+      });
+      
+      // Add any remaining unhighlighted text
+      if (currentPos < text.length) {
+        elements.push(
+          <span key="text-after">
+            {text.substring(currentPos)}
+          </span>
+        );
+      }
+      
       return (
-        <div className="highlighted-text-container" data-scope={scope}>
-          {sentences.map((sentence, idx) => {
-            const seg = segments.find(s => s.sentenceIndex === idx);
-            if (!seg) return <span key={idx}>{sentence + ' '}</span>;
-            const mapEntry = unifiedStrategyMap[seg.code];
-            const cls = 'unified-highlight ' + (scope === 'source' ? 'source' : 'target');
-            const style = mapEntry ? { color: mapEntry.textColor } : {};
-            return (
-              <span
-                key={idx}
-                className={cls}
-                data-code={seg.code}
-                data-strategy-id={seg.strategy_id}
-                style={style}
-                title={`${seg.code}`}
-              >{sentence + ' '}</span>
-            );
-          })}
+        <div 
+          className="highlighted-text-container" 
+          data-scope={scope}
+          onMouseUp={isTarget ? handleTextSelection : undefined}
+          onContextMenu={isTarget ? (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            // If there's a selection, trigger the same logic as onMouseUp
+            const sel = window.getSelection();
+            if (sel && sel.rangeCount > 0 && sel.toString().trim()) {
+              handleTextSelection(e);
+            }
+          } : undefined}
+          style={{
+            userSelect: isTarget ? 'text' : 'none',
+            cursor: isTarget ? 'text' : 'default'
+          }}
+        >
+          {elements}
         </div>
       );
     }
@@ -411,7 +605,18 @@ const ComparativeResultsDisplay = ({
     return (
       <div
         className="highlighted-text-container selectable-text"
-        onMouseUp={handleTextSelection}
+        onMouseUp={(e) => {
+          handleTextSelection(e);
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          // If there's a selection, trigger the same logic as onMouseUp
+          const sel = window.getSelection();
+          if (sel && sel.rangeCount > 0 && sel.toString().trim()) {
+            handleTextSelection(e);
+          }
+        }}
         style={{
           userSelect: 'text',
           cursor: 'text'
@@ -520,39 +725,108 @@ const ComparativeResultsDisplay = ({
     setHoveredStrategy(null);
   };
 
-  // Commented out context menu rendering
-  // const renderContextMenu = () => {
-  //   if (!contextMenu) return null;
+  const renderContextMenu = () => {
+    if (!contextMenu) return null;
 
-  //   return (
-  //     <div
-  //       className="fixed z-50 bg-white border border-gray-300 rounded-lg shadow-lg py-2 min-w-48"
-  //       style={{
-  //         left: contextMenu.x,
-  //         top: contextMenu.y,
-  //       }}
-  //       onClick={(e) => e.stopPropagation()}
-  //     >
-  //       <div className="px-3 py-1 text-xs text-gray-500 border-b border-gray-200 mb-1">
-  //         Adicionar estratégia ao texto selecionado:
-  //       </div>
-  //       {Object.entries(STRATEGY_METADATA).map(([code, metadata]) => (
-  //         <button
-  //           key={code}
-  //           className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
-  //           onClick={() => handleAddManualTag(metadata.name)}
-  //         >
-  //           <div
-  //             className="w-3 h-3 rounded"
-  //             style={{ backgroundColor: getStrategyColor(code, useColorblindFriendly) }}
-  //           />
-  //           <span className="font-medium">{code}</span>
-  //           <span className="text-gray-600">- {metadata.name}</span>
-  //         </button>
-  //       ))}
-  //     </div>
-  //   );
-  // };
+    return (
+      <div
+        className="fixed z-50 bg-white border border-gray-300 rounded-lg shadow-lg py-2 min-w-48"
+        style={{ left: contextMenu.x, top: contextMenu.y }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-3 py-1 text-xs text-gray-500 border-b border-gray-200 mb-1">
+          Adicionar estratégia ao texto selecionado:
+        </div>
+        {Object.entries(STRATEGY_METADATA).map(([code, metadata]) => (
+          <button
+            key={code}
+            className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+            onClick={() => handleAddManualTag(metadata.name)}
+          >
+            <div
+              className="w-3 h-3 rounded"
+              style={{ backgroundColor: getStrategyColor(code, useColorblindFriendly) }}
+            />
+            <span className="font-medium">{code}</span>
+            <span className="text-gray-600">- {metadata.name}</span>
+          </button>
+        ))}
+      </div>
+    );
+  };
+
+  const renderInlineEditor = () => {
+    if (!inlineEditingStrategy || !inlineEditPosition) return null;
+
+    return (
+      <div
+        className="fixed z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-3 min-w-64 max-w-80"
+        style={{ 
+          left: Math.min(inlineEditPosition.x, window.innerWidth - 320), 
+          top: Math.max(inlineEditPosition.y - 10, 10) 
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <div
+              className="w-3 h-3 rounded"
+              style={{ backgroundColor: getStrategyColor(inlineEditingStrategy.code, colorblindMode) }}
+            />
+            <span className="font-medium text-sm">{inlineEditingStrategy.code}</span>
+          </div>
+          <button
+            onClick={() => {
+              setInlineEditingStrategy(null);
+              setInlineEditPosition(null);
+            }}
+            className="text-gray-400 hover:text-gray-600 text-xs"
+          >
+            ✕
+          </button>
+        </div>
+        
+        <div className="text-xs text-gray-600 mb-2">
+          <strong>{inlineEditingStrategy.name}</strong>
+        </div>
+        
+        <div className="text-xs text-gray-500 mb-3">
+          Posição: caracteres {inlineEditPosition.charStart}-{inlineEditPosition.charEnd}
+        </div>
+        
+        <div className="flex gap-2">
+          <button
+            className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+            onClick={() => {
+              // Enable editing mode for this annotation
+              setEditingAnnotation(inlineEditingStrategy.strategy_id);
+              setInlineEditingStrategy(null);
+              setInlineEditPosition(null);
+              // Clear any existing selection to prepare for new selection
+              try { window.getSelection().removeAllRanges(); } catch (e) { /* ignore */ }
+            }}
+          >
+            Editar Posição
+          </button>
+          <button
+            className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
+            onClick={async () => {
+              try {
+                await rejectAnnotation(inlineEditingStrategy.strategy_id);
+                setInlineEditingStrategy(null);
+                setInlineEditPosition(null);
+                if (onStrategyUpdate) onStrategyUpdate('remove', inlineEditingStrategy);
+              } catch (error) {
+                console.error('Failed to remove strategy:', error);
+              }
+            }}
+          >
+            Remover
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const renderTooltip = () => {
     if (!hoveredStrategy) return null;
@@ -593,6 +867,13 @@ const ComparativeResultsDisplay = ({
 
   return (
     <>
+      {!analysisResult ? (
+        <div className={`text-center py-8 text-gray-500 ${className}`}>
+          <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+          <p>Nenhuma análise comparativa disponível</p>
+        </div>
+      ) : (
+        <>
   <div className={`space-y-6 ${className}`} data-testid="results-container">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-lg p-4">
@@ -797,11 +1078,12 @@ const ComparativeResultsDisplay = ({
                 </div>
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4 max-h-96 overflow-y-auto">
                   {/* Phase 2a superscript marker layer (additive, non-breaking) */}
-      {filteredRawStrategies.length > 0 && (
+      {filteredRawStrategies.length > 0 ? (
                     <div
                       className="superscript-layer-wrapper selectable-text"
                       aria-label="Marcadores de estratégias detectadas"
                       onMouseUp={handleTextSelection} // Preserve manual selection handler
+                      onContextMenu={handleContextMenu}
                       style={{ cursor: 'text', userSelect: 'text' }}
                     >
                       <StrategySuperscriptRenderer
@@ -813,13 +1095,34 @@ const ComparativeResultsDisplay = ({
         onRovingIndexChange={setRovingIndex}
                         onMarkerActivate={(id, el, idx) => {
                           if (id) {
-                            lastFocusedMarkerRef.current = el || document.querySelector(`[data-strategy-id="${id}"]`);
-                            setActiveStrategyId(id);
-                            if (typeof idx === 'number') setRovingIndex(idx);
+                            // Find the strategy for inline editing instead of side panel
+                            const strategy = filteredRawStrategies.find(s => s.strategy_id === id);
+                            if (strategy && el) {
+                              const rect = el.getBoundingClientRect();
+                              setInlineEditingStrategy(strategy);
+                              setInlineEditPosition({ 
+                                x: rect.left + window.scrollX, 
+                                y: rect.bottom + window.scrollY,
+                                charStart: strategy.targetPosition?.start || 0,
+                                charEnd: strategy.targetPosition?.end || 0
+                              });
+                              // Prevent side panel from opening
+                              setActiveStrategyId(null);
+                            }
                           }
                         }}
                         unifiedMap={unifiedStrategyMap}
                       />
+                    </div>
+                  ) : (
+                    /* Fallback for when no strategies are detected - plain text with selection handlers */
+                    <div
+                      className="selectable-text"
+                      onMouseUp={handleTextSelection}
+                      onContextMenu={handleContextMenu}
+                      style={{ cursor: 'text', userSelect: 'text', whiteSpace: 'pre-wrap' }}
+                    >
+                      {analysisResult.target_text || analysisResult.targetText}
                     </div>
                   )}
                   {/* Legacy color-mapped sentence highlighting removed to avoid duplicate rendering */}
@@ -843,8 +1146,26 @@ const ComparativeResultsDisplay = ({
                   {strategiesDetected.map(strategy => (
                     <div
                       key={strategy.id}
-                      className="flex items-center gap-3 p-3 rounded-lg border bg-gray-50"
+                      className="flex items-center gap-3 p-3 rounded-lg border bg-gray-50 cursor-pointer hover:bg-gray-100"
                       style={{ borderLeftColor: strategy.color, borderLeftWidth: '3px' }}
+                      onClick={(e) => {
+                        if (!strategy.manually_assigned) {
+                          // Set up inline editing for auto tags
+                          setInlineEditingStrategy({
+                            code: strategy.code,
+                            name: strategy.info.name,
+                            strategy_id: strategy.id,
+                            confidence: strategy.confidence
+                          });
+                          setInlineEditPosition({
+                            x: e.clientX,
+                            y: e.clientY,
+                            charStart: strategy.spans?.[0]?.start || 0,
+                            charEnd: strategy.spans?.[0]?.end || 0
+                          });
+                        }
+                      }}
+                      title={strategy.manually_assigned ? undefined : "Clique para editar esta detecção automática"}
                     >
                       <div
                         className="w-8 h-8 rounded flex items-center justify-center text-xs font-bold"
@@ -858,11 +1179,57 @@ const ComparativeResultsDisplay = ({
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-sm text-gray-900">{strategy.info.name}</span>
+                          {strategy.manually_assigned && (
+                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Manual</span>
+                          )}
                         </div>
                         <div className="text-xs text-gray-600">
                           {Math.round(strategy.confidence * 100)}% confiança
                         </div>
                       </div>
+                      {strategy.manually_assigned && (
+                        <button
+                          onClick={async () => {
+                            if (confirm('Deseja remover esta anotação manual?')) {
+                              try {
+                                await rejectAnnotation(strategy.id);
+                                // Force a refresh of annotations after deletion
+                                await fetchAnnotations();
+                              } catch (error) {
+                                console.error('Error removing annotation:', error);
+                                alert('Erro ao remover anotação. Verifique o console para detalhes.');
+                              }
+                            }
+                          }}
+                          className="text-red-500 hover:text-red-700 p-1"
+                          title="Remover anotação manual"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                      {!strategy.manually_assigned && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent triggering the card click
+                            setInlineEditingStrategy({
+                              code: strategy.code,
+                              name: strategy.info.name,
+                              strategy_id: strategy.id,
+                              confidence: strategy.confidence
+                            });
+                            setInlineEditPosition({
+                              x: e.clientX,
+                              y: e.clientY,
+                              charStart: strategy.spans?.[0]?.start || 0,
+                              charEnd: strategy.spans?.[0]?.end || 0
+                            });
+                          }}
+                          className="text-blue-500 hover:text-blue-700 p-1"
+                          title="Editar detecção automática"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -895,7 +1262,7 @@ const ComparativeResultsDisplay = ({
             <h4 className="font-medium text-gray-900">Estratégias de Simplificação Identificadas</h4>
             
             <div className="space-y-3">
-      {analysisResult.simplification_strategies?.map((strategy, index) => {
+      {strategiesDetected?.map((strategy, index) => {
                 // Use backend-provided code if available
                 const strategyCode = strategy.code || getStrategyCode(strategy.name);
                 const strategyColor = strategy.color || getStrategyColor(strategyCode, useColorblindFriendly);
@@ -1010,26 +1377,31 @@ const ComparativeResultsDisplay = ({
         )}
       </div>
       
-      {/* Commented out context menu */}
-      {/* {renderContextMenu()} */}
+  {/* Text selection -> annotation create menu */}
+  {renderContextMenu()}
       
       {/* Tooltip for strategy hover */}
       {renderTooltip()}
+      
+      {/* Inline strategy editor (panel-free approach) */}
+      {renderInlineEditor()}
     </div>
-    {/* Phase 2b: strategy detail side panel */}
-    <StrategyDetailPanel
-      targetText={analysisResult.target_text || analysisResult.targetText}
-      sourceText={analysisResult.source_text || analysisResult.sourceText}
-      rawStrategies={filteredRawStrategies}
-      activeStrategyId={activeStrategyId}
-      onClose={() => setActiveStrategyId(null)}
-      useColorblindFriendly={colorblindMode}
-      returnFocusTo={lastFocusedMarkerRef.current}
-    />
+    {/* Phase 2b: strategy detail side panel - hidden when using inline editing */}
+    {!inlineEditingStrategy && (
+      <StrategyDetailPanel
+        targetText={analysisResult.target_text || analysisResult.targetText}
+        sourceText={analysisResult.source_text || analysisResult.sourceText}
+        rawStrategies={filteredRawStrategies}
+        activeStrategyId={activeStrategyId}
+        onClose={() => setActiveStrategyId(null)}
+        useColorblindFriendly={colorblindMode}
+        returnFocusTo={lastFocusedMarkerRef.current}
+      />
+    )}
     {/* Strategy Filter Bar (Phase 2c) */}
     <div style={{ marginTop: '1rem' }}>
       <StrategyFilterBar
-        strategies={analysisResult.simplification_strategies || []}
+        strategies={strategiesDetected || []}
         activeCodes={activeCodes}
         onCodesChange={(codes) => { setActiveCodes(codes); setRovingIndex(0); }}
         confidenceMin={confidenceMin}
@@ -1039,6 +1411,8 @@ const ComparativeResultsDisplay = ({
       />
   <HighContrastPatternLegend unifiedMap={unifiedStrategyMap} show={colorblindMode} />
     </div>
+        </>
+      )}
     </>
   );
 };

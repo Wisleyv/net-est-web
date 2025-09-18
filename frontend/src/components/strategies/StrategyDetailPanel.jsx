@@ -38,11 +38,12 @@ export default function StrategyDetailPanel({
 
   const active = useMemo(() => strategies.find(s => s.strategy_id === activeStrategyId), [strategies, activeStrategyId]);
   const enableFeedbackActions = useAppStore(s => s.config.enableFeedbackActions);
-  const { acceptAnnotation, rejectAnnotation, modifyAnnotation } = useAnnotationStore();
+  const { acceptAnnotation, rejectAnnotation, modifyAnnotation, setEditingAnnotation, modifyAnnotationSpan, clearEditingAnnotation } = useAnnotationStore();
   const { fetchAudit, exportAnnotations, audit } = useAnnotationStore();
   const [showAudit, setShowAudit] = useState(false);
   const [modifying, setModifying] = useState(false);
   const [newCode, setNewCode] = useState('');
+  const [spanEditing, setSpanEditing] = useState(false);
 
   const headerRef = useRef(null);
   // Close on ESC
@@ -56,7 +57,7 @@ export default function StrategyDetailPanel({
   useEffect(() => {
     if (activeStrategyId && headerRef.current) {
       // Delay to ensure rendering complete
-      setTimeout(() => headerRef.current && headerRef.current.focus(), 0);
+  setTimeout(() => headerRef.current && headerRef.current.focus(), 0);
     }
   }, [activeStrategyId]);
 
@@ -64,14 +65,28 @@ export default function StrategyDetailPanel({
   useEffect(() => {
     if (!activeStrategyId && returnFocusTo) {
       setTimeout(() => {
-        try { returnFocusTo.focus(); } catch (_) {}
+        try { returnFocusTo.focus(); } catch (_) { /* focus restore noop */ }
       }, 0);
     }
   }, [activeStrategyId, returnFocusTo]);
 
+  // Clear span editing mode on close/unmount
+  useEffect(() => () => { try { clearEditingAnnotation(); } catch (e) { /* ignore */ } }, [clearEditingAnnotation]);
+
   const stop = useCallback(e => e.stopPropagation(), []);
 
   if (!activeStrategyId || !active) return null;
+
+  if (import.meta?.env?.DEV) {
+    try {
+      // eslint-disable-next-line no-console
+      console.log('[NET-EST] StrategyDetailPanel render', {
+        activeStrategyId,
+        enableFeedbackActions,
+        hasAudit: !!audit[activeStrategyId],
+      });
+    } catch {}
+  }
 
   const meta = STRATEGY_METADATA[active.code] || getStrategyInfo(active.code) || {};
   const color = getStrategyColor(active.code, useColorblindFriendly);
@@ -270,6 +285,12 @@ export default function StrategyDetailPanel({
                 className="px-3 py-1.5 text-xs rounded font-medium focus:outline-none focus:ring-2 focus:ring-red-500 bg-red-100 hover:bg-red-200 text-red-800 border border-red-300"
                 aria-label="Rejeitar anotação"
               >Rejeitar</button>
+              <button
+                type="button"
+                onClick={() => { setEditingAnnotation(active.strategy_id); setSpanEditing(true); }}
+                className="px-3 py-1.5 text-xs rounded font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-indigo-100 hover:bg-indigo-200 text-indigo-800 border border-indigo-300"
+                aria-label="Ajustar intervalo no texto"
+              >Ajustar intervalo</button>
               <div className="relative" aria-label="Modificar estratégia">
                 {!modifying && (
                   <button
@@ -292,7 +313,7 @@ export default function StrategyDetailPanel({
                     </select>
                     <button
                       type="button"
-                      onClick={() => { modifyAnnotation(active.strategy_id, newCode); setModifying(false); }}
+                      onClick={() => { try { modifyAnnotation(active.strategy_id, newCode); } finally { setModifying(false); } }}
                       className="px-2 py-1 text-xs rounded bg-amber-600 text-white hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
                       aria-label="Confirmar modificação"
                     >OK</button>
@@ -306,6 +327,21 @@ export default function StrategyDetailPanel({
                 )}
               </div>
             </div>
+          )}
+          {spanEditing && (
+            <div className="text-[11px] text-gray-600 mr-auto" role="status">
+              Selecione um novo trecho no "Texto Simplificado" para atualizar os offsets desta anotação.
+            </div>
+          )}
+          {!enableFeedbackActions && import.meta?.env?.DEV && (
+            <button
+              type="button"
+              onClick={() => {
+                const st = useAppStore.getState();
+                useAppStore.setState({ config: { ...st.config, enableFeedbackActions: true } });
+              }}
+              className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-800 border border-blue-300 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >Ativar feedback (dev)</button>
           )}
           <button
             onClick={onClose}

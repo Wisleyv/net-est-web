@@ -1,9 +1,26 @@
+# Changelog
+
+## [Unreleased]
+- Frontend: Fixed StrategyDetailPanel error where modifyAnnotation was not wired; now calls store action correctly.
+- HITL: Added text selection to create manual annotations in ComparativeResultsDisplay with a compact context menu.
+- HITL: Added span editing flow: from StrategyDetailPanel click “Ajustar intervalo”, then select new target text to update offsets.
+- Docs: ONBOARDING updated with feedback flag notes and troubleshooting.
+
+/*
+Desenvolvido com ❤️ pelo Núcleo de Estudos de Tradução - PIPGLA/UFRJ | Contém código assistido por IA
+*/
+
 ## Phase 4e (2025-09-11)
 
 - Gold annotation persistence: `validated` and `manually_assigned` flags added to `Annotation`.
 - Repository updates (FS/SQLite): lifecycle transitions maintain gold flags; DB schema migration includes columns.
 - Export alignment: API/CLI support `scope` (gold/raw/both) and add ML fields `decision`, `validated`, `manually_assigned`.
 - Tests: persistence + export scope tests for FS and SQLite, API scope test.
+
+### Frontend Diagnostics
+- Added dev-only diagnostics in StrategyDetailPanel and FeedbackCollection to log mount and flag state.
+- Exposed `window.NET_EST.enableFeedback()/disableFeedback()` and `NET_EST.getStore()` for runtime inspection/toggling of `enableFeedbackActions` in dev/test.
+- Updated ONBOARDING with steps to debug rendering and clear Vite cache.
 
 ### 2025-09-10
 #### Added / Changed

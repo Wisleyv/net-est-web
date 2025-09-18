@@ -293,6 +293,91 @@ async def perform_comparative_analysis(
                 result_dict['feedback_prompt'] = {"enabled": False}
             result = result_dict
 
+        # Seed annotation repository with predicted strategies so feedback actions find IDs
+        try:
+            strategies = result.get('simplification_strategies') if isinstance(result, dict) else getattr(result, 'simplification_strategies', [])
+            session_id_val = result.get('analysis_id') if isinstance(result, dict) else getattr(result, 'analysis_id', None)
+            if session_id_val and strategies:
+                try:
+                    # Lazy imports to avoid circular deps in tests
+                    try:
+                        from src.repository.fs_repository import get_repository
+                        from src.models.annotation import Annotation, Offset
+                    except Exception:
+                        from ..repository.fs_repository import get_repository
+                        from ..models.annotation import Annotation, Offset
+
+                    repo = get_repository()
+                    repo.load_session(session_id_val)
+                    seeded = 0
+                    for s in strategies:
+                        try:
+                            sid = s.get('strategy_id') if isinstance(s, dict) else getattr(s, 'strategy_id', None)
+                            code = (s.get('code') if isinstance(s, dict) else getattr(s, 'code', None)) or (s.get('sigla') if isinstance(s, dict) else getattr(s, 'sigla', None)) or (s.get('strategy_code') if isinstance(s, dict) else getattr(s, 'strategy_code', None))
+                            conf = s.get('confidence') if isinstance(s, dict) else getattr(s, 'confidence', None)
+                            if not sid:
+                                # Fallback to name-based deterministic id
+                                name = s.get('name') if isinstance(s, dict) else getattr(s, 'name', 'strategy')
+                                sid = (name or 'strategy').lower().replace(' ', '_')
+                            # Build target offsets list
+                            to = s.get('target_offsets') if isinstance(s, dict) else getattr(s, 'target_offsets', None)
+                            offsets = []
+                            if isinstance(to, list):
+                                for o in to:
+                                    if not o:
+                                        continue
+                                    try:
+                                        if isinstance(o, dict) and 'start' in o and 'end' in o:
+                                            offsets.append(Offset(start=int(o['start']), end=int(o['end'])))
+                                        elif isinstance(o, (list, tuple)) and len(o) == 2:
+                                            offsets.append(Offset(start=int(o[0]), end=int(o[1])))
+                                        elif isinstance(o, dict) and 'char_start' in o and 'char_end' in o:
+                                            offsets.append(Offset(start=int(o['char_start']), end=int(o['char_end'])))
+                                    except Exception:
+                                        continue
+                            elif isinstance(to, dict) and 'char_start' in to and 'char_end' in to:
+                                try:
+                                    offsets.append(Offset(start=int(to['char_start']), end=int(to['char_end'])))
+                                except Exception:
+                                    pass
+                            # Skip if repository already has this id
+                            try:
+                                existing = repo.get(sid)
+                            except Exception:
+                                existing = None
+                            if existing is None:
+                                # Create snapshot and sync into repo as machine/pending
+                                ann = Annotation(id=str(sid), strategy_code=code or 'SL+', target_offsets=offsets or None, origin='machine', status='pending', confidence=conf)
+                                # Prefer sync_from_action if available (works for FS, SQLite, and dual-write)
+                                if hasattr(repo, 'sync_from_action'):
+                                    try:
+                                        repo.sync_from_action(ann, 'seed', session_id_val, None, 'pending', None, ann.strategy_code)  # type: ignore[attr-defined]
+                                    except Exception:
+                                        pass
+                                else:
+                                    # Dual-write wrappers: mirror to underlying if exposed
+                                    for attr in ('fs', 'db', 'primary', 'fallback'):
+                                        try:
+                                            backend = getattr(repo, attr)
+                                            if hasattr(backend, 'sync_from_action'):
+                                                backend.sync_from_action(ann, 'seed', session_id_val, None, 'pending', None, ann.strategy_code)
+                                        except Exception:
+                                            continue
+                                seeded += 1
+                        except Exception:
+                            # Skip faulty strategy entries without failing the whole request
+                            continue
+                    try:
+                        repo.persist_session(session_id_val)
+                    except Exception:
+                        pass
+                    logger.info("Seeded annotations from analysis", session_id=session_id_val, count=seeded)
+                except Exception as se:
+                    logger.warning("Seeding annotations failed", error=str(se))
+        except Exception:
+            # Non-fatal
+            pass
+
         return result
         
     except Exception as e:
