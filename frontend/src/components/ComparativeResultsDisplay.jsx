@@ -25,7 +25,6 @@ import {
 } from 'lucide-react';
 import {
   getStrategyColor,
-  getAccessibleTextColor,
   getStrategyInfo,
   getStrategyClassName,
   generateStrategyCSSClasses,
@@ -37,8 +36,9 @@ import StrategySuperscriptRenderer from './strategies/StrategySuperscriptRendere
 import StrategyDetailPanel from './strategies/StrategyDetailPanel.jsx';
 import useAnnotationStore from '../stores/useAnnotationStore.js';
 import StrategyFilterBar from './strategies/StrategyFilterBar.jsx';
+import HighContrastPatternLegend from './strategies/HighContrastPatternLegend.jsx';
 // Unified mapping (Phase 2d Step1/2)
-import { buildUnifiedStrategyMap, segmentTextForHighlights, injectUnifiedCSS, mergeOverlappingSegments } from '../services/unifiedStrategyMapping.js';
+import { buildUnifiedStrategyMap, segmentTextForHighlights, injectUnifiedCSS } from '../services/unifiedStrategyMapping.js';
 
 // Create reverse mapping from Portuguese names to strategy codes
 const NAME_TO_CODE_MAPPING = {};
@@ -85,13 +85,14 @@ const ComparativeResultsDisplay = ({
   const [selectedStrategy, setSelectedStrategy] = useState('');
   const [contextMenu, setContextMenu] = useState(null);
   const [selectedText, setSelectedText] = useState(null);
-  const { createAnnotation, editingAnnotationId, modifyAnnotationSpan, clearEditingAnnotation, setSession, fetchAnnotations, annotations, rejectAnnotation, setEditingAnnotation, modifyAnnotation } = useAnnotationStore();
+  const { createAnnotation, editingAnnotationId, modifyAnnotationSpan, clearEditingAnnotation, setSession, fetchAnnotations, annotations, rejectAnnotation, setEditingAnnotation } = useAnnotationStore();
   // Phase 2b: active strategy detail panel state
   const [activeStrategyId, setActiveStrategyId] = useState(null);
   const lastFocusedMarkerRef = React.useRef(null);
   // Phase 2c filtering + accessibility states
   const [activeCodes, setActiveCodes] = useState([]); // populated after strategies load
   const [confidenceMin, setConfidenceMin] = useState(0); // percent
+  const [colorblindMode, setColorblindMode] = useState(useColorblindFriendly);
   const [rovingIndex, setRovingIndex] = useState(0);
   // Feature flag for dark launch of unified highlighting
   const [enableUnifiedHighlighting] = useState(true); // set false to rollback quickly
@@ -142,15 +143,9 @@ const ComparativeResultsDisplay = ({
   // Initialize active codes when strategies change
   useEffect(() => {
     const codes = (analysisResult?.simplification_strategies || []).map(s => s.code).filter(Boolean);
-    // Also include codes from manual annotations so they appear in UI
-    const manualCodes = annotations
-      .filter(ann => ann.origin === 'human' && ann.status === 'created')
-      .map(ann => ann.strategy_code || ann.code)
-      .filter(Boolean);
-    const allCodes = [...codes, ...manualCodes];
-    const uniq = Array.from(new Set(allCodes));
+    const uniq = Array.from(new Set(codes));
     setActiveCodes(uniq);
-  }, [analysisResult?.simplification_strategies, annotations]);
+  }, [analysisResult?.simplification_strategies]);
 
   // Helper function to convert Portuguese strategy name to code
   // (Keeping this utility as it's used in strategy processing)
@@ -210,7 +205,7 @@ const ComparativeResultsDisplay = ({
         name: strategy.name,
         confidence: strategy.confidence,
         evidence: strategy.evidence || [],
-        color: strategy.color || getStrategyColor(effectiveCode, false),
+        color: strategy.color || getStrategyColor(effectiveCode, colorblindMode),
         info: getStrategyInfo(effectiveCode),
         isAutomatic: true,
         // Include backend-provided position data
@@ -244,7 +239,7 @@ const ComparativeResultsDisplay = ({
         name: getStrategyInfo(strategyCode)?.name || 'Manual Annotation',
         confidence: 1.0, // Manual annotations have 100% confidence
         evidence: [],
-        color: getStrategyColor(strategyCode, false),
+        color: getStrategyColor(strategyCode, colorblindMode),
         info: getStrategyInfo(strategyCode),
         isAutomatic: false,
         // Use annotation's target_offsets for position data
@@ -258,7 +253,7 @@ const ComparativeResultsDisplay = ({
     });
 
     return strategies;
-  }, [analysisResult, annotations, getStrategyCode]);
+  }, [analysisResult, annotations, colorblindMode, getStrategyCode]);
 
   // Filter raw strategies based on confidence and active codes
   const filteredRawStrategies = useMemo(() => {
@@ -268,8 +263,8 @@ const ComparativeResultsDisplay = ({
   // Build unified map (strategies include filtered list for color scope determinism)
   const unifiedStrategyMap = useMemo(() => {
     if (!enableUnifiedHighlighting) return {};
-    return buildUnifiedStrategyMap(filteredRawStrategies, { colorblindMode: false, enablePatterns: false });
-  }, [filteredRawStrategies, enableUnifiedHighlighting]);
+    return buildUnifiedStrategyMap(filteredRawStrategies, { colorblindMode, enablePatterns: colorblindMode });
+  }, [filteredRawStrategies, colorblindMode, enableUnifiedHighlighting]);
 
   // Inject CSS when map changes
   useEffect(() => {
@@ -306,8 +301,8 @@ const ComparativeResultsDisplay = ({
       document.head.appendChild(styleElement);
     }
     
-    styleElement.textContent = generateStrategyCSSClasses(false);
-  }, []);
+    styleElement.textContent = generateStrategyCSSClasses(colorblindMode);
+  }, [colorblindMode]);
 
   const handleExport = async (format) => {
     setIsLocalExporting(true);
@@ -376,37 +371,17 @@ const ComparativeResultsDisplay = ({
         return;
       }
       const range = sel.getRangeAt(0);
-      // Use DOM-based position calculation for exact selection mapping
+      // Try robust fallback: map selection string to target text indexes
       const selectedString = sel.toString();
       if (!selectedString || selectedString.trim().length === 0) {
         return;
       }
-      
-      // Calculate character offsets from the actual DOM selection range
-      const containerElement = range.commonAncestorContainer.nodeType === Node.TEXT_NODE 
-        ? range.commonAncestorContainer.parentElement 
-        : range.commonAncestorContainer;
-      
-      // Find the text content and calculate precise offsets
       const full = (analysisResult?.target_text || analysisResult?.targetText || '');
-      let startOffset, endOffset;
-      
-      try {
-        // Create a range that spans from start of container to start of selection
-        const preRange = document.createRange();
-        preRange.setStart(containerElement, 0);
-        preRange.setEnd(range.startContainer, range.startOffset);
-        startOffset = preRange.toString().length;
-        endOffset = startOffset + selectedString.length;
-        preRange.detach();
-      } catch (rangeError) {
-        // Fallback to indexOf only if DOM calculation fails
-        startOffset = full.indexOf(selectedString);
-        if (startOffset === -1) {
-          return; // couldn't map reliably
-        }
-        endOffset = startOffset + selectedString.length;
+      const startOffset = full.indexOf(selectedString);
+      if (startOffset === -1) {
+        return; // couldn't map reliably
       }
+      const endOffset = startOffset + selectedString.length;
       // If we're editing an existing annotation's span, apply immediately
       if (editingAnnotationId) {
         modifyAnnotationSpan(editingAnnotationId, [{ start: startOffset, end: endOffset }])
@@ -519,19 +494,16 @@ const ComparativeResultsDisplay = ({
     // Unified highlighting path (source & target) when enabled
     if (enableUnifiedHighlighting) {
       const scope = isTarget ? 'target' : 'source';
-      let segments = segmentTextForHighlights(text, filteredRawStrategies, { scope });
-
+      const segments = segmentTextForHighlights(text, filteredRawStrategies, { scope });
+      
       if (segments.length === 0) {
         return <div className="highlighted-text-container">{text}</div>;
       }
-
-      // Phase 1: Handle overlapping segments by merging them
-      segments = mergeOverlappingSegments(segments);
-
+      
       // Character-based rendering with precise highlighting
       const elements = [];
       let currentPos = 0;
-
+      
       segments.forEach((segment, idx) => {
         // Add any unhighlighted text before this segment
         if (currentPos < segment.charStart) {
@@ -541,66 +513,18 @@ const ComparativeResultsDisplay = ({
             </span>
           );
         }
-
+        
         // Add the highlighted segment
         const mapEntry = unifiedStrategyMap[segment.code];
         const cls = 'unified-highlight ' + (scope === 'source' ? 'source' : 'target');
-
-        // Phase 1: Handle overlapping segments with single background + pattern
-        let style = {};
-        let title = '';
-        let clickHandler = undefined;
-
-        if (mapEntry) {
-          // Use primary strategy color as background
-          const baseColor = mapEntry.textColor;
-          style = {
-            color: baseColor,
-            backgroundColor: baseColor + '20', // Add subtle background
-            borderRadius: '3px',
-            padding: '1px 2px',
-            cursor: isTarget ? 'pointer' : 'default'
-          };
-
-          // Add pattern for overlapping segments
-          if (segment.isMerged && segment.strategies && segment.strategies.length > 1) {
-            // Create a diagonal stripe pattern for overlapping segments
-            style.backgroundImage = `
-              repeating-linear-gradient(
-                45deg,
-                ${baseColor}20 0px,
-                ${baseColor}20 2px,
-                ${baseColor}40 2px,
-                ${baseColor}40 4px
-              )
-            `;
-            title = `Múltiplas estratégias: ${segment.strategies.join(', ')}`;
-          } else {
-            title = `${segment.code} (${Math.round(segment.confidence * 100)}%)`;
-          }
-
-          // Set up click handler for target text
-          if (isTarget) {
-            clickHandler = (e) => {
-              e.stopPropagation();
-              // Use the primary strategy for inline editing
-              const strategy = filteredRawStrategies.find(s => s.strategy_id === segment.strategy_id);
-              if (strategy) {
-                const rect = e.currentTarget.getBoundingClientRect();
-                setInlineEditingStrategy(strategy);
-                setInlineEditPosition({
-                  x: rect.left + window.scrollX,
-                  y: rect.bottom + window.scrollY,
-                  charStart: segment.charStart,
-                  charEnd: segment.charEnd
-                });
-                // Prevent side panel from opening
-                setActiveStrategyId(null);
-              }
-            };
-          }
-        }
-
+        const style = mapEntry ? { 
+          color: mapEntry.textColor,
+          backgroundColor: mapEntry.textColor + '20', // Add subtle background
+          borderRadius: '3px',
+          padding: '1px 2px',
+          cursor: isTarget ? 'pointer' : 'default'
+        } : {};
+        
         elements.push(
           <span
             key={`highlight-${idx}`}
@@ -608,8 +532,12 @@ const ComparativeResultsDisplay = ({
             data-code={segment.code}
             data-strategy-id={segment.strategy_id}
             style={style}
-            title={title}
-            onClick={clickHandler}
+            title={`${segment.code} (${Math.round(segment.confidence * 100)}%)`}
+            onClick={isTarget ? (e) => {
+              e.stopPropagation();
+              // For automatically attributed tags, don't open any panels - just prevent default
+              // This prevents unwanted side panel opening as requested
+            } : undefined}
             onMouseEnter={(e) => {
               setHoveredStrategy(segment.code);
               setTooltipPosition({ x: e.clientX, y: e.clientY });
@@ -621,10 +549,10 @@ const ComparativeResultsDisplay = ({
             {segment.text}
           </span>
         );
-
+        
         currentPos = segment.charEnd;
       });
-
+      
       // Add any remaining unhighlighted text
       if (currentPos < text.length) {
         elements.push(
@@ -633,10 +561,10 @@ const ComparativeResultsDisplay = ({
           </span>
         );
       }
-
+      
       return (
-        <div
-          className="highlighted-text-container"
+        <div 
+          className="highlighted-text-container" 
           data-scope={scope}
           onMouseUp={isTarget ? handleTextSelection : undefined}
           onContextMenu={isTarget ? (e) => {
@@ -817,7 +745,7 @@ const ComparativeResultsDisplay = ({
           >
             <div
               className="w-3 h-3 rounded"
-              style={{ backgroundColor: getStrategyColor(code, false) }}
+              style={{ backgroundColor: getStrategyColor(code, useColorblindFriendly) }}
             />
             <span className="font-medium">{code}</span>
             <span className="text-gray-600">- {metadata.name}</span>
@@ -830,176 +758,70 @@ const ComparativeResultsDisplay = ({
   const renderInlineEditor = () => {
     if (!inlineEditingStrategy || !inlineEditPosition) return null;
 
-    const availableStrategies = Object.entries(STRATEGY_METADATA).filter(
-      ([code, metadata]) => code !== 'UNK+' && metadata.name
-    );
-
     return (
       <div
-        className="fixed z-50 bg-white border-2 border-blue-300 rounded-lg shadow-xl p-4 min-w-80 max-w-96"
+        className="fixed z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-3 min-w-64 max-w-80"
         style={{ 
-          left: Math.min(inlineEditPosition.x, window.innerWidth - 400), 
-          top: Math.max(inlineEditPosition.y - 10, 10),
-          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)'
+          left: Math.min(inlineEditPosition.x, window.innerWidth - 320), 
+          top: Math.max(inlineEditPosition.y - 10, 10) 
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <div
-              className="w-4 h-4 rounded"
-              style={{ backgroundColor: getStrategyColor(inlineEditingStrategy.code, false) }}
+              className="w-3 h-3 rounded"
+              style={{ backgroundColor: getStrategyColor(inlineEditingStrategy.code, colorblindMode) }}
             />
-            <span className="font-bold text-sm text-blue-700">EDITANDO: {inlineEditingStrategy.code}</span>
+            <span className="font-medium text-sm">{inlineEditingStrategy.code}</span>
           </div>
           <button
             onClick={() => {
               setInlineEditingStrategy(null);
               setInlineEditPosition(null);
             }}
-            className="text-gray-400 hover:text-gray-600 text-lg font-bold w-6 h-6 flex items-center justify-center"
+            className="text-gray-400 hover:text-gray-600 text-xs"
           >
             ✕
           </button>
         </div>
         
-        <div className="text-sm text-gray-700 mb-2 font-medium">
-          {inlineEditingStrategy.name}
+        <div className="text-xs text-gray-600 mb-2">
+          <strong>{inlineEditingStrategy.name}</strong>
         </div>
         
-        <div className="text-xs text-gray-500 mb-4 p-2 bg-blue-50 rounded">
-          📍 Posição: caracteres {inlineEditPosition.charStart}-{inlineEditPosition.charEnd}
-        </div>
-
-        {/* Strategy Type Selector */}
-        <div className="mb-4">
-          <label className="block text-sm font-bold text-gray-700 mb-2">
-            Alterar Tipo de Estratégia:
-          </label>
-          <select
-            value={inlineEditingStrategy.code}
-            onChange={(e) => {
-              const newCode = e.target.value;
-              const newMetadata = STRATEGY_METADATA[newCode];
-              setInlineEditingStrategy({
-                ...inlineEditingStrategy,
-                code: newCode,
-                name: newMetadata?.name || newCode
-              });
-            }}
-            className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded focus:outline-none focus:border-blue-500"
-          >
-            {availableStrategies.map(([code, metadata]) => (
-              <option key={code} value={code}>
-                {code} - {metadata.name}
-              </option>
-            ))}
-          </select>
+        <div className="text-xs text-gray-500 mb-3">
+          Posição: caracteres {inlineEditPosition.charStart}-{inlineEditPosition.charEnd}
         </div>
         
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2">
           <button
-            className="flex-1 px-4 py-2 text-sm bg-green-500 text-white rounded hover:bg-green-600 font-medium"
+            className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+            onClick={() => {
+              // Enable editing mode for this annotation
+              setEditingAnnotation(inlineEditingStrategy.strategy_id);
+              setInlineEditingStrategy(null);
+              setInlineEditPosition(null);
+              // Clear any existing selection to prepare for new selection
+              try { window.getSelection().removeAllRanges(); } catch (e) { /* ignore */ }
+            }}
+          >
+            Editar Posição
+          </button>
+          <button
+            className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
             onClick={async () => {
               try {
-                // Save changes to strategy type
-                await modifyAnnotation(inlineEditingStrategy.strategy_id, inlineEditingStrategy.code);
+                await rejectAnnotation(inlineEditingStrategy.strategy_id);
                 setInlineEditingStrategy(null);
                 setInlineEditPosition(null);
-                if (onStrategyUpdate) onStrategyUpdate('update', inlineEditingStrategy);
+                if (onStrategyUpdate) onStrategyUpdate('remove', inlineEditingStrategy);
               } catch (error) {
-                console.error('Failed to update strategy:', error);
+                console.error('Failed to remove strategy:', error);
               }
             }}
           >
-            ✓ Salvar Alterações
-          </button>
-        </div>
-        <div className="flex gap-2 mt-2">
-          <button
-            className="flex-1 px-3 py-1 text-xs bg-amber-100 text-amber-700 rounded hover:bg-amber-200 border border-amber-300"
-            onClick={() => {
-              // Expand selection for easier span adjustment
-              const textContainer = document.querySelector('.selectable-text');
-              if (textContainer) {
-                const range = document.createRange();
-                const selection = window.getSelection();
-                
-                // Try to select the text around the current position
-                const textNodes = [];
-                const walker = document.createTreeWalker(
-                  textContainer,
-                  NodeFilter.SHOW_TEXT,
-                  null,
-                  false
-                );
-                
-                let node;
-                while (node = walker.nextNode()) {
-                  textNodes.push(node);
-                }
-                
-                // Find the text that corresponds to our character positions
-                let charCount = 0;
-                let startNode = null, endNode = null;
-                let startOffset = 0, endOffset = 0;
-                
-                for (const textNode of textNodes) {
-                  const nodeLength = textNode.textContent.length;
-                  
-                  if (charCount <= inlineEditPosition.charStart && charCount + nodeLength > inlineEditPosition.charStart) {
-                    startNode = textNode;
-                    startOffset = inlineEditPosition.charStart - charCount;
-                  }
-                  
-                  if (charCount <= inlineEditPosition.charEnd && charCount + nodeLength >= inlineEditPosition.charEnd) {
-                    endNode = textNode;
-                    endOffset = inlineEditPosition.charEnd - charCount;
-                    break;
-                  }
-                  
-                  charCount += nodeLength;
-                }
-                
-                if (startNode && endNode) {
-                  try {
-                    range.setStart(startNode, startOffset);
-                    range.setEnd(endNode, endOffset);
-                    selection.removeAllRanges();
-                    selection.addRange(range);
-                    
-                    // Close this editor and enable text selection mode
-                    setInlineEditingStrategy(null);
-                    setInlineEditPosition(null);
-                    
-                    // Show user instruction
-                    alert('Texto selecionado. Ajuste a seleção conforme necessário e use o menu de contexto para aplicar a nova posição.');
-                  } catch (e) {
-                    console.warn('Failed to select text:', e);
-                    alert('Não foi possível selecionar o texto automaticamente. Selecione manualmente o texto desejado.');
-                  }
-                }
-              }
-            }}
-          >
-            📐 Ajustar Posição
-          </button>
-          <button
-            className="flex-1 px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 border border-red-300"
-            onClick={async () => {
-              if (confirm('Deseja remover esta anotação de estratégia?')) {
-                try {
-                  await rejectAnnotation(inlineEditingStrategy.strategy_id);
-                  setInlineEditingStrategy(null);
-                  setInlineEditPosition(null);
-                  if (onStrategyUpdate) onStrategyUpdate('remove', inlineEditingStrategy);
-                } catch (error) {
-                  console.error('Failed to remove strategy:', error);
-                }
-              }
-            }}
-          >
-            🗑️ Remover
+            Remover
           </button>
         </div>
       </div>
@@ -1238,8 +1060,8 @@ const ComparativeResultsDisplay = ({
                     {analysisResult.source_text?.split(/\s+/).filter(word => word.length > 0).length || 0} palavras
                   </span>
                 </div>
-                <div className="border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto bg-gray-50">
-                  <div className="text-sm font-sans leading-relaxed text-gray-700">
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto">
+                  <div className="text-sm text-gray-700 font-sans leading-relaxed">
                     {highlightText(analysisResult.source_text || analysisResult.sourceText, false, 0)}
                   </div>
                 </div>
@@ -1254,7 +1076,7 @@ const ComparativeResultsDisplay = ({
                     {analysisResult.target_text?.split(/\s+/).filter(word => word.length > 0).length || 0} palavras
                   </span>
                 </div>
-                <div className="border border-green-200 rounded-lg p-4 max-h-96 overflow-y-auto bg-green-50">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 max-h-96 overflow-y-auto">
                   {/* Phase 2a superscript marker layer (additive, non-breaking) */}
       {filteredRawStrategies.length > 0 ? (
                     <div
@@ -1267,6 +1089,7 @@ const ComparativeResultsDisplay = ({
                       <StrategySuperscriptRenderer
                         targetText={analysisResult.target_text || analysisResult.targetText}
                         strategies={filteredRawStrategies}
+                        colorblindMode={colorblindMode}
                         activeStrategyId={activeStrategyId}
         rovingIndex={rovingIndex}
         onRovingIndexChange={setRovingIndex}
@@ -1312,25 +1135,40 @@ const ComparativeResultsDisplay = ({
               </div>
             </div>
 
-            {/* Read-Only Strategy Overview Panel */}
+            {/* Interactive Strategy Legend with Manual Editing */}
             {strategiesDetected.length > 0 && (
               <div className="bg-white border border-gray-200 rounded-lg p-4">
                 <h5 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
                   <Target className="w-4 h-4" />
                   Estratégias de Simplificação Detectadas
-                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded ml-auto">
-                    Somente leitura - edite diretamente no texto
-                  </span>
                 </h5>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {strategiesDetected.map(strategy => (
                     <div
                       key={strategy.id}
-                      className="flex items-center gap-3 p-3 rounded-lg border bg-gray-50"
+                      className="flex items-center gap-3 p-3 rounded-lg border bg-gray-50 cursor-pointer hover:bg-gray-100"
                       style={{ borderLeftColor: strategy.color, borderLeftWidth: '3px' }}
+                      onClick={(e) => {
+                        if (!strategy.manually_assigned) {
+                          // Set up inline editing for auto tags
+                          setInlineEditingStrategy({
+                            code: strategy.code,
+                            name: strategy.info.name,
+                            strategy_id: strategy.id,
+                            confidence: strategy.confidence
+                          });
+                          setInlineEditPosition({
+                            x: e.clientX,
+                            y: e.clientY,
+                            charStart: strategy.spans?.[0]?.start || 0,
+                            charEnd: strategy.spans?.[0]?.end || 0
+                          });
+                        }
+                      }}
+                      title={strategy.manually_assigned ? undefined : "Clique para editar esta detecção automática"}
                     >
                       <div
-                        className="w-8 h-8 rounded flex items-center justify-center text-xs font-bold relative overflow-hidden"
+                        className="w-8 h-8 rounded flex items-center justify-center text-xs font-bold"
                         style={{
                           backgroundColor: strategy.color,
                           color: getContrastingTextColor(strategy.color)
@@ -1348,14 +1186,50 @@ const ComparativeResultsDisplay = ({
                         <div className="text-xs text-gray-600">
                           {Math.round(strategy.confidence * 100)}% confiança
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          Posição: {strategy.spans?.[0]?.start || 0}-{strategy.spans?.[0]?.end || 0}
-                        </div>
                       </div>
-                      {/* No editing controls - users must edit inline in the target text */}
-                      <div className="text-xs text-gray-400 italic">
-                        Clique no texto destacado para editar
-                      </div>
+                      {strategy.manually_assigned && (
+                        <button
+                          onClick={async () => {
+                            if (confirm('Deseja remover esta anotação manual?')) {
+                              try {
+                                await rejectAnnotation(strategy.id);
+                                // Force a refresh of annotations after deletion
+                                await fetchAnnotations();
+                              } catch (error) {
+                                console.error('Error removing annotation:', error);
+                                alert('Erro ao remover anotação. Verifique o console para detalhes.');
+                              }
+                            }
+                          }}
+                          className="text-red-500 hover:text-red-700 p-1"
+                          title="Remover anotação manual"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                      {!strategy.manually_assigned && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent triggering the card click
+                            setInlineEditingStrategy({
+                              code: strategy.code,
+                              name: strategy.info.name,
+                              strategy_id: strategy.id,
+                              confidence: strategy.confidence
+                            });
+                            setInlineEditPosition({
+                              x: e.clientX,
+                              y: e.clientY,
+                              charStart: strategy.spans?.[0]?.start || 0,
+                              charEnd: strategy.spans?.[0]?.end || 0
+                            });
+                          }}
+                          className="text-blue-500 hover:text-blue-700 p-1"
+                          title="Editar detecção automática"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1384,164 +1258,47 @@ const ComparativeResultsDisplay = ({
 
         {/* Simplification Strategies */}
         {activeSection === 'strategies' && (
-          <div className="space-y-6">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-medium text-gray-900 flex items-center gap-2">
-                <Target className="w-5 h-5 text-blue-600" />
-                Estratégias de Simplificação Identificadas
-              </h4>
-              <p className="text-sm text-gray-600 mt-2">
-                Esta análise identificou {strategiesDetected?.length || 0} estratégias de simplificação intralingual. 
-                Cada estratégia representa uma técnica específica para tornar o texto mais acessível.
-              </p>
-            </div>
+          <div className="space-y-4">
+            <h4 className="font-medium text-gray-900">Estratégias de Simplificação Identificadas</h4>
             
-            <div className="space-y-4">
-              {strategiesDetected?.map((strategy, index) => {
+            <div className="space-y-3">
+      {strategiesDetected?.map((strategy, index) => {
                 // Use backend-provided code if available
                 const strategyCode = strategy.code || getStrategyCode(strategy.name);
-                const strategyColor = strategy.color || getStrategyColor(strategyCode, false);
-                const strategyInfo = getStrategyInfo(strategyCode);
-                
+                const strategyColor = strategy.color || getStrategyColor(strategyCode, useColorblindFriendly);
+
                 return (
-                  <div key={index} className="bg-white border border-gray-200 rounded-lg overflow-hidden" data-testid="strategy-result">
-                    {/* Strategy Header */}
-                    <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm"
-                          style={{
-                            backgroundColor: strategyColor,
-                            color: getContrastingTextColor(strategyColor)
-                          }}
-                        >
-                          {strategyCode}
-                        </div>
-                        <div className="flex-1">
-                          <h5 className="font-semibold text-gray-900">{strategyInfo.name}</h5>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${
-                              strategyInfo.type === 'lexical' ? 'bg-blue-100 text-blue-800' :
-                              strategyInfo.type === 'syntactic' ? 'bg-green-100 text-green-800' :
-                              strategyInfo.type === 'semantic' ? 'bg-purple-100 text-purple-800' :
-                              strategyInfo.type === 'structural' ? 'bg-orange-100 text-orange-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
-                              {strategyInfo.type === 'lexical' ? 'Léxica' :
-                               strategyInfo.type === 'syntactic' ? 'Sintática' :
-                               strategyInfo.type === 'semantic' ? 'Semântica' :
-                               strategyInfo.type === 'structural' ? 'Estrutural' :
-                               'Conteúdo'}
-                            </span>
-                            {strategy.manually_assigned && (
-                              <span className="px-2 py-1 rounded text-xs font-medium bg-indigo-100 text-indigo-800">
-                                Manual
-                              </span>
-                            )}
-                            {strategyInfo.autoDetect === false && (
-                              <span className="px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                                Detecção Manual
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-lg font-bold text-gray-900">
-                            {Math.round((strategy.confidence || 0) * 100)}%
-                          </div>
-                          <div className="text-xs text-gray-500">confiança</div>
-                        </div>
+        <div key={index} className="bg-white border border-gray-200 rounded-lg p-4" data-testid="strategy-result">
+                    <div className="flex items-start gap-3">
+                      <div
+                        className="p-2 rounded-full flex items-center justify-center"
+                        style={{ backgroundColor: strategyColor }}
+                      >
+                        <span className="text-xs font-bold text-white" data-testid="strategy-name">{strategyCode}</span>
                       </div>
-                    </div>
-
-                    {/* Strategy Content */}
-                    <div className="p-4">
-                      <div className="space-y-4">
-                        {/* Description */}
-                        <div>
-                          <h6 className="text-sm font-medium text-gray-700 mb-2">📝 Descrição</h6>
-                          <p className="text-sm text-gray-600">{strategyInfo.description}</p>
-                        </div>
-
-                        {/* Methodology Information */}
-                        <div className="bg-gray-50 rounded-lg p-3">
-                          <h6 className="text-sm font-medium text-gray-700 mb-2">🔬 Metodologia</h6>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                            <div>
-                              <span className="font-medium text-gray-600">Categoria:</span>
-                              <span className="ml-1 text-gray-800">
-                                {strategyInfo.type === 'lexical' ? 'Alteração de vocabulário' :
-                                 strategyInfo.type === 'syntactic' ? 'Modificação sintática' :
-                                 strategyInfo.type === 'semantic' ? 'Mudança semântica' :
-                                 strategyInfo.type === 'structural' ? 'Reorganização estrutural' :
-                                 'Modificação de conteúdo'}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="font-medium text-gray-600">Detecção:</span>
-                              <span className="ml-1 text-gray-800">
-                                {strategyInfo.autoDetect ? 'Automática' : 'Manual obrigatória'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Position Information */}
-                        {strategy.spans && strategy.spans.length > 0 && (
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between">
                           <div>
-                            <h6 className="text-sm font-medium text-gray-700 mb-2">📍 Posições Detectadas</h6>
-                            <div className="space-y-1">
-                              {strategy.spans.map((span, spanIndex) => (
-                                <div key={spanIndex} className="text-xs bg-blue-50 border border-blue-200 rounded px-2 py-1">
-                                  <span className="font-medium">Caracteres {span.start}-{span.end}</span>
-                                  {span.text && (
-                                    <span className="ml-2 text-gray-600">"{span.text.substring(0, 50)}{span.text.length > 50 ? '...' : ''}"</span>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
+                            <h5 className="font-medium text-gray-900">{strategy.name}</h5>
+                            <p className="text-sm text-gray-600 mt-1">{strategy.description}</p>
                           </div>
-                        )}
+                          <div className={`px-2 py-1 rounded text-xs font-medium ${getSeverityColor(strategy.impact)}`}>
+                            {strategy.impact} impacto
+                          </div>
+                        </div>
 
-                        {/* Examples if available */}
                         {strategy.examples && strategy.examples.length > 0 && (
-                          <div>
-                            <h6 className="text-sm font-medium text-gray-700 mb-2">💡 Exemplos</h6>
-                            <div className="space-y-2">
+                          <div className="mt-3">
+                            <h6 className="text-sm font-medium text-gray-700 mb-2">Exemplos:</h6>
+                            <div className="space-y-1">
                               {strategy.examples.map((example, exIndex) => (
-                                <div key={exIndex} className="bg-gradient-to-r from-red-50 to-green-50 border rounded p-3">
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <div>
-                                      <div className="text-xs font-medium text-red-700 mb-1">Texto Original</div>
-                                      <div className="text-sm text-red-800 bg-red-100 rounded px-2 py-1">
-                                        "{example.original || example.before}"
-                                      </div>
-                                    </div>
-                                    <div>
-                                      <div className="text-xs font-medium text-green-700 mb-1">Texto Simplificado</div>
-                                      <div className="text-sm text-green-800 bg-green-100 rounded px-2 py-1">
-                                        "{example.simplified || example.after}"
-                                      </div>
-                                    </div>
-                                  </div>
+                                <div key={exIndex} className="text-sm bg-gray-50 p-2 rounded">
+                                  <span className="text-red-600">"{example.original || example.before}"</span>
+                                  <span className="text-gray-500 mx-2">→</span>
+                                  <span className="text-green-600">"{example.simplified || example.after}"</span>
                                 </div>
                               ))}
                             </div>
-                          </div>
-                        )}
-
-                        {/* Special handling notes */}
-                        {strategyInfo.specialHandling && (
-                          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                            <h6 className="text-sm font-medium text-amber-800 mb-1">⚠️ Considerações Especiais</h6>
-                            <p className="text-xs text-amber-700">
-                              {strategyInfo.specialHandling === 'manual-only' && 
-                                'Esta estratégia nunca é detectada automaticamente e deve ser aplicada manualmente pelo anotador.'
-                              }
-                              {strategyInfo.specialHandling === 'manual-activation' && 
-                                'Esta estratégia está desabilitada por padrão e requer ativação manual nas configurações.'
-                              }
-                            </p>
                           </div>
                         )}
                       </div>
@@ -1549,38 +1306,6 @@ const ComparativeResultsDisplay = ({
                   </div>
                 );
               })}
-            </div>
-
-            {/* Methodology Summary */}
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-              <h5 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                <Info className="w-4 h-4 text-slate-600" />
-                Sobre a Metodologia NET-EST
-              </h5>
-              <div className="text-sm text-gray-600 space-y-2">
-                <p>
-                  O NET-EST (Núcleo de Estudos em Tradução - Estratégias de Simplificação) analisa 
-                  traduções intralinguais com foco em técnicas de simplificação textual.
-                </p>
-                <p>
-                  As 14 estratégias identificadas são baseadas em pesquisa acadêmica e permitem 
-                  uma análise sistemática de como textos complexos são transformados para maior acessibilidade.
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mt-3 text-xs">
-                  <div className="bg-blue-100 text-blue-800 rounded px-2 py-1">
-                    <strong>Léxicas:</strong> Vocabulário
-                  </div>
-                  <div className="bg-green-100 text-green-800 rounded px-2 py-1">
-                    <strong>Sintáticas:</strong> Estrutura
-                  </div>
-                  <div className="bg-purple-100 text-purple-800 rounded px-2 py-1">
-                    <strong>Semânticas:</strong> Sentido
-                  </div>
-                  <div className="bg-orange-100 text-orange-800 rounded px-2 py-1">
-                    <strong>Estruturais:</strong> Organização
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         )}
@@ -1669,6 +1394,7 @@ const ComparativeResultsDisplay = ({
         rawStrategies={filteredRawStrategies}
         activeStrategyId={activeStrategyId}
         onClose={() => setActiveStrategyId(null)}
+        useColorblindFriendly={colorblindMode}
         returnFocusTo={lastFocusedMarkerRef.current}
       />
     )}
@@ -1680,23 +1406,27 @@ const ComparativeResultsDisplay = ({
         onCodesChange={(codes) => { setActiveCodes(codes); setRovingIndex(0); }}
         confidenceMin={confidenceMin}
         onConfidenceChange={(val) => { setConfidenceMin(val); setRovingIndex(0); }}
+        colorblindMode={colorblindMode}
+        onColorblindToggle={setColorblindMode}
       />
+  <HighContrastPatternLegend unifiedMap={unifiedStrategyMap} show={colorblindMode} />
     </div>
         </>
       )}
-      
-      {/* Inline Editor for Direct Tag Editing */}
-      {renderInlineEditor()}
-      
-      {/* Tooltip for Strategy Info */}
-      {renderTooltip()}
     </>
   );
 };
 
 // Utility function to get contrasting text color
 function getContrastingTextColor(backgroundColor) {
-  return getAccessibleTextColor(backgroundColor);
+  // Simple luminance calculation
+  const hex = backgroundColor.replace('#', '');
+  const r = parseInt(hex.substr(0, 2), 16);
+  const g = parseInt(hex.substr(2, 2), 16);
+  const b = parseInt(hex.substr(4, 2), 16);
+  
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5 ? '#000000' : '#FFFFFF';
 }
 
 export default ComparativeResultsDisplay;
