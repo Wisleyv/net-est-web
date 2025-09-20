@@ -1,16 +1,9 @@
 import React, { useMemo } from 'react';
-import { normalizeStrategies, buildInsertionPoints, buildSentenceFallback, assignDisplayIndices } from '../../utils/strategyOffsets.js';
-import { getStrategyColor, STRATEGY_METADATA } from '../../services/strategyColorMapping.js';
+import { normalizeStrategies, __diag_normalizeStrategies, buildInsertionPoints, buildSentenceFallback, assignDisplayIndices } from '../../utils/strategyOffsets.js';
+import { getStrategyColor, getAccessibleTextColor, STRATEGY_METADATA } from '../../services/strategyColorMapping.js';
 
 function getContrastText(hex) {
-  if (!hex) return '#000';
-  const c = hex.replace('#','');
-  if (c.length !== 6) return '#000';
-  const r = parseInt(c.slice(0,2),16);
-  const g = parseInt(c.slice(2,4),16);
-  const b = parseInt(c.slice(4,6),16);
-  const luminance = (0.299*r + 0.587*g + 0.114*b)/255;
-  return luminance > 0.6 ? '#000' : '#fff';
+  return getAccessibleTextColor(hex);
 }
 
 // Phase 2a additive component: renders superscript markers over target text.
@@ -20,8 +13,31 @@ export default function StrategySuperscriptRenderer({ targetText, strategies, on
   const containerRef = React.useRef(null);
   const { nodes } = useMemo(() => {
     if (!targetText) return { nodes: [targetText] };
-    const normalized = normalizeStrategies(strategies);
+    // DEV diagnostics (concise)
+    if (typeof window !== 'undefined' && import.meta.env.DEV) {
+      try {
+        const incomingCount = Array.isArray(strategies) ? strategies.length : 'not-array';
+        console.debug('DEV: incoming strategies count=', incomingCount);
+      } catch (diagErr) {
+        console.warn('DEV: failed to log incoming strategies', diagErr);
+      }
+    }
+
+    const normalized = (typeof window !== 'undefined' && import.meta.env && import.meta.env.DEV && __diag_normalizeStrategies) ? __diag_normalizeStrategies(strategies) : normalizeStrategies(strategies);
+    // DEV: brief normalized summary
+    if (typeof window !== 'undefined' && import.meta.env.DEV) {
+      try {
+        try { console.debug('DEV: normalized strategies summary=', JSON.stringify(normalized.slice(0,10).map(s => ({ id: s.strategy_id, code: s.code, status: s.status, target_offsets: s.target_offsets })), null, 2)); } catch(e) { console.debug('DEV: normalized strategies (stringify failed)', e); }
+      } catch (diagErr2) {
+        console.warn('DEV: failed to log normalized strategies', diagErr2);
+      }
+    }
     const points = buildInsertionPoints(normalized, targetText.length);
+    if (typeof window !== 'undefined' && import.meta.env.DEV) {
+      try { console.debug('DEV: insertion points count=', points.length); } catch(e) { console.debug('DEV: insertion points stringify failed', e); }
+      // Optional helper for manual inspection: expose insertion points in DEV only
+      try { window.__diag_insertion_points = points; } catch (err) { /* ignore */ }
+    }
     if (points.length === 0) {
       // Sentence fallback
       const { sentences, mapping } = buildSentenceFallback(normalized, targetText);

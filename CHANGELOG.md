@@ -3,8 +3,11 @@
 ## [Unreleased]
 - Frontend: Fixed StrategyDetailPanel error where modifyAnnotation was not wired; now calls store action correctly.
 - HITL: Added text selection to create manual annotations in ComparativeResultsDisplay with a compact context menu.
-- HITL: Added span editing flow: from StrategyDetailPanel click “Ajustar intervalo”, then select new target text to update offsets.
+- HITL: Added span editing flow: from StrategyDetailPanel click "Ajustar intervalo", then select new target text to update offsets.
 - Docs: ONBOARDING updated with feedback flag notes and troubleshooting.
+- **BREAKING**: Removed "Modo Acessível" (colorblind mode) feature due to rendering instability with overlapping spans. Application now uses default styling permanently. All core annotation functionality preserved.
+
+- Fix: Corrected rendering of manual annotations where DOM-based offset calculations could mismatch canonical analysis text. Manual annotation offsets are now canonicalized and post-verified to ensure tags appear at the user-selected location. (2025-09-20)
 
 /*
 Desenvolvido com ❤️ pelo Núcleo de Estudos de Tradução - PIPGLA/UFRJ | Contém código assistido por IA

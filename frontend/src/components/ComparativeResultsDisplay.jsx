@@ -32,6 +32,8 @@ import {
 } from '../services/strategyColorMapping.js';
 // Phase 2a superscript markers
 import StrategySuperscriptRenderer from './strategies/StrategySuperscriptRenderer.jsx';
+import { normalizeTextForOffsets, computeSHA256Hex } from '../services/textNormalizer.js';
+import { disambiguateWithContext } from '../services/fallbackDisambiguation';
 // Phase 2b detail panel
 import StrategyDetailPanel from './strategies/StrategyDetailPanel.jsx';
 import useAnnotationStore from '../stores/useAnnotationStore.js';
@@ -111,6 +113,7 @@ const ComparativeResultsDisplay = ({
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
+
 
   // Unified map will be defined after strategiesDetected
 
@@ -208,6 +211,8 @@ const ComparativeResultsDisplay = ({
         color: strategy.color || getStrategyColor(effectiveCode, colorblindMode),
         info: getStrategyInfo(effectiveCode),
         isAutomatic: true,
+        // Preserve precise offsets when available (annotation optimistic or backend)
+        target_offsets: annotation?.target_offsets || strategy.target_offsets || [],
         // Include backend-provided position data
         targetPosition: strategy.targetPosition,
         sourcePosition: strategy.sourcePosition,
@@ -242,7 +247,8 @@ const ComparativeResultsDisplay = ({
         color: getStrategyColor(strategyCode, colorblindMode),
         info: getStrategyInfo(strategyCode),
         isAutomatic: false,
-        // Use annotation's target_offsets for position data
+        // Use annotation's target_offsets for position data (preserve array shape)
+        target_offsets: annotation.target_offsets || [],
         targetPosition: annotation.target_offsets?.[0] || null,
         sourcePosition: null,
         // Include annotation state
@@ -255,9 +261,24 @@ const ComparativeResultsDisplay = ({
     return strategies;
   }, [analysisResult, annotations, colorblindMode, getStrategyCode]);
 
-  // Filter raw strategies based on confidence and active codes
+  // Filter raw strategies based on confidence and active codes.
+  // Important: manually created annotations must always be displayed in the UI
+  // regardless of whether their `code` appears in `activeCodes` (which is
+  // derived from backend automatic detections). This ensures user-created
+  // annotations (including OM+ and PRO+) are visible for HITL workflows.
   const filteredRawStrategies = useMemo(() => {
-    return strategiesDetected.filter(s => activeCodes.includes(s.code) && ((s.confidence ?? s.confidence_score ?? 0) * 100) >= confidenceMin);
+    return strategiesDetected.filter(s => {
+      // Always include manually-created annotations or ones explicitly
+      // marked as manually_assigned. These bypass the activeCodes filter.
+      if (s.status === 'created' || s.manually_assigned === true) {
+        return ((s.confidence ?? s.confidence_score ?? 0) * 100) >= confidenceMin;
+      }
+
+      // For automatically-detected strategies, respect the activeCodes
+      // filter so the UI toggles still control which automatic predictions
+      // are shown.
+      return activeCodes.includes(s.code) && ((s.confidence ?? s.confidence_score ?? 0) * 100) >= confidenceMin;
+    });
   }, [strategiesDetected, activeCodes, confidenceMin]);
 
   // Build unified map (strategies include filtered list for color scope determinism)
@@ -276,6 +297,9 @@ const ComparativeResultsDisplay = ({
   // Store debug info for development
   useEffect(() => {
     if (import.meta.env.DEV) {
+      // DEV helper: log if any manually-created annotations survived filtering
+      const hasManual = (filteredRawStrategies || []).some(s => s.status === 'created' || s.manually_assigned === true);
+      console.debug('DEV: filteredRawStrategies contains manual annotations?', hasManual, 'count=', (filteredRawStrategies || []).length);
       window.debugHitl = {
         activeCodes,
         confidenceMin,
@@ -363,6 +387,78 @@ const ComparativeResultsDisplay = ({
     };
   }, []);
 
+  // Calculate precise selection offsets using DOM TreeWalker algorithm
+  const calculateSelectionOffsets = useCallback((range, fullTextContent) => {
+    try {
+      const startContainer = range.startContainer;
+      const endContainer = range.endContainer;
+      const startOffset = range.startOffset;
+      const endOffset = range.endOffset;
+
+      // Find the root container that holds the complete text content
+      let rootContainer = range.commonAncestorContainer;
+      
+      // If the common ancestor is a text node, find its parent element
+      if (rootContainer.nodeType === Node.TEXT_NODE) {
+        rootContainer = rootContainer.parentElement;
+      }
+
+      // Create TreeWalker to traverse all text nodes in the root container
+      const walker = document.createTreeWalker(
+        rootContainer,
+        NodeFilter.SHOW_TEXT,
+        {
+          acceptNode: function(node) {
+            // Only accept text nodes that contain actual content (not just whitespace)
+            return node.textContent.trim().length > 0 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+          }
+        }
+      );
+
+      let currentPosition = 0;
+      let startPosition = null;
+      let endPosition = null;
+      let currentNode;
+
+      // Walk through all text nodes and calculate positions
+      while (currentNode = walker.nextNode()) {
+        const nodeLength = currentNode.textContent.length;
+
+        // Check if this is the start container
+        if (currentNode === startContainer) {
+          startPosition = currentPosition + startOffset;
+        }
+
+        // Check if this is the end container
+        if (currentNode === endContainer) {
+          endPosition = currentPosition + endOffset;
+          break; // We found both positions
+        }
+
+        // If we already found start but haven't found end, and this node comes after start
+        if (startPosition !== null && currentNode === endContainer) {
+          endPosition = currentPosition + endOffset;
+          break;
+        }
+
+        currentPosition += nodeLength;
+      }
+
+      // Validate that we found both positions
+      if (startPosition !== null && endPosition !== null) {
+        return {
+          start: startPosition,
+          end: endPosition
+        };
+      }
+
+      return null; // Calculation failed
+    } catch (error) {
+      console.warn('Selection offset calculation failed:', error);
+      return null;
+    }
+  }, []);
+
   // Text selection handler - defined first to avoid hoisting issues
   const handleTextSelection = useCallback((e) => {
     try {
@@ -371,17 +467,148 @@ const ComparativeResultsDisplay = ({
         return;
       }
       const range = sel.getRangeAt(0);
-      // Try robust fallback: map selection string to target text indexes
       const selectedString = sel.toString();
       if (!selectedString || selectedString.trim().length === 0) {
         return;
       }
+
+  // Minimal diagnostic logging in DEV: capture raw selected text
+  if (import.meta.env.DEV) console.debug('DEV: rawSelectedString', selectedString);
+
+      // Calculate precise selection offsets using DOM-based approach
       const full = (analysisResult?.target_text || analysisResult?.targetText || '');
-      const startOffset = full.indexOf(selectedString);
-      if (startOffset === -1) {
-        return; // couldn't map reliably
+      let startOffset, endOffset;
+
+      try {
+        // DOM INVESTIGATION: Find target text container (DEV only)
+        if (import.meta.env.DEV) console.debug('DEV: DOM INVESTIGATION - range details', {
+          startContainerType: range.startContainer?.nodeType === Node.TEXT_NODE ? 'TEXT_NODE' : range.startContainer?.nodeName,
+          commonAncestorType: range.commonAncestorContainer?.nodeType === Node.TEXT_NODE ? 'TEXT_NODE' : range.commonAncestorContainer?.nodeName,
+          startContainerParent: range.startContainer.parentElement?.tagName,
+          startContainerClassName: range.startContainer.parentElement?.className,
+          startContainerDataTestId: range.startContainer.parentElement?.getAttribute('data-testid')
+        });
+        
+        // Search for potential target text containers
+        const potentialContainers = [
+          document.querySelector('.target-text'),
+          document.querySelector('[data-testid="target-content"]'),
+          document.querySelector('[data-testid="target-text"]'),
+          document.querySelector('.comparative-text.target'),
+          document.querySelector('.text-content.target'),
+          range.startContainer.parentElement,
+          range.commonAncestorContainer
+        ].filter(Boolean);
+        
+        if (import.meta.env.DEV) {
+          console.debug('DEV: Potential containers found:', potentialContainers.length);
+          potentialContainers.forEach((container, index) => {
+          // Defensive: some nodes may be text nodes; avoid calling getAttribute on non-elements
+          const isElement = container && container.getAttribute && typeof container.getAttribute === 'function';
+          const dataTestId = isElement ? container.getAttribute('data-testid') : null;
+          const className = isElement ? container.className : (container.className || '');
+          const textContent = container?.textContent || '';
+
+            console.debug(`DEV: Container ${index + 1}:`, {
+              isElement,
+              className,
+              dataTestId,
+              textContentLength: textContent.length,
+              textContentPreview: textContent.substring(0, 200) + '...',
+              matchesFullText: textContent === full
+            });
+          });
+        }
+        
+        if (import.meta.env.DEV) console.debug('DEV: Full target text length and preview', { length: full.length, preview: full.substring(0, 200) + '...' });
+        // Additional diagnostics: compute normalization and hashes for candidate containers
+        (async () => {
+          try {
+            for (let i = 0; i < potentialContainers.length; i++) {
+              const c = potentialContainers[i];
+              const txt = c?.textContent || '';
+              if (import.meta.env.DEV) {
+                const normalized = normalizeTextForOffsets(txt);
+                const rawHash = await computeSHA256Hex(txt);
+                const normHash = await computeSHA256Hex(normalized);
+                console.debug(`DEV: container[${i}] lengths/hashes:`, {
+                  rawLength: txt.length,
+                  normalizedLength: normalized.length,
+                  rawHash,
+                  normalizedHash: normHash
+                });
+              }
+            }
+            // Also compute normalization for the full analysisResult text
+            if (import.meta.env.DEV) {
+              const normalizedFull = normalizeTextForOffsets(full);
+              const fullRawHash = await computeSHA256Hex(full);
+              const fullNormHash = await computeSHA256Hex(normalizedFull);
+              console.debug('DEV: analysisResult text normalization:', {
+                rawLength: full.length,
+                normalizedLength: normalizedFull.length,
+                rawHash: fullRawHash,
+                normalizedHash: fullNormHash
+              });
+            }
+          } catch (diagErr) {
+            if (import.meta.env.DEV) console.warn('DEV: normalization/hashing failed', diagErr);
+          }
+        })();
+
+        // Use TreeWalker algorithm to calculate absolute character positions
+        const selectionRange = calculateSelectionOffsets(range, full);
+        if (selectionRange) {
+          startOffset = selectionRange.start;
+          endOffset = selectionRange.end;
+          // Temporary validation logging (DEV only)
+          if (import.meta.env.DEV) console.debug('DEV: DOM calculation success', { selectedText: selectedString, calculatedRange: selectionRange, matches: full.substring(selectionRange.start, selectionRange.end) === selectedString });
+        } else {
+          // Context-aware fallback instead of naive indexOf.
+          // Attempt to compute an approximate position from potential containers
+          let approx = null;
+          try {
+            const selectionNodeText = range.startContainer && range.startContainer.textContent ? range.startContainer.textContent : null;
+            for (let i = 0; i < potentialContainers.length; i++) {
+              const c = potentialContainers[i];
+              const cText = c?.textContent || '';
+              if (!cText || !selectionNodeText) continue;
+              const localIdx = cText.indexOf(selectionNodeText);
+              if (localIdx !== -1) {
+                const idxInFull = full.indexOf(cText);
+                if (idxInFull !== -1) {
+                  approx = idxInFull + localIdx + (range.startOffset || 0);
+                  break;
+                }
+              }
+            }
+          } catch (approxErr) {
+            // best-effort only
+            approx = null;
+          }
+
+          const disamb = disambiguateWithContext(full, selectedString, approx);
+          if (!disamb) {
+            // couldn't disambiguate
+            return;
+          }
+          startOffset = disamb.start;
+          endOffset = disamb.end;
+          if (import.meta.env.DEV) console.debug('DEV: Fallback disambiguation result', { startOffset, endOffset, approx });
+        }
+      } catch (error) {
+        // Error path: try context-aware disambiguation as a safer fallback
+        try {
+          const disamb = disambiguateWithContext(full, selectedString, null);
+          if (!disamb) return;
+          startOffset = disamb.start;
+          endOffset = disamb.end;
+          if (import.meta.env.DEV) console.debug('DEV: Error fallback disambiguation result', { startOffset, endOffset, error });
+        } catch (err2) {
+          if (import.meta.env.DEV) console.warn('DEV: Error during disambiguation fallback:', err2, error);
+          return;
+        }
       }
-      const endOffset = startOffset + selectedString.length;
       // If we're editing an existing annotation's span, apply immediately
       if (editingAnnotationId) {
         modifyAnnotationSpan(editingAnnotationId, [{ start: startOffset, end: endOffset }])
@@ -423,7 +650,64 @@ const ComparativeResultsDisplay = ({
     const strategyCode = getStrategyCodeByName(strategyName);
     if (!strategyCode) return;
     try {
-      await createAnnotation({ strategy_code: strategyCode, target_offsets: [{ start: selectedText.startIndex, end: selectedText.endIndex }], comment: null });
+      // Canonicalize offsets against the canonical analysisResult.target_text
+      const full = (analysisResult?.target_text || analysisResult?.targetText || '');
+      const originalOffsets = { start: selectedText.startIndex, end: selectedText.endIndex };
+      let payloadOffsets = [originalOffsets];
+
+      try {
+        if (full && selectedText?.text) {
+          const disamb = disambiguateWithContext(full, selectedText.text, selectedText.startIndex);
+          if (disamb && typeof disamb.start === 'number' && typeof disamb.end === 'number') {
+            payloadOffsets = [{ start: disamb.start, end: disamb.end }];
+            if (import.meta.env.DEV) console.debug('DEV: canonicalized offsets', { originalOffsets, payloadOffsets });
+          } else {
+            if (import.meta.env.DEV) console.warn('DEV: could not canonicalize selection; using DOM offsets', { originalOffsets });
+          }
+        }
+      } catch (canonErr) {
+        console.warn('Offset canonicalization failed, proceeding with DOM offsets', canonErr);
+      }
+
+      // Create annotation using canonicalized (or fallback) offsets
+      const created = await createAnnotation({ strategy_code: strategyCode, target_offsets: payloadOffsets, comment: null });
+
+      // Post-creation verification: ensure stored offsets map to the selected substring
+      try {
+        // Determine created annotation id and offsets
+        let createdAnnotation = created;
+        if (!createdAnnotation) {
+          // Fallback: try to find matching annotation in the store (best-effort)
+          createdAnnotation = annotations.find(a => (a.strategy_code === strategyCode || a.code === strategyCode) && a.status === 'created' && a.manually_assigned);
+        }
+
+        const storedOffsets = createdAnnotation?.target_offsets?.[0] || payloadOffsets[0];
+        if (full && storedOffsets) {
+          const extracted = full.substring(storedOffsets.start, storedOffsets.end);
+          const matches = extracted === selectedText.text;
+          if (import.meta.env.DEV) console.debug('DEV: post-create verification', { storedOffsets, extractedPreview: extracted.substring(0, 120), matches });
+          if (!matches) {
+            // Attempt automatic correction
+            try {
+              const corrected = disambiguateWithContext(full, selectedText.text, selectedText.startIndex);
+              if (corrected && (corrected.start !== storedOffsets.start || corrected.end !== storedOffsets.end)) {
+                // Apply correction to annotation span
+                const targetId = createdAnnotation?.id || createdAnnotation?.strategy_id;
+                if (targetId) {
+                  await modifyAnnotationSpan(targetId, [{ start: corrected.start, end: corrected.end }]);
+                  if (import.meta.env.DEV) console.debug('DEV: corrected annotation offsets', { before: storedOffsets, after: corrected, id: targetId });
+                }
+              } else {
+                if (import.meta.env.DEV) console.warn('DEV: disambiguation produced no change or failed to correct offsets', { corrected });
+              }
+            } catch (corrErr) {
+              console.warn('DEV: automatic correction failed', corrErr);
+            }
+          }
+        }
+      } catch (verifyErr) {
+        console.warn('DEV: post-create verification failed', verifyErr);
+      }
     } catch (error) {
       console.error('Failed to create annotation:', error);
     } finally {
