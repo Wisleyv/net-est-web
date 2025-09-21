@@ -13,17 +13,43 @@ Quick try:
 # Onboarding
 
 ## Local Dev Quickstart (pwsh)
-- Backend venv: backend/venv
+
+**Environment & Shell Configuration:**
+- VS Code is configured for PowerShell 7 (`pwsh.exe`) in `.vscode/settings.json`
+- All tasks in `.vscode/tasks.json` use deterministic shell invocation
+- Backend uses Python 3.12 venv: `backend/.venv_py312`
+- No manual PATH configuration needed
+
+**Quick Start Tasks (via VS Code):**
+1. **Setup Backend**: Ctrl+Shift+P → "Tasks: Run Task" → "Install Backend Dependencies"
+2. **Start Backend**: Ctrl+Shift+P → "Tasks: Run Task" → "Start Backend Server"
+3. **Setup Frontend**: Ctrl+Shift+P → "Tasks: Run Task" → "Install Frontend Dependencies"
+4. **Start Frontend**: Ctrl+Shift+P → "Tasks: Run Task" → "Start Frontend Server"
+
+**Manual Commands (if needed):**
+- Backend venv: backend/.venv_py312
 - Run tests:
-  - Optional
-    & "backend/venv/Scripts/python.exe" -m pytest -q
+  - Optional: `& "backend/.venv_py312/Scripts/python.exe" -m pytest -q`
 - Frontend tests:
-  - Optional
-    npm test --silent --prefix frontend
+  - Optional: `npm test --silent --prefix frontend`
+
+## Troubleshooting
+
+**Shell/Environment Issues:**
+
+
+## Troubleshooting
+
+**PowerShell Version:** This project requires PowerShell Core (`pwsh`). If you see Windows PowerShell (`powershell.exe`) being invoked, check your user-level VS Code settings to ensure they are not overriding the workspace settings. All project scripts are configured to use `pwsh`.
+- Backend runs on port 8000, frontend on 5173
+- Use `Environment Status Check` task to verify running services
+- Kill processes with `netstat -ano | findstr ":8000"` and `taskkill /PID <PID> /F`
 
 ## Notes
-- Tasks updated to use `pwsh` for compatibility.
-- See `docs/repository_migration_notes.md` for environment setup.
+- Tasks updated to use `pwsh` for compatibility with providers
+- All configuration enforces PowerShell 7 usage
+- See `docs/repository_migration_notes.md` for environment setup
+- See `docs_dev/tasks_json_fix_analysis.md` for shell configuration details
 
 ## Export Tools
 - CLI export (JSONL):
@@ -103,7 +129,31 @@ Notes:
 
 ## Start Backend and Frontend (Dev)
 
-Use these steps to run both services locally and ensure they talk to each other.
+### **Recommended: Use VS Code Tasks (Fastest Method)**
+
+The project includes a consolidated `tasks.json` configuration that resolves all common startup issues. This is the preferred method:
+
+**One-Command Startup:**
+1. Press `Ctrl+Shift+P` → "Tasks: Run Build Task" → Enter
+2. Or run "Start Full Development Environment" task
+
+This automatically:
+- Stops any conflicting servers
+- Sets up Python 3.12 virtual environment (`.venv_py312`)
+- Installs backend dependencies
+- Starts backend server (port 8000)
+- Installs frontend dependencies  
+- Starts frontend server (port 5173)
+
+**Individual Tasks Available:**
+- `Stop All Servers` - Safely terminate backend/frontend
+- `Start Backend Server` - Backend only with dependencies
+- `Start Frontend Server` - Frontend only with dependencies
+- `Environment Status Check` - Verify setup and ports
+
+### **Manual Startup (Alternative Method)**
+
+Use these steps if you prefer manual control or need to troubleshoot:
 
 1) Kill anything listening on ports 8000/5173 (optional cleanup):
 
@@ -113,39 +163,72 @@ $ports = 8000,5173
 foreach ($p in $ports) { Get-NetTCPConnection -LocalPort $p -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue } }
 ```
 
-2) Start the backend (FastAPI + Uvicorn):
+2) Setup Python 3.12 environment (first run only):
 
 ```powershell
-cd backend
-# Ensure venv and deps (first run only):
-#  c:\Python313\python.exe -m venv venv
-#  .\venv\Scripts\pip.exe install -r requirements.txt
+# Use pinned Python 3.12 to avoid instability issues
+C:\Python312\python.exe -m venv C:\net\backend\.venv_py312
+C:\net\backend\.venv_py312\Scripts\python.exe -m pip install -r C:\net\backend\requirements.txt
+```
+
+3) Start the backend (FastAPI + Uvicorn):
+
+```powershell
+cd C:\net\backend
+# Use Python 3.12 venv for stability
 $env:STRATEGY_DETECTION_MODE = 'performance'
-.\venv\Scripts\python.exe .\start_server.py
+.\.venv_py312\Scripts\python.exe .\start_server.py
 # Server will listen on http://127.0.0.1:8000
 ```
 
-3) Start the frontend (Vite dev server):
+4) Start the frontend (Vite dev server):
 
 ```powershell
-cd ../frontend
-# First run only:
-# npm ci
+cd C:\net\frontend
+# First run only: npm install
 $env:VITE_API_BASE_URL = 'http://127.0.0.1:8000'
 npm run dev
 # App will be at http://localhost:5173
 ```
 
-4) Verify connectivity:
+5) Verify connectivity:
 
 ```powershell
-# Health
-Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/health | Select-Object -ExpandProperty Content
-# Ports
+# Health check both services
+Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/health
+Invoke-WebRequest -UseBasicParsing http://localhost:5173/
+# Port status
 foreach ($p in 8000,5173) { $c = Get-NetTCPConnection -LocalPort $p -State Listen -ErrorAction SilentlyContinue; if ($c) { "Port $p LISTENING" } else { "Port $p not listening" } }
 ```
 
 Front-end uses `VITE_API_BASE_URL` (see `src/services/config.js`). In dev, setting the env variable before `npm run dev` is sufficient. Alternatively, edit `.env.development`.
+
+### **tasks.json Fix Documentation**
+
+**Problem**: The original `tasks.json` had structural issues causing frequent startup failures:
+1. **Invalid JSON structure** - Multiple separate JSON objects instead of single valid file
+2. **Duplicate task labels** - Same task names with different implementations
+3. **Mixed Python environments** - Tasks referenced both Python 3.13 (unstable) and 3.12 (stable)  
+4. **Working directory issues** - npm commands failed due to incorrect `cwd` settings
+5. **Missing unified startup** - No single task to start everything cleanly
+
+**Solution**: Consolidated `tasks.json` with:
+- Single valid JSON structure with all tasks properly organized
+- Consistent Python 3.12 usage throughout (`.venv_py312`)
+- Proper working directories for all frontend/backend operations
+- Clear task dependencies ensuring setup happens before startup
+- Compound "Start Full Development Environment" task for one-click startup
+
+**Backup Location**: Original tasks.json saved as `tasks.json.backup`
+
+**Key Benefits**:
+- ✅ Eliminates "Task not found" errors
+- ✅ Consistent Python 3.12 environment prevents instability
+- ✅ Reliable one-command startup via build task
+- ✅ Proper npm working directory handling
+- ✅ Dedicated terminal panels for backend/frontend
+
+If you encounter startup issues, always try the VS Code tasks first before manual troubleshooting.
 
 ### Troubleshooting Frontend-Backend Communication
 
