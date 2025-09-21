@@ -1,0 +1,39 @@
+{
+    "extensions.autoUpdate": false,
+    "typescript.preferences.includePackageJsonAutoImports": "off",
+    "update.mode": "none",
+    "editor.semanticHighlighting.enabled": false,
+    "workbench.startupEditor": "none",
+    "telemetry.telemetryLevel": "off",
+    "extensions.autoCheckUpdates": false,
+    "python.analysis.autoImportCompletions": false,
+    
+    // PowerShell 7 (pwsh) standardization - fixes environment detection issues
+    "terminal.integrated.defaultProfile.windows": "PowerShell Core",
+    "terminal.integrated.profiles.windows": {
+        "PowerShell Core": {
+            "path": "pwsh.exe",
+            "args": ["-NoProfile"],
+            "icon": "terminal-powershell"
+        },
+        "Command Prompt": {
+            "path": "cmd.exe",
+            "args": [],
+            "icon": "terminal-cmd"
+        }
+    },
+    
+    // Force PowerShell 7 for task execution
+    "terminal.integrated.automationProfile.windows": {
+        "path": "pwsh.exe",
+        "args": ["-NoProfile"]
+    },
+    
+    // PowerShell extension configuration
+    "powershell.powerShellDefaultVersion": "PowerShell Core",
+    "powershell.promptToUpdatePowerShell": false,
+    
+    // Ensure extensions use PowerShell 7
+    "terminal.integrated.shellIntegration.enabled": true,
+    "terminal.integrated.shellIntegration.decorationsEnabled": "never"
+}

@@ -1,0 +1,232 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Stop All Servers",
+      "type": "process",
+      "command": "pwsh.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/stop_servers.ps1"
+      ],
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Stop All Servers (Shell)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/stop_servers.ps1"
+      ],
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Setup Python 3.12 Environment",
+      "type": "process",
+      "command": "C:/Python312/python.exe",
+      "args": [
+        "-m",
+        "venv",
+        "${workspaceFolder}/backend/.venv_py312"
+      ],
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Install Backend Dependencies",
+      "type": "process",
+      "command": "${workspaceFolder}/backend/.venv_py312/Scripts/python.exe",
+      "args": [
+        "-m",
+        "pip",
+        "install",
+        "-r",
+        "${workspaceFolder}/backend/requirements.txt"
+      ],
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "group": "build",
+      "dependsOn": "Setup Python 3.12 Environment",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Start Backend Server",
+      "type": "process",
+      "command": "${workspaceFolder}/backend/.venv_py312/Scripts/python.exe",
+      "args": [
+        "start_server.py"
+      ],
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "group": "build",
+      "isBackground": true,
+      "dependsOn": "Install Backend Dependencies",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Install Frontend Dependencies",
+      "type": "process",
+      "command": "npm.cmd",
+      "args": ["install"],
+      "options": { "cwd": "${workspaceFolder}/frontend" },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Start Frontend Server",
+      "type": "process",
+      "command": "npm.cmd",
+      "args": ["run", "dev"],
+      "options": { "cwd": "${workspaceFolder}/frontend" },
+      "group": "build",
+      "isBackground": true,
+      "dependsOn": "Install Frontend Dependencies",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Start Full Development Environment",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Stop All Servers",
+        "Start Backend Server",
+        "Start Frontend Server"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Run Backend Tests",
+      "type": "process",
+      "command": "${workspaceFolder}/backend/.venv_py312/Scripts/python.exe",
+      "args": ["-m", "pytest", "-v"],
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "group": "test",
+      "dependsOn": "Install Backend Dependencies",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Environment Status Check",
+      "type": "process",
+      "command": "pwsh.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Host 'NET-EST Environment Status:' -ForegroundColor Cyan; Write-Host 'Backend (.venv_py312):' -ForegroundColor Yellow; if (Test-Path '${workspaceFolder}/backend/.venv_py312/Scripts/python.exe') { Write-Host '✅ Python 3.12 venv exists' -ForegroundColor Green; & '${workspaceFolder}/backend/.venv_py312/Scripts/python.exe' --version } else { Write-Host '❌ Python 3.12 venv missing' -ForegroundColor Red }; Write-Host 'Ports:' -ForegroundColor Yellow; try { $conns = Get-NetTCPConnection -State Listen | Where-Object { @(8000,5173,3000) -contains $_.LocalPort }; if ($conns) { $conns | Select-Object LocalAddress,LocalPort,OwningProcess | Format-Table -AutoSize } else { Write-Host 'No dev servers running' -ForegroundColor Yellow } } catch { Write-Host 'Port check unavailable' -ForegroundColor DarkYellow }"
+      ],
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Build Frontend",
+      "type": "process",
+      "command": "npm.cmd",
+      "args": ["run", "build"],
+      "options": { "cwd": "${workspaceFolder}/frontend" },
+      "group": "build",
+      "dependsOn": "Install Frontend Dependencies",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Clean Cache Files",
+      "type": "process",
+      "command": "pwsh.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Host 'Cleaning Python cache files...' -ForegroundColor Yellow; Get-ChildItem -Path . -Recurse -Directory -Name '__pycache__' | ForEach-Object { Remove-Item -Path $_ -Recurse -Force }; Write-Host 'Cache cleanup complete!' -ForegroundColor Green"
+      ],
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

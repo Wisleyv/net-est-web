@@ -1,0 +1,241 @@
+{
+    "folders": [
+        {
+            "path": "."
+        }
+    ],
+    "settings": {
+        // Python Configuration - Project-Centric
+        "python.defaultInterpreterPath": "./backend/venv/Scripts/python.exe",
+        "python.terminal.activateEnvironment": true,
+        "python.venvPath": "./backend/venv",
+        
+        // Performance Optimizations
+        "files.watcherExclude": {
+            "**/backend/venv/**": true,
+            "**/frontend/node_modules/**": true,
+            "**/.git/objects/**": true,
+            "**/.git/subtree-cache/**": true,
+            "**/node_modules/*/**": true,
+            "**/.huggingface-cache/**": true,
+            "**/.pip-cache/**": true,
+            "**/.python-cache/**": true,
+            "**/.models/**": true
+        },
+        "search.exclude": {
+            "**/backend/venv": true,
+            "**/frontend/node_modules": true,
+            "**/.huggingface-cache": true,
+            "**/.pip-cache": true,
+            "**/.python-cache": true,
+            "**/.models": true
+        },
+        "files.exclude": {
+            "**/.huggingface-cache": true,
+            "**/.pip-cache": true,
+            "**/.python-cache": true,
+            "**/.models": true
+        },
+        
+        // Memory Management
+        "typescript.preferences.includePackageJsonAutoImports": "off",
+        "extensions.autoUpdate": false,
+        "extensions.autoCheckUpdates": false,
+        
+        // Project-Specific Settings
+        "python.analysis.extraPaths": [
+            "./backend/src"
+        ],
+        "python.analysis.autoImportCompletions": true,
+        "python.linting.enabled": true,
+        "python.linting.pylintEnabled": false,
+        "python.linting.flake8Enabled": true,
+        
+        // Terminal Configuration
+        "terminal.integrated.env.windows": {
+            "PIP_CACHE_DIR": "c:\\net\\.pip-cache",
+            "PYTHONPYCACHEPREFIX": "c:\\net\\.python-cache",
+            "HUGGINGFACE_HUB_CACHE": "c:\\net\\.huggingface-cache",
+            "TRANSFORMERS_CACHE": "c:\\net\\.huggingface-cache",
+            "HF_HOME": "c:\\net\\.huggingface-cache",
+            "TORCH_HOME": "c:\\net\\.models\\torch",
+            "NET_EST_PROJECT_ROOT": "c:\\net"
+        },
+        
+        // Git Configuration
+        "git.ignoreLimitWarning": true,
+        "git.autofetch": false,
+        
+        // File Associations
+        "files.associations": {
+            "*.md": "markdown"
+        },
+        
+        // Editor Performance
+        "editor.largeFileOptimizations": true,
+        "editor.maxTokenizationLineLength": 20000,
+        "vscode-edge-devtools.headless": false
+    },
+    "extensions": {
+        "recommendations": [
+            "ms-python.python",
+            "ms-python.flake8",
+            "bradlc.vscode-tailwindcss",
+            "esbenp.prettier-vscode",
+            "ms-vscode.vscode-json"
+        ]
+    },
+    "launch": {
+        "version": "0.2.0",
+        "configurations": [
+            {
+                "name": "NET-EST Backend",
+                "type": "debugpy",
+                "request": "launch",
+                "program": "${workspaceFolder}/backend/start_optimized.py",
+                "console": "integratedTerminal",
+                "cwd": "${workspaceFolder}/backend",
+                "env": {
+                    "PYTHONPATH": "${workspaceFolder}/backend/src",
+                    "PIP_CACHE_DIR": "${workspaceFolder}/.pip-cache",
+                    "HUGGINGFACE_HUB_CACHE": "${workspaceFolder}/.huggingface-cache"
+                }
+            }
+        ]
+    },
+    "tasks": {
+        "version": "2.0.0",
+        "tasks": [
+            {
+                "label": "Activate NET-EST Environment",
+                "type": "shell",
+                "command": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+                "args": [
+                    "-NoLogo",
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    ".\\activate-dev-env.ps1"
+                ],
+                "group": "build",
+                "presentation": {
+                    "echo": true,
+                    "reveal": "always",
+                    "focus": false,
+                    "panel": "shared"
+                },
+                "problemMatcher": []
+            },
+            {
+                "label": "Start Backend Server",
+                "type": "shell",
+                "command": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+                "args": [
+                    "-NoLogo",
+                    "-NoProfile",
+                    "-Command",
+                    "& 'python' 'start_optimized.py'"
+                ],
+                "options": {
+                    "cwd": "${workspaceFolder}/backend"
+                },
+                "group": "build",
+                "presentation": {
+                    "echo": true,
+                    "reveal": "always",
+                    "focus": false,
+                    "panel": "shared"
+                },
+                "problemMatcher": []
+            },
+            {
+                "label": "Run Backend Tests",
+                "type": "shell",
+                "command": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+                "args": [
+                    "-NoLogo",
+                    "-NoProfile",
+                    "-Command",
+                    "& '${workspaceFolder}/backend/venv/Scripts/python.exe' -m pytest -q"
+                ],
+                "options": {
+                    "cwd": "${workspaceFolder}/backend"
+                },
+                "group": "test",
+                "presentation": {
+                    "echo": true,
+                    "reveal": "always",
+                    "focus": false,
+                    "panel": "shared"
+                },
+                "problemMatcher": []
+            },
+            {
+                "label": "Start Frontend Server",
+                "type": "shell", 
+                "command": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+                "args": [
+                    "-NoLogo",
+                    "-NoProfile",
+                    "-Command",
+                    "& npm run dev"
+                ],
+                "options": {
+                    "cwd": "${workspaceFolder}/frontend"
+                },
+                "group": "build",
+                "presentation": {
+                    "echo": true,
+                    "reveal": "always",
+                    "focus": false,
+                    "panel": "shared"
+                },
+                "problemMatcher": []
+            },
+            {
+                "label": "Run Frontend Tests",
+                "type": "shell",
+                "command": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+                "args": [
+                    "-NoLogo",
+                    "-NoProfile",
+                    "-Command",
+                    "& npm test --silent"
+                ],
+                "options": {
+                    "cwd": "${workspaceFolder}/frontend"
+                },
+                "group": "test",
+                "presentation": {
+                    "echo": true,
+                    "reveal": "always",
+                    "focus": false,
+                    "panel": "shared"
+                },
+                "problemMatcher": []
+            },
+            {
+                "label": "Cache Status",
+                "type": "shell",
+                "command": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+                "args": [
+                    "-NoLogo",
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    ".\\cache-status.ps1"
+                ],
+                "group": "test",
+                "presentation": {
+                    "echo": true,
+                    "reveal": "always",
+                    "focus": false,
+                    "panel": "shared"
+                },
+                "problemMatcher": []
+            }
+        ]
+    }
+}
