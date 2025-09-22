@@ -1,0 +1,14 @@
+{
+  "Settings": {
+    "IncludeRules": [
+      "PSUseDeclaredVarsMoreThanAssignments",
+      "PSAvoidUsingWriteHost",
+      "PSUseShouldProcess",
+      "PSUseCorrectCasing",
+      "PSAvoidUsingHardcodedCredentials"
+    ],
+    "ExcludedRules": [
+      "PSUseOutputTypeCorrectly"
+    ]
+  }
+}

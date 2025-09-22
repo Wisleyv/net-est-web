@@ -26,6 +26,21 @@ Quick try:
 3. **Setup Frontend**: Ctrl+Shift+P → "Tasks: Run Task" → "Install Frontend Dependencies"
 4. **Start Frontend**: Ctrl+Shift+P → "Tasks: Run Task" → "Start Frontend Server"
 
+### spaCy PT model (strongly recommended)
+
+For best accuracy in feature extraction and strategy detection, install the Portuguese spaCy model. Use the provided task:
+
+- VS Code → Tasks: Run Task → "Install spaCy PT model (recommended)"
+
+Verification (optional):
+
+```powershell
+# From repo root
+& "backend/.venv_py312/Scripts/python.exe" -c "import spacy; spacy.load('pt_core_news_sm'); print('spaCy PT model OK')"
+```
+
+Without the model, the backend still runs but falls back to lighter heuristics with reduced accuracy on linguistic features.
+
 **Manual Commands (if needed):**
 - Backend venv: backend/.venv_py312
 - Run tests:
@@ -43,7 +58,11 @@ Quick try:
 **PowerShell Version:** This project requires PowerShell Core (`pwsh`). If you see Windows PowerShell (`powershell.exe`) being invoked, check your user-level VS Code settings to ensure they are not overriding the workspace settings. All project scripts are configured to use `pwsh`.
 - Backend runs on port 8000, frontend on 5173
 - Use `Environment Status Check` task to verify running services
-- Kill processes with `netstat -ano | findstr ":8000"` and `taskkill /PID <PID> /F`
+- Inspect/Kill port 8000 processes:
+  - Inspect: `pwsh -File scripts/capture_8000_procs.ps1`
+  - Kill: `taskkill /PID <PID> /F`
+
+**spaCy model missing:** If you see errors like "Can't find model 'pt_core_news_sm'" in backend logs, run the VS Code task "Install spaCy PT model (recommended)" and restart the backend task.
 
 ## Notes
 - Tasks updated to use `pwsh` for compatibility with providers
@@ -341,6 +360,28 @@ Notes / Recommendations:
 - Prefer using the provided VS Code tasks for supervised starts (Start Backend Server, Start Frontend Dev Server). They set the correct working directory and use the repository virtualenv.
 - If the backend fails to start, check `backend/uvicorn_launch.log` and the venv packages: `c:\net\backend\venv\Scripts\pip.exe list`.
 - Use the health endpoint first (`/health`) before running integration flows.
+
+## New: Port detection utilities (Phase 1)
+
+We added a lightweight, read-only port inspection module in `scripts/port-management.ps1`.
+
+Usage examples (PowerShell):
+
+```powershell
+# Check which process is listening on port 8000 and get details in JSON
+pwsh -NoProfile -File scripts/port-management.ps1 -Function Get-PortProcess -Port 8000
+
+# Test whether a port appears available (returns True/False)
+pwsh -NoProfile -File scripts/port-management.ps1 -Function Test-PortAvailable -Port 8000
+
+# Run the integrated test script (Phase 1 checks)
+pwsh -NoProfile -File scripts/test_port_management.ps1
+```
+
+Notes:
+- Phase 1 is detection-only. No process termination functions are implemented yet.
+- Logs are written to `scripts/logs/port-management.log` for audit.
+- Keep `scripts/inspect_pid.ps1` for comparison testing if needed.
 
 Contact: This workspace was stabilized by the previous maintenance run; if you need me to start the servers now, say "Please start backend and frontend" in the next chat and I will.
 
