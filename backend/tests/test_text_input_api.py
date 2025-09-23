@@ -241,7 +241,7 @@ class TestTextInputAPI:
         # Test with invalid JSON
         response = client.post(
             "/api/v1/text-input/validate",
-            data="invalid json",
+            content="invalid json",
             headers={"Content-Type": "application/json"}
         )
         

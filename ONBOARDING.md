@@ -48,6 +48,55 @@ Without the model, the backend still runs but falls back to lighter heuristics w
 - Frontend tests:
   - Optional: `npm test --silent --prefix frontend`
 
+## 🚨 CRITICAL: tasks.json Authority Protocol
+
+**For All Developers & AI Coding Agents:**
+
+The `.vscode/tasks.json` file is the **AUTHORITATIVE** source for all system loading and service management operations in this workspace. This protocol must be followed strictly to prevent port conflicts, environment issues, and development disruptions.
+
+### **Absolute Requirements:**
+
+1. **NEVER** start services manually outside of tasks.json
+2. **NEVER** create new ports without updating tasks.json first
+3. **NEVER** use alternative startup strategies as "workarounds"
+4. **ALWAYS** fix tasks.json if it doesn't work for a new scenario
+5. **ALWAYS** use standard ports defined in tasks.json:
+   - **Backend**: Port 8000 only
+   - **Frontend**: Port 5173 (with fallback to 5174 if authorized in CORS)
+   - **Test servers**: As defined in tasks.json
+
+### **Standard Ports (Authorized in CORS):**
+```
+Backend:    http://127.0.0.1:8000
+Frontend:   http://localhost:5173
+Fallback:   http://localhost:5174
+Dev APIs:   http://localhost:3000 (if needed)
+```
+
+### **If Tasks Don't Work:**
+1. **Fix tasks.json FIRST** - Never create workarounds
+2. Update environment configurations if needed
+3. Test the fix through tasks.json
+4. Document the fix in this file
+
+### **Enforcement:**
+- Vite configured with `strictPort: true` to prevent unauthorized ports
+- CORS configured only for authorized origins
+- Port management scripts integrated with tasks.json
+- Any deviation from this protocol causes immediate system failures
+
+### **Rationale:**
+This protocol prevents the hour-long debugging sessions caused by:
+- Port conflicts between unauthorized services
+- CORS policy violations from undocumented origins  
+- Environment inconsistencies from manual startup procedures
+- Resource waste from "trial and error" approaches
+
+**Reference Documentation:**
+- Port management: `docs_dev/port_management_final_status.md`
+- Task configuration: `docs_dev/tasks_json_fix_analysis.md`
+- Incident reports: `docs_dev/incident_reports/`
+
 ## Troubleshooting
 
 **Shell/Environment Issues:**

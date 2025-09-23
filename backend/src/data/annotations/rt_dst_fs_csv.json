@@ -1,7 +1,7 @@
 {
   "annotations": [
     {
-      "id": "a4dd7207-9305-46a0-886e-307bfae8af05",
+      "id": "a208493a-4124-4a0b-81a8-9d88008baa92",
       "strategy_code": "RF+",
       "source_offsets": null,
       "target_offsets": [
@@ -16,15 +16,15 @@
       "validated": false,
       "manually_assigned": true,
       "original_code": null,
-      "created_at": "2025-09-21T19:03:14.874697+00:00",
-      "updated_at": "2025-09-21T19:03:14.874697+00:00",
+      "created_at": "2025-09-23T21:48:31.210391+00:00",
+      "updated_at": "2025-09-23T21:48:31.210391+00:00",
       "updated_by": null,
       "evidence": null,
       "comment": "b",
       "explanation": null
     },
     {
-      "id": "257ce707-d6e4-4b6c-b46f-6c3b3f80670c",
+      "id": "880ee9a2-508b-4221-b5d8-d499da465486",
       "strategy_code": "OM+",
       "source_offsets": null,
       "target_offsets": [
@@ -39,8 +39,8 @@
       "validated": false,
       "manually_assigned": true,
       "original_code": null,
-      "created_at": "2025-09-21T19:03:14.874697+00:00",
-      "updated_at": "2025-09-21T19:03:14.874697+00:00",
+      "created_at": "2025-09-23T21:48:31.210391+00:00",
+      "updated_at": "2025-09-23T21:48:31.210391+00:00",
       "updated_by": null,
       "evidence": null,
       "comment": "a",
@@ -49,9 +49,9 @@
   ],
   "audit": [
     {
-      "annotation_id": "a4dd7207-9305-46a0-886e-307bfae8af05",
+      "annotation_id": "a208493a-4124-4a0b-81a8-9d88008baa92",
       "action": "create",
-      "timestamp": "2025-09-21T19:03:14.874697+00:00",
+      "timestamp": "2025-09-23T21:48:31.210391+00:00",
       "session_id": "rt_dst_fs_csv",
       "from_status": null,
       "to_status": "created",
@@ -59,9 +59,9 @@
       "to_code": "RF+"
     },
     {
-      "annotation_id": "257ce707-d6e4-4b6c-b46f-6c3b3f80670c",
+      "annotation_id": "880ee9a2-508b-4221-b5d8-d499da465486",
       "action": "create",
-      "timestamp": "2025-09-21T19:03:14.874697+00:00",
+      "timestamp": "2025-09-23T21:48:31.210391+00:00",
       "session_id": "rt_dst_fs_csv",
       "from_status": null,
       "to_status": "created",

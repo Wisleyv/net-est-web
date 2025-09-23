@@ -9,7 +9,21 @@ function getContrastText(hex) {
 // Phase 2a additive component: renders superscript markers over target text.
 // Displays strategy codes (e.g., ADD+, GEN+) at detected positions (Phase 2b correction)
 // unifiedMap (optional): { [code]: { markerColor, textColor, borderColor } }
-export default function StrategySuperscriptRenderer({ targetText, strategies, onMarkerActivate, activeStrategyId, rovingIndex = 0, onRovingIndexChange = () => {}, colorblindMode = false, unifiedMap = {} }) {
+export default function StrategySuperscriptRenderer({ 
+  targetText, 
+  strategies, 
+  onMarkerActivate, 
+  activeStrategyId, 
+  rovingIndex = 0, 
+  onRovingIndexChange = () => {}, 
+  colorblindMode = false, 
+  unifiedMap = {},
+  // Phase 2B: Hover event handlers
+  onMarkerHover,
+  onMarkerLeave,
+  // Add prop to disable focus management when rationale dialog is open
+  disableFocusManagement = false
+}) {
   const containerRef = React.useRef(null);
   const { nodes } = useMemo(() => {
     if (!targetText) return { nodes: [targetText] };
@@ -113,6 +127,9 @@ export default function StrategySuperscriptRenderer({ targetText, strategies, on
           data-testid="strategy-marker"
           aria-current={isActive ? 'true' : undefined}
           onClick={(e) => onMarkerActivate && onMarkerActivate(p.id, e.currentTarget, idx)}
+          // Phase 2B: Add hover event handlers
+          onMouseEnter={(e) => onMarkerHover && onMarkerHover(p.id, e.currentTarget)}
+          onMouseLeave={onMarkerLeave}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onMarkerActivate && onMarkerActivate(p.id, e.currentTarget, idx); }
             else if (e.key === 'ArrowRight') { e.preventDefault(); onRovingIndexChange(Math.min(points.length - 1, idx + 1)); }
@@ -134,7 +151,9 @@ export default function StrategySuperscriptRenderer({ targetText, strategies, on
 
   // Focus management for roving index
   React.useEffect(() => {
-    if (!containerRef.current) return;
+    // Don't manage focus if rationale dialog is open or focus management is disabled
+    if (disableFocusManagement || !containerRef.current) return;
+    
     const el = containerRef.current.querySelector(`sup.strategy-marker[data-roving-index='${rovingIndex}']`);
     if (el) {
       // Only shift focus if element is not already focused
@@ -142,7 +161,7 @@ export default function StrategySuperscriptRenderer({ targetText, strategies, on
         el.focus();
       }
     }
-  }, [rovingIndex, nodes]);
+  }, [rovingIndex, nodes, disableFocusManagement]);
 
   return <div ref={containerRef} className="strategy-superscript-layer" role="group" aria-label="Marcadores de estratégias" data-testid="strategy-superscript-layer">{nodes}</div>;
 }

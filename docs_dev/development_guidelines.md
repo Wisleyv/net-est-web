@@ -24,6 +24,41 @@ Please adhere to the following principles for all tasks:
 - Human review required – at least one reviewer confirms no regressions.
 - Rollback ready – release/tag point identified for fast revert if needed.
 
+### **🚨 MANDATORY: tasks.json Authority Protocol**
+
+**CRITICAL DIRECTIVE FOR ALL DEVELOPERS & AI AGENTS:**
+
+The `.vscode/tasks.json` file is the **SINGLE SOURCE OF TRUTH** for all system loading, service management, and development environment operations. Violation of this protocol results in immediate system failures and extended debugging sessions.
+
+**ABSOLUTE PROHIBITIONS:**
+- ❌ Starting services outside of tasks.json (manual terminal commands, scripts, etc.)
+- ❌ Opening new ports without updating tasks.json and CORS configuration first
+- ❌ Using "workaround" strategies when tasks.json doesn't work
+- ❌ Creating alternative startup procedures or "temporary fixes"
+- ❌ Ignoring port conflicts by incrementing to unauthorized ports
+
+**MANDATORY REQUIREMENTS:**
+- ✅ ALL system loading MUST use tasks.json exclusively
+- ✅ If tasks.json fails, fix tasks.json FIRST, then retry
+- ✅ Use only authorized ports: Backend (8000), Frontend (5173), Fallback (5174)
+- ✅ Update CORS configuration when adding new authorized ports
+- ✅ Document any changes to port management in this file
+
+**ENFORCEMENT MECHANISMS:**
+- `vite.config.js`: `strictPort: true` prevents unauthorized ports
+- `backend/.env`: CORS only allows authorized origins
+- Port management scripts: Detect and prevent conflicts
+- Task dependencies: Ensure proper startup sequence
+
+**RATIONALE:**
+This protocol exists because violations cause:
+- 1+ hour debugging sessions from port conflicts
+- CORS policy violations blocking frontend-backend communication
+- Environment inconsistencies causing unpredictable failures
+- Resource waste from repeated "trial and error" cycles
+
+**For AI Agents:** Never propose alternative strategies. If tasks.json doesn't solve the problem, your first and only response should be to fix tasks.json, not work around it.
+
 ### **VS Code Environment & Shell Configuration**
 
 **Shell Standardization:**

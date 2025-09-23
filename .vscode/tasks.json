@@ -1,44 +1,49 @@
 {
 	"version": "2.0.0",
+	"options": {
+		"shell": {
+			"executable": "pwsh",
+			"args": ["-ExecutionPolicy", "Bypass", "-NoProfile"]
+		}
+	},
 	"tasks": [
 		{
 			"label": "Run Backend Tests",
 			"type": "shell",
-			"command": "${workspaceFolder}/backend/venv/Scripts/python.exe",
-			"args": [
-				"-m",
-				"pytest",
-				"-q"
-			],
+			"command": "../scripts/backend/run-tests-quick.ps1",
 			"options": {
 				"cwd": "${workspaceFolder}/backend"
 			},
-			"group": "test"
+			"group": "test",
+			"problemMatcher": "$python",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared"
+			}
 		},
 		{
 			"label": "Setup Backend Environment",
 			"type": "shell",
-			"command": "pwsh",
-			"args": [
-				"-ExecutionPolicy",
-				"Bypass",
-				"-Command",
-				"Write-Host 'Setting up NET-EST Backend Environment...' -ForegroundColor Cyan; cd '${workspaceFolder}/backend'; if (Test-Path 'venv') { Write-Host 'Virtual environment exists, activating...' -ForegroundColor Green; .\\venv\\Scripts\\Activate.ps1; Write-Host 'Checking dependencies...' -ForegroundColor Blue; .\\venv\\Scripts\\pip.exe install --quiet fastapi uvicorn pydantic sentence-transformers psutil } else { Write-Host 'Creating new virtual environment...' -ForegroundColor Yellow; c:\\Python313\\python.exe -m venv venv --prompt 'NET-EST'; .\\venv\\Scripts\\Activate.ps1; Write-Host 'Installing dependencies...' -ForegroundColor Blue; .\\venv\\Scripts\\pip.exe install --upgrade pip setuptools wheel; .\\venv\\Scripts\\pip.exe install fastapi uvicorn[standard] pydantic pydantic-settings sentence-transformers transformers torch numpy scipy scikit-learn psutil python-multipart python-dotenv }; Write-Host 'Backend environment ready!' -ForegroundColor Green"
-			],
-			"group": "build"
+			"command": "scripts/setup/setup-backend-environment.ps1",
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"group": "build",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared"
+			}
 		},
 		{
 			"label": "Start Backend Server",
 			"type": "shell",
-			"command": "pwsh",
-			"args": [
-				"-ExecutionPolicy",
-				"Bypass",
-				"-Command",
-				"cd '${workspaceFolder}/backend'; if (Test-Path 'venv_new/Scripts/Activate.ps1') { .\\venv_new\\Scripts\\Activate.ps1; Write-Host 'Virtual environment activated' -ForegroundColor Green; python start_server.py } else { Write-Host 'Virtual environment not found!' -ForegroundColor Red; exit 1 }"
-			],
+			"command": "scripts/backend/start-server.ps1",
 			"options": {
-				"cwd": "${workspaceFolder}/backend"
+				"cwd": "${workspaceFolder}"
 			},
 			"group": {
 				"kind": "build",
@@ -50,14 +55,26 @@
 				"focus": false,
 				"panel": "new"
 			},
-			"problemMatcher": [],
+			"problemMatcher": {
+				"owner": "net-est-backend",
+				"fileLocation": "absolute",
+				"pattern": {
+					"regexp": "^(.*)$",
+					"file": 1
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "Starting NET-EST Backend Server",
+					"endsPattern": "Uvicorn running on|Application startup complete"
+				}
+			},
 			"isBackground": true,
 			"dependsOn": "Setup Backend Environment"
 		},
 		{
 			"label": "Start Frontend Dev Server",
 			"type": "shell",
-			"command": "npm.cmd",
+			"command": "npm",
 			"args": [
 				"run",
 				"dev"
@@ -75,7 +92,19 @@
 				"focus": false,
 				"panel": "new"
 			},
-			"problemMatcher": [],
+			"problemMatcher": {
+				"owner": "net-est-frontend",
+				"fileLocation": "absolute",
+				"pattern": {
+					"regexp": "^(.*)$",
+					"file": 1
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "VITE v|vite v",
+					"endsPattern": "Local:|ready in|Network:"
+				}
+			},
 			"isBackground": true
 		},
 		{
@@ -94,7 +123,7 @@
 				"echo": true,
 				"reveal": "always"
 			},
-			"problemMatcher": []
+			"problemMatcher": ["$tsc", "$eslint-stylish"]
 		},
 		{
 			"label": "Install Frontend Dependencies",
@@ -134,14 +163,7 @@
 		{
 			"label": "Clean Cache Files",
 			"type": "shell",
-			"command": "pwsh",
-			"args": [
-				"-ExecutionPolicy",
-				"Bypass",
-				"-Command",
-				"Write-Host 'Cleaning Python cache files...' -ForegroundColor Yellow; Get-ChildItem -Path . -Recurse -Directory -Name '__pycache__' | ForEach-Object { Remove-Item -Path $_ -Recurse -Force }; Write-Host 'Cache cleanup complete!' -ForegroundColor Green"
-			],
-			"group": "build",
+			"command": "scripts/utilities/clean-cache-files.ps1",
 			"presentation": {
 				"echo": true,
 				"reveal": "always"
@@ -151,14 +173,7 @@
 		{
 			"label": "Performance Monitor",
 			"type": "shell",
-			"command": "pwsh",
-			"args": [
-				"-ExecutionPolicy",
-				"Bypass",
-				"-Command",
-				"Write-Host 'VS Code Process Analysis:' -ForegroundColor Cyan; Get-Process -Name 'Code*' | Format-Table Name, WorkingSet -AutoSize; Write-Host 'Cache directories:' -ForegroundColor Yellow; (Get-ChildItem -Path . -Recurse -Directory -Name '__pycache__' | Measure-Object).Count"
-			],
-			"group": "build",
+			"command": "scripts/debug/performance-monitor.ps1",
 			"presentation": {
 				"echo": true,
 				"reveal": "always",
@@ -170,56 +185,126 @@
 		{
 			"label": "Setup Py312 Venv",
 			"type": "shell",
-			"command": "pwsh",
-			"args": [
-				"-ExecutionPolicy",
-				"Bypass",
-				"-Command",
-				"if (!(Test-Path backend/.venv_py312)) { py -3.12 -m venv backend/.venv_py312 }; . backend/.venv_py312/Scripts/Activate.ps1; pip install -q --upgrade pip; pip install -q -r backend/requirements.txt; pip install -q pytest requests"
-			],
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
-			"problemMatcher": []
-		},
-		{
-			"label": "Run Backend Tests (Py312)",
-			"type": "shell",
-			"command": "pwsh",
-			"args": [
-				"-ExecutionPolicy",
-				"Bypass",
-				"-Command",
-				". backend/.venv_py312/Scripts/Activate.ps1; pytest backend/tests -q"
-			],
+			"command": "scripts/setup/setup-py312-venv.ps1",
 			"options": {
 				"cwd": "${workspaceFolder}"
 			},
 			"problemMatcher": [],
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared"
+			}
+		},
+		{
+			"label": "Run Backend Tests (Py312)",
+			"type": "shell",
+			"command": "scripts/backend/run-tests.ps1",
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"problemMatcher": "$python",
 			"dependsOn": [
 				"Setup Py312 Venv"
 			],
-			"group": "test"
+			"group": "test",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared"
+			}
 		},
 		{
 			"label": "Environment Status Check",
 			"type": "shell",
-			"command": "pwsh",
-			"args": [
-				"-ExecutionPolicy",
-				"Bypass",
-				"-Command",
-				"$env:WORKSPACEFOLDER = '${workspaceFolder}'; & '${workspaceFolder}/scripts/env_status_enhanced.ps1'"
-			],
+			"command": "scripts/utilities/check-env-status.ps1",
 			"options": {
 				"cwd": "${workspaceFolder}"
 			},
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Restart Backend Server",
+			"type": "shell",
+			"command": "scripts/process/restart-backend-server.ps1",
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared"
+			},
+			"isBackground": true
+		},
+		{
+			"label": "Stop Backend Server",
+			"type": "shell",
+			"command": "scripts/process/stop-backend-server.ps1",
 			"group": "build",
 			"presentation": {
 				"echo": true,
 				"reveal": "always",
 				"focus": false,
 				"panel": "shared"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Stop Frontend Server",
+			"type": "shell",
+			"command": "scripts/process/stop-frontend-server.ps1",
+			"group": "build",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Release Ports",
+			"type": "shell",
+			"command": "scripts/port-management/release-ports.ps1",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Clean All Cache",
+			"type": "shell",
+			"command": "scripts/utilities/clean-all-cache.ps1",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Safe Shutdown - Complete",
+			"type": "shell",
+			"command": "scripts/process/safe-shutdown-complete.ps1",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": true,
+				"panel": "new"
 			},
 			"problemMatcher": []
 		}

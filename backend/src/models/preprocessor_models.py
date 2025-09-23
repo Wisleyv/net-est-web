@@ -2,7 +2,7 @@
 
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from .base import BaseResponse, ProcessingMetrics
 
@@ -35,14 +35,8 @@ class TextInput(BaseModel):
 class PreprocessorOutput(BaseResponse):
     """Saída do pré-processador"""
 
-    source_text: str = Field(description="Texto fonte limpo")
-    target_text: str = Field(description="Texto alvo limpo")
-    source_metrics: ProcessingMetrics
-    target_metrics: ProcessingMetrics
-    warnings: list[str] = Field(default_factory=list, description="Avisos para o usuário")
-
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "success": True,
                 "message": "Textos processados com sucesso",
@@ -65,3 +59,10 @@ class PreprocessorOutput(BaseResponse):
                 ],
             }
         }
+    )
+
+    source_text: str = Field(description="Texto fonte limpo")
+    target_text: str = Field(description="Texto alvo limpo")
+    source_metrics: ProcessingMetrics
+    target_metrics: ProcessingMetrics
+    warnings: list[str] = Field(default_factory=list, description="Avisos para o usuário")

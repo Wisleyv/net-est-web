@@ -3,7 +3,7 @@
  * Display component for comparative analysis results with color mapping and human-in-the-loop editing
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   FileText,
   TrendingUp,
@@ -97,22 +97,51 @@ const ComparativeResultsDisplay = ({
   const [colorblindMode, setColorblindMode] = useState(useColorblindFriendly);
   const [rovingIndex, setRovingIndex] = useState(0);
   // Feature flag for dark launch of unified highlighting
+  
+  // Phase 2A: Manual tagging rationale capture
+  const [rationaleDialog, setRationaleDialog] = useState(null); // { strategyCode, strategyName, position: {x, y} }
+  const [rationaleText, setRationaleText] = useState(''); // Rationale input state
   const [enableUnifiedHighlighting] = useState(true); // set false to rollback quickly
+  
+  // Phase 2B: Enhanced hover interactions - Circular menu system
+  const [hoverMenu, setHoverMenu] = useState(null); // { strategyId, position: {x, y}, strategy }
+  const hoverMenuTimeoutRef = useRef(null);
+  
   // Inline editing state for panel-free approach
   const [inlineEditingStrategy, setInlineEditingStrategy] = useState(null);
   const [inlineEditPosition, setInlineEditPosition] = useState(null);
 
+  // Ref for rationale dialog to prevent outside click interference
+  const rationaleDialogRef = useRef(null);
+  const rationaleTextareaRef = useRef(null);
+
+  // Effect to focus textarea when rationale dialog opens
+  useEffect(() => {
+    if (rationaleDialog && rationaleTextareaRef.current) {
+      // Small delay to ensure dialog is rendered
+      setTimeout(() => {
+        rationaleTextareaRef.current?.focus();
+      }, 100);
+    }
+  }, [rationaleDialog]);
+
   // Global click outside to dismiss selection menu
   useEffect(() => {
-    const handleClickOutside = () => {
+    const handleClickOutside = (event) => {
+      // Don't close rationale dialog if clicking inside it
+      if (rationaleDialog && rationaleDialogRef.current && rationaleDialogRef.current.contains(event.target)) {
+        return;
+      }
+      
       setContextMenu(null);
       setSelectedText(null);
       setInlineEditingStrategy(null);
       setInlineEditPosition(null);
+      setHoverMenu(null); // Phase 2B: Also dismiss hover menu
     };
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
+  }, [rationaleDialog]);
 
 
   // Unified map will be defined after strategiesDetected
@@ -646,9 +675,25 @@ const ComparativeResultsDisplay = ({
 
   const handleAddManualTag = useCallback(async (strategyName) => {
     if (!selectedText || !strategyName) return;
-
+    
     const strategyCode = getStrategyCodeByName(strategyName);
     if (!strategyCode) return;
+
+    // Phase 2A: Open rationale dialog instead of immediately creating annotation
+    setRationaleDialog({
+      strategyCode,
+      strategyName,
+      position: { x: contextMenu.x, y: contextMenu.y }
+    });
+    setContextMenu(null); // Close context menu
+  }, [selectedText, getStrategyCodeByName, contextMenu]);
+
+  // Phase 2A: Function to create annotation with rationale
+  const handleCreateAnnotationWithRationale = useCallback(async (rationale) => {
+    if (!selectedText || !rationaleDialog) return;
+
+    const { strategyCode } = rationaleDialog;
+    
     try {
       // Canonicalize offsets against the canonical analysisResult.target_text
       const full = (analysisResult?.target_text || analysisResult?.targetText || '');
@@ -669,15 +714,17 @@ const ComparativeResultsDisplay = ({
         console.warn('Offset canonicalization failed, proceeding with DOM offsets', canonErr);
       }
 
-      // Create annotation using canonicalized (or fallback) offsets
-      const created = await createAnnotation({ strategy_code: strategyCode, target_offsets: payloadOffsets, comment: null });
+      // Create annotation with rationale comment
+      const created = await createAnnotation({ 
+        strategy_code: strategyCode, 
+        target_offsets: payloadOffsets, 
+        comment: rationale 
+      });
 
       // Post-creation verification: ensure stored offsets map to the selected substring
       try {
-        // Determine created annotation id and offsets
         let createdAnnotation = created;
         if (!createdAnnotation) {
-          // Fallback: try to find matching annotation in the store (best-effort)
           createdAnnotation = annotations.find(a => (a.strategy_code === strategyCode || a.code === strategyCode) && a.status === 'created' && a.manually_assigned);
         }
 
@@ -691,7 +738,6 @@ const ComparativeResultsDisplay = ({
             try {
               const corrected = disambiguateWithContext(full, selectedText.text, selectedText.startIndex);
               if (corrected && (corrected.start !== storedOffsets.start || corrected.end !== storedOffsets.end)) {
-                // Apply correction to annotation span
                 const targetId = createdAnnotation?.id || createdAnnotation?.strategy_id;
                 if (targetId) {
                   await modifyAnnotationSpan(targetId, [{ start: corrected.start, end: corrected.end }]);
@@ -711,12 +757,110 @@ const ComparativeResultsDisplay = ({
     } catch (error) {
       console.error('Failed to create annotation:', error);
     } finally {
-      setContextMenu(null);
+      setRationaleDialog(null);
+      setRationaleText('');
       setSelectedText(null);
       try { window.getSelection().removeAllRanges(); } catch (e) { /* ignore selection clear errors */ }
       if (onStrategyUpdate) onStrategyUpdate('add', { strategy_code: strategyCode });
     }
-  }, [selectedText, getStrategyCodeByName, createAnnotation, onStrategyUpdate]);
+  }, [selectedText, rationaleDialog, analysisResult, createAnnotation, annotations, modifyAnnotationSpan, onStrategyUpdate]);
+
+  // Phase 2B: Hover menu handlers for enhanced interactions
+  const handleMarkerHover = useCallback((strategyId, element, strategy) => {
+    // Clear any existing timeout
+    if (hoverMenuTimeoutRef.current) {
+      clearTimeout(hoverMenuTimeoutRef.current);
+    }
+
+    // Set timeout to show hover menu after brief delay
+    hoverMenuTimeoutRef.current = setTimeout(() => {
+      const rect = element.getBoundingClientRect();
+      setHoverMenu({
+        strategyId,
+        strategy,
+        position: {
+          x: rect.left + rect.width / 2 + window.scrollX,
+          y: rect.top + window.scrollY
+        }
+      });
+    }, 300); // 300ms delay for intentional hover
+  }, []);
+
+  const handleMarkerLeave = useCallback(() => {
+    // Clear timeout when leaving marker
+    if (hoverMenuTimeoutRef.current) {
+      clearTimeout(hoverMenuTimeoutRef.current);
+    }
+    
+    // Add small delay before hiding menu to allow mouse movement to menu
+    setTimeout(() => {
+      setHoverMenu(null);
+    }, 100);
+  }, []);
+
+  // Phase 2B: Handle hover menu actions
+  const handleHoverMenuAction = useCallback(async (actionId, strategy) => {
+    setHoverMenu(null); // Close menu
+    
+    try {
+      switch (actionId) {
+        case 'validate':
+          // Mark as validated/accepted
+          if (strategy.id || strategy.strategy_id) {
+            // Call annotation store to accept the annotation
+            // This would integrate with the existing annotation system
+            console.log('Validating strategy:', strategy.code);
+          }
+          break;
+          
+        case 'edit':
+          // Open inline editor
+          const rect = document.querySelector(`[data-strategy-id="${strategy.id || strategy.strategy_id}"]`)?.getBoundingClientRect();
+          if (rect) {
+            setInlineEditingStrategy(strategy);
+            setInlineEditPosition({
+              x: rect.left + window.scrollX,
+              y: rect.bottom + window.scrollY,
+              charStart: strategy.targetPosition?.start || 0,
+              charEnd: strategy.targetPosition?.end || 0
+            });
+          }
+          break;
+          
+        case 'delete':
+          // Remove annotation
+          if (strategy.id || strategy.strategy_id) {
+            if (confirm(`Remover estratégia ${strategy.code}?`)) {
+              await rejectAnnotation(strategy.id || strategy.strategy_id);
+              await fetchAnnotations(); // Refresh
+            }
+          }
+          break;
+          
+        case 'adjust':
+          // Enable span adjustment mode
+          if (strategy.id || strategy.strategy_id) {
+            setEditingAnnotation(strategy.id || strategy.strategy_id);
+            // The user would then select new text to adjust the span
+          }
+          break;
+          
+        default:
+          console.warn('Unknown hover menu action:', actionId);
+      }
+    } catch (error) {
+      console.error('Error handling hover menu action:', error);
+    }
+  }, [rejectAnnotation, fetchAnnotations, setEditingAnnotation]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverMenuTimeoutRef.current) {
+        clearTimeout(hoverMenuTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Commented out tag editing functions
   // const handleEditTag = useCallback((strategyId, currentStrategy) => {
@@ -1112,6 +1256,210 @@ const ComparativeResultsDisplay = ({
     );
   };
 
+  // Phase 2A: Rationale capture dialog for manual tagging
+  const renderRationaleDialog = () => {
+    if (!rationaleDialog) return null;
+
+    return (
+      <div
+        ref={rationaleDialogRef}
+        className="fixed z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-4 min-w-80 max-w-96"
+        style={{ 
+          left: Math.min(rationaleDialog.position.x, window.innerWidth - 400), 
+          top: Math.max(rationaleDialog.position.y - 10, 10) 
+        }}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()} // Prevent keyboard events from bubbling
+        onKeyUp={(e) => e.stopPropagation()}
+        onKeyPress={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div
+              className="w-6 h-6 rounded flex items-center justify-center text-xs font-bold text-white"
+              style={{ backgroundColor: getStrategyColor(rationaleDialog.strategyCode, colorblindMode) }}
+            >
+              {rationaleDialog.strategyCode}
+            </div>
+            <span className="font-medium text-sm">{rationaleDialog.strategyCode}</span>
+          </div>
+          <button
+            onClick={() => {
+              setRationaleDialog(null);
+              setRationaleText('');
+            }}
+            className="text-gray-400 hover:text-gray-600 text-xs"
+          >
+            ✕
+          </button>
+        </div>
+        
+        <div className="text-xs text-gray-600 mb-2">
+          <strong>{rationaleDialog.strategyName}</strong>
+        </div>
+        
+        <div className="text-xs text-gray-500 mb-3">
+          Texto selecionado: "{selectedText?.text}"
+        </div>
+        
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
+            Justificativa (obrigatória):
+          </label>
+          <textarea
+            ref={rationaleTextareaRef}
+            value={rationaleText}
+            onChange={(e) => setRationaleText(e.target.value)}
+            onKeyDown={(e) => {
+              // Prevent event bubbling that might trigger other keyboard handlers
+              e.stopPropagation();
+            }}
+            placeholder="Por que esta estratégia se aplica a este trecho? Explique o critério usado..."
+            className="w-full px-2 py-1 border border-gray-300 rounded text-xs resize-none"
+            rows={3}
+            autoFocus
+            onFocus={(e) => e.target.setSelectionRange(e.target.value.length, e.target.value.length)}
+          />
+        </div>
+        
+        <div className="flex gap-2 justify-end">
+          <button
+            onClick={() => {
+              setRationaleDialog(null);
+              setRationaleText('');
+            }}
+            className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() => {
+              if (rationaleText.trim()) {
+                handleCreateAnnotationWithRationale(rationaleText.trim());
+                setRationaleText('');
+              }
+            }}
+            disabled={!rationaleText.trim()}
+            className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          >
+            Adicionar Tag
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // Phase 2B: Circular hover menu for tag operations
+  const renderHoverMenu = () => {
+    if (!hoverMenu) return null;
+
+    const { strategy, position } = hoverMenu;
+    const isManual = strategy.manually_assigned || strategy.origin === 'human';
+    const isModified = strategy.status === 'modified';
+
+    // Circular menu configuration
+    const menuRadius = 60;
+    const buttonSize = 32;
+    const actions = [
+      {
+        id: 'validate',
+        icon: '✓',
+        label: 'Validar',
+        color: '#16a34a',
+        available: !strategy.validated && !isManual,
+        angle: 0 // top
+      },
+      {
+        id: 'edit',
+        icon: '✎',
+        label: 'Editar',
+        color: '#d97706',
+        available: true,
+        angle: 90 // right
+      },
+      {
+        id: 'delete',
+        icon: '✕',
+        label: 'Remover',
+        color: '#dc2626',
+        available: isManual || isModified,
+        angle: 180 // bottom
+      },
+      {
+        id: 'adjust',
+        icon: '⟷',
+        label: 'Ajustar',
+        color: '#2563eb',
+        available: true,
+        angle: 270 // left
+      }
+    ].filter(action => action.available);
+
+    return (
+      <div
+        className="fixed z-60 pointer-events-none"
+        style={{ 
+          left: position.x, 
+          top: position.y,
+          transform: 'translate(-50%, -50%)'
+        }}
+        onMouseEnter={() => {
+          // Keep menu open when hovering over it
+          if (hoverMenuTimeoutRef.current) {
+            clearTimeout(hoverMenuTimeoutRef.current);
+          }
+        }}
+        onMouseLeave={() => {
+          // Hide menu when leaving
+          setTimeout(() => setHoverMenu(null), 100);
+        }}
+      >
+        {/* Central strategy indicator */}
+        <div
+          className="absolute inset-0 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 border-white shadow-lg pointer-events-auto"
+          style={{
+            width: buttonSize,
+            height: buttonSize,
+            backgroundColor: strategy.color,
+            transform: 'translate(-50%, -50%)',
+            left: '50%',
+            top: '50%'
+          }}
+          title={`${strategy.code} - ${strategy.info?.name || strategy.name}`}
+        >
+          {strategy.code}
+        </div>
+
+        {/* Action buttons in circular layout */}
+        {actions.map((action, index) => {
+          const angleRad = (action.angle * Math.PI) / 180;
+          const x = Math.cos(angleRad) * menuRadius;
+          const y = Math.sin(angleRad) * menuRadius;
+
+          return (
+            <button
+              key={action.id}
+              className="absolute rounded-full flex items-center justify-center text-white text-sm font-bold border-2 border-white shadow-lg hover:scale-110 transition-transform pointer-events-auto"
+              style={{
+                width: buttonSize,
+                height: buttonSize,
+                backgroundColor: action.color,
+                left: `calc(50% + ${x}px)`,
+                top: `calc(50% + ${y}px)`,
+                transform: 'translate(-50%, -50%)'
+              }}
+              onClick={() => handleHoverMenuAction(action.id, strategy)}
+              title={action.label}
+              aria-label={`${action.label} estratégia ${strategy.code}`}
+            >
+              {action.icon}
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
   const renderTooltip = () => {
     if (!hoveredStrategy) return null;
 
@@ -1181,7 +1529,7 @@ const ComparativeResultsDisplay = ({
                   return (
                     <>
                       <span>Texto fonte: {sourceWords} palavras</span>
-                      <span>Texto simplificado: {targetWords} palavras</span>
+                      <span>Texto alvo: {targetWords} palavras</span>
                       <span>Redução: {wordReduction}%</span>
                     </>
                   );
@@ -1339,7 +1687,7 @@ const ComparativeResultsDisplay = ({
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <FileText className="w-4 h-4 text-gray-500" />
-                  <h5 className="font-medium text-gray-900">Texto Fonte (Original)</h5>
+                  <h5 className="font-medium text-gray-900">Texto Fonte</h5>
                   <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
                     {analysisResult.source_text?.split(/\s+/).filter(word => word.length > 0).length || 0} palavras
                   </span>
@@ -1355,7 +1703,7 @@ const ComparativeResultsDisplay = ({
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <FileText className="w-4 h-4 text-green-600" />
-                  <h5 className="font-medium text-gray-900">Texto Simplificado</h5>
+                  <h5 className="font-medium text-gray-900">Texto Alvo</h5>
                   <span className="text-xs text-gray-500 bg-green-100 px-2 py-1 rounded">
                     {analysisResult.target_text?.split(/\s+/).filter(word => word.length > 0).length || 0} palavras
                   </span>
@@ -1377,6 +1725,7 @@ const ComparativeResultsDisplay = ({
                         activeStrategyId={activeStrategyId}
         rovingIndex={rovingIndex}
         onRovingIndexChange={setRovingIndex}
+                        disableFocusManagement={!!rationaleDialog} // Disable focus management when rationale dialog is open
                         onMarkerActivate={(id, el, idx) => {
                           if (id) {
                             // Find the strategy for inline editing instead of side panel
@@ -1395,6 +1744,14 @@ const ComparativeResultsDisplay = ({
                             }
                           }
                         }}
+                        // Phase 2B: Add hover event handlers
+                        onMarkerHover={(id, el) => {
+                          const strategy = filteredRawStrategies.find(s => s.strategy_id === id);
+                          if (strategy && el) {
+                            handleMarkerHover(id, el, strategy);
+                          }
+                        }}
+                        onMarkerLeave={handleMarkerLeave}
                         unifiedMap={unifiedStrategyMap}
                       />
                     </div>
@@ -1418,107 +1775,6 @@ const ComparativeResultsDisplay = ({
                 )}
               </div>
             </div>
-
-            {/* Interactive Strategy Legend with Manual Editing */}
-            {strategiesDetected.length > 0 && (
-              <div className="bg-white border border-gray-200 rounded-lg p-4">
-                <h5 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                  <Target className="w-4 h-4" />
-                  Estratégias de Simplificação Detectadas
-                </h5>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {strategiesDetected.map(strategy => (
-                    <div
-                      key={strategy.id}
-                      className="flex items-center gap-3 p-3 rounded-lg border bg-gray-50 cursor-pointer hover:bg-gray-100"
-                      style={{ borderLeftColor: strategy.color, borderLeftWidth: '3px' }}
-                      onClick={(e) => {
-                        if (!strategy.manually_assigned) {
-                          // Set up inline editing for auto tags
-                          setInlineEditingStrategy({
-                            code: strategy.code,
-                            name: strategy.info.name,
-                            strategy_id: strategy.id,
-                            confidence: strategy.confidence
-                          });
-                          setInlineEditPosition({
-                            x: e.clientX,
-                            y: e.clientY,
-                            charStart: strategy.spans?.[0]?.start || 0,
-                            charEnd: strategy.spans?.[0]?.end || 0
-                          });
-                        }
-                      }}
-                      title={strategy.manually_assigned ? undefined : "Clique para editar esta detecção automática"}
-                    >
-                      <div
-                        className="w-8 h-8 rounded flex items-center justify-center text-xs font-bold"
-                        style={{
-                          backgroundColor: strategy.color,
-                          color: getContrastingTextColor(strategy.color)
-                        }}
-                      >
-                        {strategy.code}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm text-gray-900">{strategy.info.name}</span>
-                          {strategy.manually_assigned && (
-                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Manual</span>
-                          )}
-                        </div>
-                        <div className="text-xs text-gray-600">
-                          {Math.round(strategy.confidence * 100)}% confiança
-                        </div>
-                      </div>
-                      {strategy.manually_assigned && (
-                        <button
-                          onClick={async () => {
-                            if (confirm('Deseja remover esta anotação manual?')) {
-                              try {
-                                await rejectAnnotation(strategy.id);
-                                // Force a refresh of annotations after deletion
-                                await fetchAnnotations();
-                              } catch (error) {
-                                console.error('Error removing annotation:', error);
-                                alert('Erro ao remover anotação. Verifique o console para detalhes.');
-                              }
-                            }
-                          }}
-                          className="text-red-500 hover:text-red-700 p-1"
-                          title="Remover anotação manual"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                      {!strategy.manually_assigned && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation(); // Prevent triggering the card click
-                            setInlineEditingStrategy({
-                              code: strategy.code,
-                              name: strategy.info.name,
-                              strategy_id: strategy.id,
-                              confidence: strategy.confidence
-                            });
-                            setInlineEditPosition({
-                              x: e.clientX,
-                              y: e.clientY,
-                              charStart: strategy.spans?.[0]?.start || 0,
-                              charEnd: strategy.spans?.[0]?.end || 0
-                            });
-                          }}
-                          className="text-blue-500 hover:text-blue-700 p-1"
-                          title="Editar detecção automática"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Highlighted Differences */}
             {analysisResult.highlightedDifferences && (
@@ -1666,6 +1922,12 @@ const ComparativeResultsDisplay = ({
       
       {/* Tooltip for strategy hover */}
       {renderTooltip()}
+      
+      {/* Phase 2A: Rationale capture dialog for manual tagging */}
+      {renderRationaleDialog()}
+      
+      {/* Phase 2B: Circular hover menu for tag operations */}
+      {renderHoverMenu()}
       
       {/* Inline strategy editor (panel-free approach) */}
       {renderInlineEditor()}

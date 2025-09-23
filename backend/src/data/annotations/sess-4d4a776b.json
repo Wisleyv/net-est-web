@@ -1,7 +1,7 @@
 {
   "annotations": [
     {
-      "id": "2156dbf9-8cbb-4b17-8cf3-1bfa746563d0",
+      "id": "4304e439-cb5b-486b-b2dd-d23b7181f1ad",
       "strategy_code": "SL+",
       "source_offsets": null,
       "target_offsets": [
@@ -16,15 +16,15 @@
       "validated": false,
       "manually_assigned": true,
       "original_code": null,
-      "created_at": "2025-09-21T19:03:31.614760+00:00",
-      "updated_at": "2025-09-21T19:03:31.614760+00:00",
+      "created_at": "2025-09-23T21:48:50.263154+00:00",
+      "updated_at": "2025-09-23T21:48:50.263154+00:00",
       "updated_by": null,
       "evidence": null,
       "comment": null,
       "explanation": "Adequação de Vocabulário: substituições léxicas sugerem simplificação (confiança 0%)."
     },
     {
-      "id": "fe763c88-18a2-4e16-b96f-0c6fc978406d",
+      "id": "ef952b48-6de5-40f9-b503-cd79acca28c4",
       "strategy_code": "RF+",
       "source_offsets": null,
       "target_offsets": [
@@ -39,9 +39,9 @@
       "validated": false,
       "manually_assigned": true,
       "original_code": "RF+",
-      "created_at": "2025-09-21T19:03:31.614760+00:00",
-      "updated_at": "2025-09-21T19:03:31.614760+00:00",
-      "updated_by": "sess-cce21094",
+      "created_at": "2025-09-23T21:48:50.263154+00:00",
+      "updated_at": "2025-09-23T21:48:50.263154+00:00",
+      "updated_by": "sess-4d4a776b",
       "evidence": null,
       "comment": null,
       "explanation": null
@@ -49,30 +49,30 @@
   ],
   "audit": [
     {
-      "annotation_id": "2156dbf9-8cbb-4b17-8cf3-1bfa746563d0",
+      "annotation_id": "4304e439-cb5b-486b-b2dd-d23b7181f1ad",
       "action": "create",
-      "timestamp": "2025-09-21T19:03:31.614760+00:00",
-      "session_id": "sess-cce21094",
+      "timestamp": "2025-09-23T21:48:50.263154+00:00",
+      "session_id": "sess-4d4a776b",
       "from_status": null,
       "to_status": "created",
       "from_code": null,
       "to_code": "SL+"
     },
     {
-      "annotation_id": "fe763c88-18a2-4e16-b96f-0c6fc978406d",
+      "annotation_id": "ef952b48-6de5-40f9-b503-cd79acca28c4",
       "action": "create",
-      "timestamp": "2025-09-21T19:03:31.614760+00:00",
-      "session_id": "sess-cce21094",
+      "timestamp": "2025-09-23T21:48:50.263154+00:00",
+      "session_id": "sess-4d4a776b",
       "from_status": null,
       "to_status": "created",
       "from_code": null,
       "to_code": "RF+"
     },
     {
-      "annotation_id": "fe763c88-18a2-4e16-b96f-0c6fc978406d",
+      "annotation_id": "ef952b48-6de5-40f9-b503-cd79acca28c4",
       "action": "modify",
-      "timestamp": "2025-09-21T19:03:31.614760+00:00",
-      "session_id": "sess-cce21094",
+      "timestamp": "2025-09-23T21:48:50.263154+00:00",
+      "session_id": "sess-4d4a776b",
       "from_status": "created",
       "to_status": "modified",
       "from_code": "RF+",

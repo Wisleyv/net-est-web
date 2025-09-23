@@ -1,7 +1,7 @@
 {
   "annotations": [
     {
-      "id": "00299efe-6116-4c29-a7e7-125e54972b53",
+      "id": "b67e951b-b983-416e-8589-8299bd7d6952",
       "strategy_code": "RF+",
       "source_offsets": null,
       "target_offsets": [
@@ -16,15 +16,15 @@
       "validated": false,
       "manually_assigned": true,
       "original_code": null,
-      "created_at": "2025-09-21T19:03:14.790569+00:00",
-      "updated_at": "2025-09-21T19:03:14.790569+00:00",
+      "created_at": "2025-09-23T21:48:31.131453+00:00",
+      "updated_at": "2025-09-23T21:48:31.131453+00:00",
       "updated_by": null,
       "evidence": null,
       "comment": "b",
       "explanation": null
     },
     {
-      "id": "25b60ce3-ddcf-4e76-9c57-220d860bf20e",
+      "id": "2265c282-6ae2-41c3-a106-c2c79c3741fa",
       "strategy_code": "OM+",
       "source_offsets": null,
       "target_offsets": [
@@ -39,8 +39,8 @@
       "validated": false,
       "manually_assigned": true,
       "original_code": null,
-      "created_at": "2025-09-21T19:03:14.790569+00:00",
-      "updated_at": "2025-09-21T19:03:14.790569+00:00",
+      "created_at": "2025-09-23T21:48:31.131453+00:00",
+      "updated_at": "2025-09-23T21:48:31.131453+00:00",
       "updated_by": null,
       "evidence": null,
       "comment": "a",
@@ -49,9 +49,9 @@
   ],
   "audit": [
     {
-      "annotation_id": "00299efe-6116-4c29-a7e7-125e54972b53",
+      "annotation_id": "b67e951b-b983-416e-8589-8299bd7d6952",
       "action": "create",
-      "timestamp": "2025-09-21T19:03:14.790569+00:00",
+      "timestamp": "2025-09-23T21:48:31.131453+00:00",
       "session_id": "rt_dst_fs_jsonl",
       "from_status": null,
       "to_status": "created",
@@ -59,9 +59,9 @@
       "to_code": "RF+"
     },
     {
-      "annotation_id": "25b60ce3-ddcf-4e76-9c57-220d860bf20e",
+      "annotation_id": "2265c282-6ae2-41c3-a106-c2c79c3741fa",
       "action": "create",
-      "timestamp": "2025-09-21T19:03:14.790569+00:00",
+      "timestamp": "2025-09-23T21:48:31.131453+00:00",
       "session_id": "rt_dst_fs_jsonl",
       "from_status": null,
       "to_status": "created",

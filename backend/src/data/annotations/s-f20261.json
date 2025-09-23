@@ -1,7 +1,7 @@
 {
   "annotations": [
     {
-      "id": "bb660686-5a3f-477d-af86-56049406c930",
+      "id": "bd6fefb4-bd77-4abe-a4b4-de7a1ec71037",
       "strategy_code": "OMX+",
       "source_offsets": null,
       "target_offsets": [
@@ -16,9 +16,9 @@
       "validated": false,
       "manually_assigned": true,
       "original_code": "OM+",
-      "created_at": "2025-09-21T19:03:14.465873+00:00",
-      "updated_at": "2025-09-21T19:03:14.474892+00:00",
-      "updated_by": "s-455bde",
+      "created_at": "2025-09-23T21:48:30.850971+00:00",
+      "updated_at": "2025-09-23T21:48:30.859534+00:00",
+      "updated_by": "s-f20261",
       "evidence": null,
       "comment": null,
       "explanation": null
@@ -26,20 +26,20 @@
   ],
   "audit": [
     {
-      "annotation_id": "bb660686-5a3f-477d-af86-56049406c930",
+      "annotation_id": "bd6fefb4-bd77-4abe-a4b4-de7a1ec71037",
       "action": "create",
-      "timestamp": "2025-09-21T19:03:14.471382+00:00",
-      "session_id": "s-455bde",
+      "timestamp": "2025-09-23T21:48:30.855922+00:00",
+      "session_id": "s-f20261",
       "from_status": null,
       "to_status": "created",
       "from_code": null,
       "to_code": "OM+"
     },
     {
-      "annotation_id": "bb660686-5a3f-477d-af86-56049406c930",
+      "annotation_id": "bd6fefb4-bd77-4abe-a4b4-de7a1ec71037",
       "action": "modify",
-      "timestamp": "2025-09-21T19:03:14.480396+00:00",
-      "session_id": "s-455bde",
+      "timestamp": "2025-09-23T21:48:30.863691+00:00",
+      "session_id": "s-f20261",
       "from_status": "created",
       "to_status": "modified",
       "from_code": "OM+",

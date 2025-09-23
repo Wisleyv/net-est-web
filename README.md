@@ -21,7 +21,17 @@ O NET-EST é uma ferramenta de análise linguística computacional que identific
 - Node.js 18+
 - Git
 
-### Instalação e Execução
+### ⚡ Método Recomendado: VS Code Tasks
+**Use APENAS as tarefas do VS Code para gerenciar o sistema:**
+
+1. **Ctrl+Shift+P** → "Tasks: Run Build Task" → Enter
+2. Ou execute tarefas individuais:
+   - "Start Backend Server"
+   - "Start Frontend Dev Server"
+
+**🚨 IMPORTANTE:** Nunca inicie serviços manualmente. Use APENAS as tarefas do `.vscode/tasks.json`. Consulte [ONBOARDING.md](./ONBOARDING.md) para detalhes do protocolo obrigatório.
+
+### Instalação e Execução Manual (APENAS se tasks.json não funcionar)
 
 **Backend:**
 ```bash
@@ -40,7 +50,7 @@ npm ci
 npm run dev
 ```
 
-Acesse a aplicação em: http://localhost:3000
+Acesse a aplicação em: http://localhost:5173
 
 ## 📚 Documentação
 

@@ -33,7 +33,6 @@ export default defineConfig({
         MAX_SENTENCES_FOR_PERFORMANCE: '3',
         // Prefer cached locations; do not hard fail if huggingface caches missing
         HF_HOME: 'c:\\net\\.huggingface-cache',
-        TRANSFORMERS_CACHE: 'c:\\net\\.huggingface-cache',
       },
     },
     {
