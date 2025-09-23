@@ -3,7 +3,7 @@
  * Combines input functionality with results display for the NET-EST system
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import DualTextInputComponent from './DualTextInputComponent';
 import ComparativeResultsDisplay from './ComparativeResultsDisplay';
@@ -12,7 +12,7 @@ import api from '../services/api';
 const EnhancedTextInput = ({ onTextProcessed, onError }) => {
   const [analysisData, setAnalysisData] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [currentView, setCurrentView] = useState('input'); // 'input' or 'results'
+  const [currentView, setCurrentView] = useState('input'); // 'input' or 'results' - Start with input for clean state
 
   // Handle comparative analysis request
   const handleComparativeAnalysis = async (inputData) => {

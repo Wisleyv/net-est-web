@@ -12,6 +12,18 @@ Please adhere to the following principles for all tasks:
 
 - **Production-Readiness:** Prioritize stability and user experience. Implement robust error handling and ensure all changes are covered by tests to prevent regressions.
 
+- **Regression-Free Approach Check-List:** 
+- Scope is atomic – change is small, targeted, and clearly described.
+- Intent documented – before/after behavior explained in plain language.
+- Tests updated/added – unit + regression tests cover the new/changed behavior.
+- Full test suite passes – no failing unit, integration, or E2E tests.
+- Static analysis clean – no lint/type/security errors introduced.
+- Performance checked – no measurable slowdown vs. baseline.
+- Backwards compatibility – APIs, data contracts, and existing workflows remain stable.
+- Monitoring considered – error logging/metrics updated if relevant.
+- Human review required – at least one reviewer confirms no regressions.
+- Rollback ready – release/tag point identified for fast revert if needed.
+
 ### **VS Code Environment & Shell Configuration**
 
 **Shell Standardization:**
@@ -47,3 +59,5 @@ Please adhere to the following principles for all tasks:
 - **Communication:** Provide a concise summary upon completion, including what was changed, test results, and any specific verification steps.
 
 - **Production-Readiness:** Prioritize stability and user experience. Implement robust error handling and ensure all changes are covered by tests to prevent regressions.
+
+- **Regression-Free Approach:** Take all reasonable measures to prevent the introduction of regression in the code.

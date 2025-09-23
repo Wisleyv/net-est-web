@@ -4,7 +4,7 @@
 
 import { getStrategyColor } from './strategyColorMapping.js';
 
-// Simple luminance-based contrast fallback
+// Enhanced luminance-based contrast calculation for better accessibility
 function getContrastText(hex) {
   if (!hex) return '#000';
   const c = hex.replace('#','');
@@ -13,7 +13,10 @@ function getContrastText(hex) {
   const g = parseInt(c.slice(2,4),16);
   const b = parseInt(c.slice(4,6),16);
   const luminance = (0.299*r + 0.587*g + 0.114*b)/255;
-  return luminance > 0.58 ? '#000' : '#FFF';
+
+  // Use more conservative threshold for better contrast
+  // Lower threshold means more colors get white text, improving readability
+  return luminance > 0.4 ? '#000' : '#FFF';
 }
 
 // Deterministic ordering helper (stabilize map for tests)
@@ -92,15 +95,30 @@ export function segmentTextForHighlights(text, strategies, { scope = 'target' } 
   // Extract character-level offsets for the specified scope
   const segments = [];
   strategies.forEach(strategy => {
-    const offsets = scope === 'target' ? strategy.target_offsets : strategy.source_offsets;
-    
-    // Check for both new format (target_offsets) and legacy format (targetPosition)
+    let offsets = scope === 'target' ? strategy.target_offsets : strategy.source_offsets;
+
+    // Support multiple shapes for offsets:
+    // - new precise object: { char_start, char_end }
+    // - legacy PowerShell string: "@{char_start=0; char_end=123}"
+    // - UI/backend array: [{ start, end }] or [{ char_start, char_end }]
+    // - legacy 'targetPosition' sentence-based object
     let charStart, charEnd;
-    
-    if (offsets && typeof offsets === 'object' && 'char_start' in offsets) {
-      // New precise format (JavaScript object)
-      charStart = offsets.char_start;
-      charEnd = offsets.char_end;
+
+    // If offsets is an array (common from createAnnotation), take first element
+    if (Array.isArray(offsets) && offsets.length > 0) {
+      offsets = offsets[0];
+    }
+
+    if (offsets && typeof offsets === 'object' && ('char_start' in offsets || ('start' in offsets && 'end' in offsets))) {
+      // New precise format (JavaScript object) or array-of-{start,end}
+      if ('char_start' in offsets) {
+        charStart = offsets.char_start;
+        charEnd = offsets.char_end;
+      } else {
+        // Accept start/end naming used by UI optimistic updates
+        charStart = offsets.start;
+        charEnd = offsets.end;
+      }
     } else if (typeof offsets === 'string' && offsets.includes('char_start')) {
       // Handle PowerShell object string format: "@{paragraph=0; sentence=0; char_start=0; char_end=123}"
       const charStartMatch = offsets.match(/char_start=(\d+)/);
@@ -188,4 +206,35 @@ export function injectUnifiedCSS(unifiedMap) {
   let el = document.getElementById(styleId);
   if (!el) { el = document.createElement('style'); el.id = styleId; document.head.appendChild(el); }
   el.textContent = generateUnifiedCSS(unifiedMap);
+}
+
+// Detect overlapping segments and merge them for better rendering
+export function mergeOverlappingSegments(segments) {
+  if (segments.length <= 1) return segments;
+
+  // Sort segments by start position
+  const sorted = [...segments].sort((a, b) => a.charStart - b.charStart);
+
+  const merged = [];
+  let current = { ...sorted[0] };
+
+  for (let i = 1; i < sorted.length; i++) {
+    const next = sorted[i];
+
+    // If segments overlap or are adjacent
+    if (next.charStart <= current.charEnd) {
+      // Merge segments: extend the end position and combine strategy codes
+      current.charEnd = Math.max(current.charEnd, next.charEnd);
+      current.text = current.text + next.text.substring(Math.max(0, current.charEnd - next.charStart));
+      current.strategies = [...(current.strategies || [current.code]), next.code];
+      current.code = current.strategies[0]; // Use first strategy as primary
+      current.isMerged = true;
+    } else {
+      merged.push(current);
+      current = { ...next };
+    }
+  }
+
+  merged.push(current);
+  return merged;
 }

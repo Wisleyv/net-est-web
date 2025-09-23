@@ -28,6 +28,12 @@ The backend uses environment variables loaded from `.env` files. Configuration i
 | `MAX_WORDS_LIMIT` | integer | 2000 | Maximum words for processing |
 | `MAX_FILE_SIZE_MB` | integer | 10 | Maximum file size in MB |
 
+### NLP Models (spaCy)
+
+- Strongly recommended: Portuguese language model `pt_core_news_sm` for more accurate tokenization and POS/NER features used by strategy detection.
+- Install via VS Code task: "Install spaCy PT model (recommended)". This uses the project venv (`backend/.venv_py312`).
+- Fallback behavior: If the model is missing, the backend falls back to heuristic-only analysis; accuracy will be reduced and some tags may be less reliable.
+
 ### Usage Example
 
 ```bash
@@ -71,6 +77,7 @@ VITE_DEBUG=false
 1. Copy `.env.example` to `.env` in both `backend/` and `frontend/` directories
 2. Adjust values as needed for your local environment
 3. Run the application using the startup scripts
+4. (Recommended) Run the task "Install spaCy PT model (recommended)" and restart the backend
 
 ### For Production
 1. Create `.env.production` files with production-specific values
@@ -84,3 +91,7 @@ VITE_DEBUG=false
 3. **Validate configuration** on application startup
 4. **Use different ports** for different environments to avoid conflicts
 5. **Set DEBUG=false** in production environments
+
+/*
+Desenvolvido com ❤️ pelo Núcleo de Estudos de Tradução - PIPGLA/UFRJ | Contém código assistido por IA
+*/

@@ -6,6 +6,8 @@ Core HITL (human-in-the-loop) functionality is complete and production-ready. Go
 
 For running the live integration E2E and environment considerations, see the Troubleshooting note in ONBOARDING: [ONBOARDING.md › Troubleshooting](./ONBOARDING.md#troubleshooting).
 
+• Project status snapshot: see [STATUS.md](./STATUS.md) for current objectives, pipeline, risks, and near-term steps.
+
 Sistema de análise computacional para estratégias de simplificação em tradução intralingual desenvolvido pelo Núcleo de Estudos de Tradução da UFRJ em parceria com o Politécnico de Leiria.
 
 ## 🎯 Sobre o Projeto
