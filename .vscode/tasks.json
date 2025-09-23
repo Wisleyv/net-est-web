@@ -57,7 +57,7 @@
 		{
 			"label": "Start Frontend Dev Server",
 			"type": "shell",
-			"command": "npm",
+			"command": "npm.cmd",
 			"args": [
 				"run",
 				"dev"
