@@ -1,7 +1,7 @@
 {
   "annotations": [
     {
-      "id": "57271396-70ea-4c19-a703-b4bf35f6cd6d",
+      "id": "a519144d-a197-4ab4-ae28-0bcd4e5e239b",
       "strategy_code": "OM+",
       "source_offsets": null,
       "target_offsets": [
@@ -16,15 +16,15 @@
       "validated": false,
       "manually_assigned": true,
       "original_code": null,
-      "created_at": "2025-09-12T00:43:27.991346+00:00",
-      "updated_at": "2025-09-12T00:43:27.991351+00:00",
+      "created_at": "2025-09-21T19:03:14.862101+00:00",
+      "updated_at": "2025-09-21T19:03:14.862101+00:00",
       "updated_by": null,
       "evidence": null,
       "comment": "a",
       "explanation": null
     },
     {
-      "id": "c28ce3f5-fba8-4963-bf4c-592e863d09c6",
+      "id": "9d5307f7-4615-491f-a79a-f1ac5e6470f1",
       "strategy_code": "RF+",
       "source_offsets": null,
       "target_offsets": [
@@ -39,8 +39,8 @@
       "validated": true,
       "manually_assigned": true,
       "original_code": null,
-      "created_at": "2025-09-12T00:43:27.991388+00:00",
-      "updated_at": "2025-09-12T00:43:27.991401+00:00",
+      "created_at": "2025-09-21T19:03:14.862101+00:00",
+      "updated_at": "2025-09-21T19:03:14.862101+00:00",
       "updated_by": "rt_src_fs_csv",
       "evidence": null,
       "comment": "b",
@@ -49,9 +49,9 @@
   ],
   "audit": [
     {
-      "annotation_id": "57271396-70ea-4c19-a703-b4bf35f6cd6d",
+      "annotation_id": "a519144d-a197-4ab4-ae28-0bcd4e5e239b",
       "action": "create",
-      "timestamp": "2025-09-12T00:43:27.991369+00:00",
+      "timestamp": "2025-09-21T19:03:14.862101+00:00",
       "session_id": "rt_src_fs_csv",
       "from_status": null,
       "to_status": "created",
@@ -59,9 +59,9 @@
       "to_code": "OM+"
     },
     {
-      "annotation_id": "c28ce3f5-fba8-4963-bf4c-592e863d09c6",
+      "annotation_id": "9d5307f7-4615-491f-a79a-f1ac5e6470f1",
       "action": "create",
-      "timestamp": "2025-09-12T00:43:27.991394+00:00",
+      "timestamp": "2025-09-21T19:03:14.862101+00:00",
       "session_id": "rt_src_fs_csv",
       "from_status": null,
       "to_status": "created",
@@ -69,9 +69,9 @@
       "to_code": "RF+"
     },
     {
-      "annotation_id": "c28ce3f5-fba8-4963-bf4c-592e863d09c6",
+      "annotation_id": "9d5307f7-4615-491f-a79a-f1ac5e6470f1",
       "action": "accept",
-      "timestamp": "2025-09-12T00:43:27.991408+00:00",
+      "timestamp": "2025-09-21T19:03:14.862101+00:00",
       "session_id": "rt_src_fs_csv",
       "from_status": "created",
       "to_status": "accepted",

@@ -1,0 +1,25 @@
+// Console Log Analysis from Port 5173 Testing
+// CRITICAL FAILURE: TreeWalker Algorithm Broken
+
+=== FAILURE EVIDENCE ===
+Selected text: 'Algumas doenças afetam muitas mulheres, como a endometriose, a síndrome dos ovários policísticos (SOP) e os miomas.'
+DOM calculation result: {matches: false}
+Verification text: 'itulo: Saúde da mulher: entender para cuidar melhor...aúde da mulher é ir muito além do corpo. É entend'
+
+=== CRITICAL PROBLEMS IDENTIFIED ===
+1. **TreeWalker Algorithm FAILS**: matches: false means calculated range maps to wrong text
+2. **Verification shows wrong content**: Algorithm maps selection to title/header text instead of selected sentence
+3. **System falls back to indexOf()**: startOffset: 1263, endOffset: 1416 
+4. **Same indexOf() behavior**: Tags still placed in wrong sentences (5th/6th instead of selected)
+
+=== ROOT CAUSE ANALYSIS ===
+1. **TreeWalker traversal error**: Not correctly identifying text nodes or calculating positions
+2. **Container identification failure**: May be traversing wrong DOM subtree
+3. **Character counting logic broken**: Position calculation doesn't match actual text content
+4. **Text node filtering issues**: Skipping or miscounting relevant text nodes
+
+=== IMMEDIATE ACTION REQUIRED ===
+- TreeWalker implementation is completely broken and must be fixed
+- Current fallback to indexOf() still has original duplicate text problem
+- Need to debug TreeWalker traversal and position calculation logic
+- Algorithm maps to title text instead of target content area

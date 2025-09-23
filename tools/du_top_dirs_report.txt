@@ -1,0 +1,25 @@
+Disk usage report for C:\net - 09/17/2025 20:57:12
+=============================
+.git                                          798,1 MB  C:\net\.git
+.github                                        0,01 MB  C:\net\.github
+.huggingface-cache                           457,51 MB  C:\net\.huggingface-cache
+.models                                           0 MB  C:\net\.models
+.pip-cache                                   699,08 MB  C:\net\.pip-cache
+.pytest_cache                                  0,03 MB  C:\net\.pytest_cache
+.python-cache                                500,15 MB  C:\net\.python-cache
+.venv                                       1662,76 MB  C:\net\.venv
+.vite                                             0 MB  C:\net\.vite
+.vscode                                        0,02 MB  C:\net\.vscode
+archived                                          0 MB  C:\net\archived
+backend                                     1692,74 MB  C:\net\backend
+data                                              0 MB  C:\net\data
+demos                                          0,01 MB  C:\net\demos
+docs                                           0,33 MB  C:\net\docs
+docs_dev                                       0,16 MB  C:\net\docs_dev
+frontend                                     142,06 MB  C:\net\frontend
+hilt                                              0 MB  C:\net\hilt
+MagicMock                                         0 MB  C:\net\MagicMock
+scripts                                        0,01 MB  C:\net\scripts
+test_files                                     0,16 MB  C:\net\test_files
+tools                                          0,03 MB  C:\net\tools
+Done.

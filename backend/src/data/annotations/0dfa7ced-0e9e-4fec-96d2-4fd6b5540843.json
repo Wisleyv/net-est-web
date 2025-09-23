@@ -1,0 +1,181 @@
+{
+  "annotations": [
+    {
+      "id": "9881693c-b771-4c95-bea7-fbdbb77d56f5",
+      "strategy_code": "RP+",
+      "source_offsets": null,
+      "target_offsets": [
+        {
+          "start": 0,
+          "end": 53
+        }
+      ],
+      "confidence": 1.0,
+      "origin": "machine",
+      "status": "pending",
+      "validated": false,
+      "manually_assigned": false,
+      "original_code": null,
+      "created_at": "2025-09-21T19:19:12.167725+00:00",
+      "updated_at": "2025-09-21T19:19:12.167725+00:00",
+      "updated_by": null,
+      "evidence": null,
+      "comment": null,
+      "explanation": null
+    },
+    {
+      "id": "c747ca74-7b79-4886-80e2-03b1086771d7",
+      "strategy_code": "MOD+",
+      "source_offsets": null,
+      "target_offsets": [
+        {
+          "start": 54,
+          "end": 108
+        }
+      ],
+      "confidence": 1.0,
+      "origin": "machine",
+      "status": "rejected",
+      "validated": false,
+      "manually_assigned": false,
+      "original_code": null,
+      "created_at": "2025-09-21T19:19:12.167725+00:00",
+      "updated_at": "2025-09-21T19:20:34.233821+00:00",
+      "updated_by": "0dfa7ced-0e9e-4fec-96d2-4fd6b5540843",
+      "evidence": null,
+      "comment": null,
+      "explanation": null
+    },
+    {
+      "id": "d3672cbf-3625-4a24-b6bf-bf1922747267",
+      "strategy_code": "EXP+",
+      "source_offsets": null,
+      "target_offsets": [
+        {
+          "start": 109,
+          "end": 261
+        }
+      ],
+      "confidence": 0.8986536780752293,
+      "origin": "machine",
+      "status": "pending",
+      "validated": false,
+      "manually_assigned": false,
+      "original_code": null,
+      "created_at": "2025-09-21T19:19:12.167725+00:00",
+      "updated_at": "2025-09-21T19:19:12.167725+00:00",
+      "updated_by": null,
+      "evidence": null,
+      "comment": null,
+      "explanation": null
+    },
+    {
+      "id": "9406da18-07fa-4f14-a874-1ed54ed043fc",
+      "strategy_code": "SL+",
+      "source_offsets": null,
+      "target_offsets": [
+        {
+          "start": 262,
+          "end": 410
+        }
+      ],
+      "confidence": 1.0,
+      "origin": "machine",
+      "status": "pending",
+      "validated": false,
+      "manually_assigned": false,
+      "original_code": null,
+      "created_at": "2025-09-21T19:19:12.167725+00:00",
+      "updated_at": "2025-09-21T19:19:12.167725+00:00",
+      "updated_by": null,
+      "evidence": null,
+      "comment": null,
+      "explanation": null
+    },
+    {
+      "id": "a13e55a0-e57c-44c5-8d3a-3e14898c3652",
+      "strategy_code": "SL+",
+      "source_offsets": null,
+      "target_offsets": [
+        {
+          "start": 408,
+          "end": 560
+        }
+      ],
+      "confidence": null,
+      "origin": "human",
+      "status": "created",
+      "validated": false,
+      "manually_assigned": true,
+      "original_code": null,
+      "created_at": "2025-09-21T19:19:40.047523+00:00",
+      "updated_at": "2025-09-21T19:19:40.047523+00:00",
+      "updated_by": null,
+      "evidence": null,
+      "comment": null,
+      "explanation": "Adequação de Vocabulário: substituições léxicas sugerem simplificação (confiança 0%)."
+    }
+  ],
+  "audit": [
+    {
+      "annotation_id": "9881693c-b771-4c95-bea7-fbdbb77d56f5",
+      "action": "seed",
+      "timestamp": "2025-09-21T19:19:12.167725+00:00",
+      "session_id": "0dfa7ced-0e9e-4fec-96d2-4fd6b5540843",
+      "from_status": null,
+      "to_status": "pending",
+      "from_code": null,
+      "to_code": "RP+"
+    },
+    {
+      "annotation_id": "c747ca74-7b79-4886-80e2-03b1086771d7",
+      "action": "seed",
+      "timestamp": "2025-09-21T19:19:12.167725+00:00",
+      "session_id": "0dfa7ced-0e9e-4fec-96d2-4fd6b5540843",
+      "from_status": null,
+      "to_status": "pending",
+      "from_code": null,
+      "to_code": "MOD+"
+    },
+    {
+      "annotation_id": "d3672cbf-3625-4a24-b6bf-bf1922747267",
+      "action": "seed",
+      "timestamp": "2025-09-21T19:19:12.167725+00:00",
+      "session_id": "0dfa7ced-0e9e-4fec-96d2-4fd6b5540843",
+      "from_status": null,
+      "to_status": "pending",
+      "from_code": null,
+      "to_code": "EXP+"
+    },
+    {
+      "annotation_id": "9406da18-07fa-4f14-a874-1ed54ed043fc",
+      "action": "seed",
+      "timestamp": "2025-09-21T19:19:12.167725+00:00",
+      "session_id": "0dfa7ced-0e9e-4fec-96d2-4fd6b5540843",
+      "from_status": null,
+      "to_status": "pending",
+      "from_code": null,
+      "to_code": "SL+"
+    },
+    {
+      "annotation_id": "a13e55a0-e57c-44c5-8d3a-3e14898c3652",
+      "action": "create",
+      "timestamp": "2025-09-21T19:19:40.047523+00:00",
+      "session_id": "0dfa7ced-0e9e-4fec-96d2-4fd6b5540843",
+      "from_status": null,
+      "to_status": "created",
+      "from_code": null,
+      "to_code": "SL+"
+    },
+    {
+      "annotation_id": "c747ca74-7b79-4886-80e2-03b1086771d7",
+      "action": "reject",
+      "timestamp": "2025-09-21T19:20:34.233821+00:00",
+      "session_id": "0dfa7ced-0e9e-4fec-96d2-4fd6b5540843",
+      "from_status": "pending",
+      "to_status": "rejected",
+      "from_code": "MOD+",
+      "to_code": "MOD+"
+    }
+  ]
+}

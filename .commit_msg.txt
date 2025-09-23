@@ -1,0 +1,9 @@
+Stabilize dev environment: restore backend, start frontend, E2E smoke test
+
+- Restored backend and resolved missing dependency (spacy); cleaned temp files and stale processes.
+- Started frontend dev server and ran smoke E2E comparative-analysis to verify end-to-end connectivity.
+- Added diagnostics and helper scripts under `scripts/` for reproducible dev ops.
+- Updated documentation: `MAINTENANCE_LOG.md`, onboarding and session notes. Updated CHANGELOG.
+- Updated frontend config/deps where needed (package.json, .env.development).
+
+This commit captures the stabilization milestone and artifacts required for team reproduction.

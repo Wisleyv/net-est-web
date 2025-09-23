@@ -318,10 +318,15 @@ class LangExtractProvider:
         }
 
         if langextract_result:
+            # Compute average first to avoid referencing a key not yet in features
+            langextract_avg = (
+                sum(u['weight'] for u in langextract_result.units)
+                / max(len(langextract_result.units), 1)
+            )
             features.update({
                 'langextract_units': len(langextract_result.units),
-                'langextract_avg_weight': sum(u['weight'] for u in langextract_result.units) / max(len(langextract_result.units), 1),
-                'salience_improvement': features['langextract_avg_weight'] - features['base_avg_salience_weight']
+                'langextract_avg_weight': langextract_avg,
+                'salience_improvement': langextract_avg - features['base_avg_salience_weight']
             })
 
             # Add comparison metrics

@@ -129,13 +129,10 @@
             },
             {
                 "label": "Start Backend Server",
-                "type": "shell",
-                "command": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+                "type": "process",
+                "command": "${workspaceFolder}/backend/.venv_py312/Scripts/python.exe",
                 "args": [
-                    "-NoLogo",
-                    "-NoProfile",
-                    "-Command",
-                    "& 'python' 'start_optimized.py'"
+                    "start_server.py"
                 ],
                 "options": {
                     "cwd": "${workspaceFolder}/backend"

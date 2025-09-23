@@ -1,0 +1,13 @@
+Backend disk usage report for C:\net\backend - 09/17/2025 17:09:39
+.pytest_cache                        0,02 MB  C:\net\backend\.pytest_cache
+.venv_py312                       1679,57 MB  C:\net\backend\.venv_py312
+archived                             0,03 MB  C:\net\backend\archived
+c                                   457,5 MB  C:\net\backend\c
+config                                  0 MB  C:\net\backend\config
+data                                    0 MB  C:\net\backend\data
+docs                                 0,04 MB  C:\net\backend\docs
+MagicMock                               0 MB  C:\net\backend\MagicMock
+scripts                                 0 MB  C:\net\backend\scripts
+src                                  1,07 MB  C:\net\backend\src
+tests                                0,26 MB  C:\net\backend\tests
+venv                              1691,32 MB  C:\net\backend\venv
