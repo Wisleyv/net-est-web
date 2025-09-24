@@ -14,42 +14,14 @@
         },
         "tasks": [
                 {
-                        "label": "Run Backend Tests",
-                        "type": "shell",
-                        "command": "../scripts/backend/run-tests-quick.ps1",
-                        "options": {
-                                "cwd": "${workspaceFolder}/backend"
-                        },
-                        "group": "test",
-                        "problemMatcher": "$python",
-                        "presentation": {
-                                "echo": true,
-                                "reveal": "always",
-                                "focus": false,
-                                "panel": "shared"
-                        }
-                },
-                {
-                        "label": "Setup Backend Environment",
-                        "type": "shell",
-                        "command": "scripts/setup/setup-backend-environment.ps1",
-                        "options": {
-                                "cwd": "${workspaceFolder}"
-                        },
-                        "group": "build",
-                        "presentation": {
-                                "echo": true,
-                                "reveal": "always",
-                                "focus": false,
-                                "panel": "shared"
-                        }
-                },
-                {
                         "label": "Start Backend Server",
                         "type": "shell",
-                        "command": "scripts/backend/start-server.ps1",
+                        "command": "python",
+                        "args": [
+                                "start_optimized.py"
+                        ],
                         "options": {
-                                "cwd": "${workspaceFolder}"
+                                "cwd": "${workspaceFolder}/backend"
                         },
                         "group": {
                                 "kind": "build",
@@ -61,21 +33,29 @@
                                 "focus": false,
                                 "panel": "new"
                         },
-                        "problemMatcher": {
-                                "owner": "net-est-backend",
-                                "fileLocation": "absolute",
-                                "pattern": {
-                                        "regexp": "^(.*)$",
-                                        "file": 1
-                                },
-                                "background": {
-                                        "activeOnStart": true,
-                                        "beginsPattern": "Starting NET-EST Backend Server",
-                                        "endsPattern": "Uvicorn running on|Application startup complete"
-                                }
+                        "problemMatcher": "$python",
+                        "isBackground": true
+                },
+                {
+                        "label": "Run Backend Tests",
+                        "type": "shell",
+                        "command": "python",
+                        "args": [
+                                "-m",
+                                "pytest",
+                                "-q"
+                        ],
+                        "options": {
+                                "cwd": "${workspaceFolder}/backend"
                         },
-                        "isBackground": true,
-                        "dependsOn": "Setup Backend Environment"
+                        "group": "test",
+                        "presentation": {
+                                "echo": true,
+                                "reveal": "always",
+                                "focus": false,
+                                "panel": "shared"
+                        },
+                        "problemMatcher": "$python"
                 },
                 {
                         "label": "Start Frontend Dev Server",
@@ -97,19 +77,6 @@
                                 "reveal": "always",
                                 "focus": false,
                                 "panel": "new"
-                        },
-                        "problemMatcher": {
-                                "owner": "net-est-frontend",
-                                "fileLocation": "absolute",
-                                "pattern": {
-                                        "regexp": "^(.*)$",
-                                        "file": 1
-                                },
-                                "background": {
-                                        "activeOnStart": true,
-                                        "beginsPattern": "VITE v|vite v",
-                                        "endsPattern": "Local:|ready in|Network:"
-                                }
                         },
                         "isBackground": true
                 },
@@ -149,113 +116,12 @@
                         "problemMatcher": []
                 },
                 {
-                        "label": "Install Missing Frontend Packages",
-                        "type": "shell",
-                        "command": "npm",
-                        "args": [
-                                "install",
-                                "react-hot-toast@^2.4.1"
-                        ],
-                        "options": {
-                                "cwd": "${workspaceFolder}/frontend"
-                        },
-                        "group": "build",
-                        "presentation": {
-                                "echo": true,
-                                "reveal": "always"
-                        },
-                        "problemMatcher": []
-                },
-                {
-                        "label": "Clean Cache Files",
-                        "type": "shell",
-                        "command": "scripts/utilities/clean-cache-files.ps1",
-                        "presentation": {
-                                "echo": true,
-                                "reveal": "always"
-                        },
-                        "problemMatcher": []
-                },
-                {
-                        "label": "Performance Monitor",
-                        "type": "shell",
-                        "command": "scripts/debug/performance-monitor.ps1",
-                        "presentation": {
-                                "echo": true,
-                                "reveal": "always",
-                                "focus": false,
-                                "panel": "shared"
-                        },
-                        "problemMatcher": []
-                },
-                {
-                        "label": "Setup Py312 Venv",
-                        "type": "shell",
-                        "command": "scripts/setup/setup-py312-venv.ps1",
-                        "options": {
-                                "cwd": "${workspaceFolder}"
-                        },
-                        "problemMatcher": [],
-                        "presentation": {
-                                "echo": true,
-                                "reveal": "always",
-                                "focus": false,
-                                "panel": "shared"
-                        }
-                },
-                {
-                        "label": "Run Backend Tests (Py312)",
-                        "type": "shell",
-                        "command": "scripts/backend/run-tests.ps1",
-                        "options": {
-                                "cwd": "${workspaceFolder}"
-                        },
-                        "problemMatcher": "$python",
-                        "dependsOn": [
-                                "Setup Py312 Venv"
-                        ],
-                        "group": "test",
-                        "presentation": {
-                                "echo": true,
-                                "reveal": "always",
-                                "focus": false,
-                                "panel": "shared"
-                        }
-                },
-                {
-                        "label": "Environment Status Check",
-                        "type": "shell",
-                        "command": "scripts/utilities/check-env-status.ps1",
-                        "options": {
-                                "cwd": "${workspaceFolder}"
-                        },
-                        "presentation": {
-                                "echo": true,
-                                "reveal": "always",
-                                "focus": false,
-                                "panel": "shared"
-                        },
-                        "problemMatcher": []
-                },
-                {
-                        "label": "Restart Backend Server",
-                        "type": "shell",
-                        "command": "scripts/process/restart-backend-server.ps1",
-                        "options": {
-                                "cwd": "${workspaceFolder}"
-                        },
-                        "presentation": {
-                                "echo": true,
-                                "reveal": "always",
-                                "focus": false,
-                                "panel": "shared"
-                        },
-                        "isBackground": true
-                },
-                {
                         "label": "Stop Backend Server",
                         "type": "shell",
-                        "command": "scripts/process/stop-backend-server.ps1",
+                        "command": "./kill_backend_8000.ps1",
+                        "options": {
+                                "cwd": "${workspaceFolder}"
+                        },
                         "group": "build",
                         "presentation": {
                                 "echo": true,
@@ -266,10 +132,12 @@
                         "problemMatcher": []
                 },
                 {
-                        "label": "Stop Frontend Server",
+                        "label": "Inspect Ports",
                         "type": "shell",
-                        "command": "scripts/process/stop-frontend-server.ps1",
-                        "group": "build",
+                        "command": "./inspect_ports.ps1",
+                        "options": {
+                                "cwd": "${workspaceFolder}"
+                        },
                         "presentation": {
                                 "echo": true,
                                 "reveal": "always",
@@ -279,38 +147,17 @@
                         "problemMatcher": []
                 },
                 {
-                        "label": "Release Ports",
+                        "label": "List Backend Processes",
                         "type": "shell",
-                        "command": "scripts/port-management/release-ports.ps1",
+                        "command": "./list_8000_cmdlines.ps1",
+                        "options": {
+                                "cwd": "${workspaceFolder}"
+                        },
                         "presentation": {
                                 "echo": true,
                                 "reveal": "always",
                                 "focus": false,
                                 "panel": "shared"
-                        },
-                        "problemMatcher": []
-                },
-                {
-                        "label": "Clean All Cache",
-                        "type": "shell",
-                        "command": "scripts/utilities/clean-all-cache.ps1",
-                        "presentation": {
-                                "echo": true,
-                                "reveal": "always",
-                                "focus": false,
-                                "panel": "shared"
-                        },
-                        "problemMatcher": []
-                },
-                {
-                        "label": "Safe Shutdown - Complete",
-                        "type": "shell",
-                        "command": "scripts/process/safe-shutdown-complete.ps1",
-                        "presentation": {
-                                "echo": true,
-                                "reveal": "always",
-                                "focus": true,
-                                "panel": "new"
                         },
                         "problemMatcher": []
                 }
