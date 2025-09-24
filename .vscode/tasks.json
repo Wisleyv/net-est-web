@@ -1,0 +1,316 @@
+// RESTORED FILE
+// Source: commit eb8d3c1e5 (historical recovery)
+// Restoration Timestamp (UTC): 2025-09-24T00:00:00Z (placeholder, update if needed)
+// DO NOT modify without updating development_guidelines.md authority section.
+{
+        "version": "2.0.0",
+        "options": {
+                "shell": {
+                        "executable": "pwsh",
+                        "args": ["-ExecutionPolicy", "Bypass", "-NoProfile"]
+                }
+        },
+        "tasks": [
+                {
+                        "label": "Run Backend Tests",
+                        "type": "shell",
+                        "command": "../scripts/backend/run-tests-quick.ps1",
+                        "options": {
+                                "cwd": "${workspaceFolder}/backend"
+                        },
+                        "group": "test",
+                        "problemMatcher": "$python",
+                        "presentation": {
+                                "echo": true,
+                                "reveal": "always",
+                                "focus": false,
+                                "panel": "shared"
+                        }
+                },
+                {
+                        "label": "Setup Backend Environment",
+                        "type": "shell",
+                        "command": "scripts/setup/setup-backend-environment.ps1",
+                        "options": {
+                                "cwd": "${workspaceFolder}"
+                        },
+                        "group": "build",
+                        "presentation": {
+                                "echo": true,
+                                "reveal": "always",
+                                "focus": false,
+                                "panel": "shared"
+                        }
+                },
+                {
+                        "label": "Start Backend Server",
+                        "type": "shell",
+                        "command": "scripts/backend/start-server.ps1",
+                        "options": {
+                                "cwd": "${workspaceFolder}"
+                        },
+                        "group": {
+                                "kind": "build",
+                                "isDefault": false
+                        },
+                        "presentation": {
+                                "echo": true,
+                                "reveal": "always",
+                                "focus": false,
+                                "panel": "new"
+                        },
+                        "problemMatcher": {
+                                "owner": "net-est-backend",
+                                "fileLocation": "absolute",
+                                "pattern": {
+                                        "regexp": "^(.*)$",
+                                        "file": 1
+                                },
+                                "background": {
+                                        "activeOnStart": true,
+                                        "beginsPattern": "Starting NET-EST Backend Server",
+                                        "endsPattern": "Uvicorn running on|Application startup complete"
+                                }
+                        },
+                        "isBackground": true,
+                        "dependsOn": "Setup Backend Environment"
+                },
+                {
+                        "label": "Start Frontend Dev Server",
+                        "type": "shell",
+                        "command": "npm",
+                        "args": [
+                                "run",
+                                "dev"
+                        ],
+                        "options": {
+                                "cwd": "${workspaceFolder}/frontend"
+                        },
+                        "group": {
+                                "kind": "build",
+                                "isDefault": true
+                        },
+                        "presentation": {
+                                "echo": true,
+                                "reveal": "always",
+                                "focus": false,
+                                "panel": "new"
+                        },
+                        "problemMatcher": {
+                                "owner": "net-est-frontend",
+                                "fileLocation": "absolute",
+                                "pattern": {
+                                        "regexp": "^(.*)$",
+                                        "file": 1
+                                },
+                                "background": {
+                                        "activeOnStart": true,
+                                        "beginsPattern": "VITE v|vite v",
+                                        "endsPattern": "Local:|ready in|Network:"
+                                }
+                        },
+                        "isBackground": true
+                },
+                {
+                        "label": "Build Frontend",
+                        "type": "shell",
+                        "command": "npm",
+                        "args": [
+                                "run",
+                                "build"
+                        ],
+                        "options": {
+                                "cwd": "${workspaceFolder}/frontend"
+                        },
+                        "group": "build",
+                        "presentation": {
+                                "echo": true,
+                                "reveal": "always"
+                        },
+                        "problemMatcher": ["$tsc", "$eslint-stylish"]
+                },
+                {
+                        "label": "Install Frontend Dependencies",
+                        "type": "shell",
+                        "command": "npm",
+                        "args": [
+                                "install"
+                        ],
+                        "options": {
+                                "cwd": "${workspaceFolder}/frontend"
+                        },
+                        "group": "build",
+                        "presentation": {
+                                "echo": true,
+                                "reveal": "always"
+                        },
+                        "problemMatcher": []
+                },
+                {
+                        "label": "Install Missing Frontend Packages",
+                        "type": "shell",
+                        "command": "npm",
+                        "args": [
+                                "install",
+                                "react-hot-toast@^2.4.1"
+                        ],
+                        "options": {
+                                "cwd": "${workspaceFolder}/frontend"
+                        },
+                        "group": "build",
+                        "presentation": {
+                                "echo": true,
+                                "reveal": "always"
+                        },
+                        "problemMatcher": []
+                },
+                {
+                        "label": "Clean Cache Files",
+                        "type": "shell",
+                        "command": "scripts/utilities/clean-cache-files.ps1",
+                        "presentation": {
+                                "echo": true,
+                                "reveal": "always"
+                        },
+                        "problemMatcher": []
+                },
+                {
+                        "label": "Performance Monitor",
+                        "type": "shell",
+                        "command": "scripts/debug/performance-monitor.ps1",
+                        "presentation": {
+                                "echo": true,
+                                "reveal": "always",
+                                "focus": false,
+                                "panel": "shared"
+                        },
+                        "problemMatcher": []
+                },
+                {
+                        "label": "Setup Py312 Venv",
+                        "type": "shell",
+                        "command": "scripts/setup/setup-py312-venv.ps1",
+                        "options": {
+                                "cwd": "${workspaceFolder}"
+                        },
+                        "problemMatcher": [],
+                        "presentation": {
+                                "echo": true,
+                                "reveal": "always",
+                                "focus": false,
+                                "panel": "shared"
+                        }
+                },
+                {
+                        "label": "Run Backend Tests (Py312)",
+                        "type": "shell",
+                        "command": "scripts/backend/run-tests.ps1",
+                        "options": {
+                                "cwd": "${workspaceFolder}"
+                        },
+                        "problemMatcher": "$python",
+                        "dependsOn": [
+                                "Setup Py312 Venv"
+                        ],
+                        "group": "test",
+                        "presentation": {
+                                "echo": true,
+                                "reveal": "always",
+                                "focus": false,
+                                "panel": "shared"
+                        }
+                },
+                {
+                        "label": "Environment Status Check",
+                        "type": "shell",
+                        "command": "scripts/utilities/check-env-status.ps1",
+                        "options": {
+                                "cwd": "${workspaceFolder}"
+                        },
+                        "presentation": {
+                                "echo": true,
+                                "reveal": "always",
+                                "focus": false,
+                                "panel": "shared"
+                        },
+                        "problemMatcher": []
+                },
+                {
+                        "label": "Restart Backend Server",
+                        "type": "shell",
+                        "command": "scripts/process/restart-backend-server.ps1",
+                        "options": {
+                                "cwd": "${workspaceFolder}"
+                        },
+                        "presentation": {
+                                "echo": true,
+                                "reveal": "always",
+                                "focus": false,
+                                "panel": "shared"
+                        },
+                        "isBackground": true
+                },
+                {
+                        "label": "Stop Backend Server",
+                        "type": "shell",
+                        "command": "scripts/process/stop-backend-server.ps1",
+                        "group": "build",
+                        "presentation": {
+                                "echo": true,
+                                "reveal": "always",
+                                "focus": false,
+                                "panel": "shared"
+                        },
+                        "problemMatcher": []
+                },
+                {
+                        "label": "Stop Frontend Server",
+                        "type": "shell",
+                        "command": "scripts/process/stop-frontend-server.ps1",
+                        "group": "build",
+                        "presentation": {
+                                "echo": true,
+                                "reveal": "always",
+                                "focus": false,
+                                "panel": "shared"
+                        },
+                        "problemMatcher": []
+                },
+                {
+                        "label": "Release Ports",
+                        "type": "shell",
+                        "command": "scripts/port-management/release-ports.ps1",
+                        "presentation": {
+                                "echo": true,
+                                "reveal": "always",
+                                "focus": false,
+                                "panel": "shared"
+                        },
+                        "problemMatcher": []
+                },
+                {
+                        "label": "Clean All Cache",
+                        "type": "shell",
+                        "command": "scripts/utilities/clean-all-cache.ps1",
+                        "presentation": {
+                                "echo": true,
+                                "reveal": "always",
+                                "focus": false,
+                                "panel": "shared"
+                        },
+                        "problemMatcher": []
+                },
+                {
+                        "label": "Safe Shutdown - Complete",
+                        "type": "shell",
+                        "command": "scripts/process/safe-shutdown-complete.ps1",
+                        "presentation": {
+                                "echo": true,
+                                "reveal": "always",
+                                "focus": true,
+                                "panel": "new"
+                        },
+                        "problemMatcher": []
+                }
+        ]
+}
