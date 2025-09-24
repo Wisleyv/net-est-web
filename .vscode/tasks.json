@@ -33,7 +33,19 @@
                                 "focus": false,
                                 "panel": "new"
                         },
-                        "problemMatcher": "$python",
+                        "problemMatcher": {
+                                "owner": "net-est-backend",
+                                "fileLocation": "absolute",
+                                "pattern": {
+                                        "regexp": "^(.*)$",
+                                        "file": 1
+                                },
+                                "background": {
+                                        "activeOnStart": true,
+                                        "beginsPattern": "^INFO:\\s+Started reloader process|^INFO:\\s+Uvicorn running on",
+                                        "endsPattern": "Application startup complete"
+                                }
+                        },
                         "isBackground": true
                 },
                 {
@@ -77,6 +89,19 @@
                                 "reveal": "always",
                                 "focus": false,
                                 "panel": "new"
+                        },
+                        "problemMatcher": {
+                                "owner": "net-est-frontend",
+                                "fileLocation": "absolute",
+                                "pattern": {
+                                        "regexp": "^(.*)$",
+                                        "file": 1
+                                },
+                                "background": {
+                                        "activeOnStart": true,
+                                        "beginsPattern": "VITE v|vite v",
+                                        "endsPattern": "Local:|ready in|Network:"
+                                }
                         },
                         "isBackground": true
                 },

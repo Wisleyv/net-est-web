@@ -250,7 +250,7 @@ ipython_config.py
 # VS Code
 # Keep general VS Code artifacts ignored but explicitly track the authoritative tasks.json
 .vscode/*
-!.vscode/tasks.json
+!/.vscode/tasks.json
 *.code-workspace
 
 # Arquivos do sistema
