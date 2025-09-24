@@ -1,8 +1,10 @@
-// RESTORED FILE
-// Source: commit eb8d3c1e5 (historical recovery)
-// Restoration Timestamp (UTC): 2025-09-24T00:00:00Z (placeholder, update if needed)
-// DO NOT modify without updating development_guidelines.md authority section.
 {
+        "_provenance": {
+                "restored": true,
+                "source_commit": "eb8d3c1e5",
+                "restoration_timestamp_utc": "2025-09-24T00:00:00Z",
+                "note": "Provenance metadata retained here instead of comment header to keep file pure JSON."
+        },
         "version": "2.0.0",
         "options": {
                 "shell": {
