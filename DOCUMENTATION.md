@@ -59,6 +59,26 @@ NET-EST is a linguistic analysis system developed by the Núcleo de Estudos de T
 2. Regularly update status information in this document
 3. Ensure documentation remains synchronized with code changes
 
+## Incident Log (2025-09-24 Minimal Entry)
+
+On 2025-09-24 a loss of the critical `.vscode/tasks.json` and `docs_dev/development_guidelines.md` was detected during P0 UI debugging.
+
+Root Cause:
+- Blanket `.vscode/` ignore rule in `.gitignore` prevented version control of the authoritative orchestration file.
+
+Immediate Remediation:
+1. Restored both files from historical commit `eb8d3c1e5`.
+2. Adjusted `.gitignore` to track only `tasks.json` via explicit negation rule.
+3. Embedded provenance metadata in a `_provenance` block inside `tasks.json` (keeps valid JSON for tooling).
+4. Added `tools/verify_integrity.py` for minimal presence + structure validation.
+
+Deferred (Post-P0):
+- Expanded audit log & hash ledger
+- CI gating / CODEOWNERS protections
+- Baseline diff automation & drift report
+
+See `docs_dev/development_guidelines.md` (Authority Protocol) for operational directives.
+
 /*
 Desenvolvido com ❤️ pelo Núcleo de Estudos de Tradução - PIPGLA/UFRJ | Contém código assistido por IA
 */
