@@ -11,7 +11,10 @@ core_features:
 experimental:
   sentence_alignment: true
   salience_weighting: true
-  hierarchical_output: true
+  # Hierarchical output gated behind explicit enablement (safety-first default)
+  hierarchical_output: false
+  # Manual tagging feature gate (scaffolding). Reconstruction phase will wire usage.
+  manual_tagging: false
   langextract_integration:
     enabled: false  # Safe default: disabled
     observation_mode: true  # Start with observation mode
