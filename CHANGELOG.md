@@ -8,6 +8,7 @@
 - **BREAKING**: Removed "Modo Acessível" (colorblind mode) feature due to rendering instability with overlapping spans. Application now uses default styling permanently. All core annotation functionality preserved.
 
 - Fix: Corrected rendering of manual annotations where DOM-based offset calculations could mismatch canonical analysis text. Manual annotation offsets are now canonicalized and post-verified to ensure tags appear at the user-selected location. (2025-09-20)
+- Plan: Added production readiness implementation roadmap for inline annotation system (`INLINE_ANNOTATION_IMPLEMENTATION_PLAN.md`) outlining phased approach (integrity, accessibility, offsets, data alignment, performance, modularization, enhancements, hardening).
 
 /*
 Desenvolvido com ❤️ pelo Núcleo de Estudos de Tradução - PIPGLA/UFRJ | Contém código assistido por IA
