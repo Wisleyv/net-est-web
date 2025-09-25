@@ -26,6 +26,10 @@ const useAppStore = create(
         maxFileSize: 10 * 1024 * 1024, // 10MB
         supportedFormats: ['txt', 'md', 'docx', 'odt', 'pdf'],
         autoSave: true,
+        enableTimelineView: true, // Enable annotation timeline view
+        // Feature flags (Phase 3)
+        enableFeedbackActions: true, // Enable interactive annotation features
+        enableAuditSearch: false,
       },
 
       // Actions
@@ -109,6 +113,12 @@ const useAppStore = create(
           false,
           'clearNotifications'
         ),
+
+      // Feature flag toggles (dev-friendly)
+      setEnableFeedbackActions: (enabled) =>
+        set((state) => ({
+          config: { ...state.config, enableFeedbackActions: !!enabled },
+        }), false, 'setEnableFeedbackActions'),
 
       // Navigation helpers
       navigateToPhase: (phase) => {

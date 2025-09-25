@@ -1,0 +1,119 @@
+/**
+ * TextSelectionHandler.css - Styles for text selection integration
+ * 
+ * Provides visual feedback for text selection and preparation for strategy annotation.
+ * Follows material design principles and accessibility guidelines.
+ */
+
+/* Text selection handler container */
+.text-selection-handler {
+  position: relative;
+  width: 100%;
+}
+
+/* Add subtle hint that text is selectable for annotation */
+.text-selection-handler[data-selection-enabled="true"]::before {
+  content: "💡 Selecione texto para criar nova anotação";
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  font-size: 10px;
+  color: rgba(59, 130, 246, 0.7);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+  pointer-events: none;
+  z-index: 10;
+  white-space: nowrap;
+}
+
+.text-selection-handler[data-selection-enabled="true"]:hover::before {
+  opacity: 1;
+}
+
+/* Enhanced text selection visual feedback */
+.text-selection-handler ::selection {
+  background-color: rgba(59, 130, 246, 0.2); /* Blue selection with transparency */
+  color: inherit; /* Preserve text color */
+}
+
+.text-selection-handler ::-moz-selection {
+  background-color: rgba(59, 130, 246, 0.2);
+  color: inherit;
+}
+
+/* Indicate that text is selectable for annotation */
+.text-selection-handler .strategy-superscript-layer {
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  cursor: text;
+}
+
+/* Visual hint when hovering over selectable text areas */
+.text-selection-handler:hover .strategy-superscript-layer {
+  background-color: rgba(59, 130, 246, 0.02);
+  transition: background-color 0.15s ease-in-out;
+}
+
+/* Ensure strategy markers remain clickable and don't interfere with selection */
+.text-selection-handler .strategy-marker {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
+}
+
+/* Selection feedback for different states */
+.text-selection-handler[data-selection-active="true"] {
+  outline: 2px solid rgba(59, 130, 246, 0.3);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Accessibility improvements */
+.text-selection-handler:focus-within {
+  outline: 2px solid rgba(59, 130, 246, 0.5);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Responsive design considerations */
+@media (max-width: 768px) {
+  .text-selection-handler {
+    /* On mobile, make selection easier */
+    -webkit-touch-callout: default;
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  
+  .text-selection-handler ::selection {
+    background-color: rgba(59, 130, 246, 0.3); /* Stronger selection on mobile */
+  }
+}
+
+/* Dark mode support (if implemented) */
+@media (prefers-color-scheme: dark) {
+  .text-selection-handler ::selection {
+    background-color: rgba(96, 165, 250, 0.3);
+  }
+  
+  .text-selection-handler:hover .strategy-superscript-layer {
+    background-color: rgba(96, 165, 250, 0.05);
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .text-selection-handler ::selection {
+    background-color: rgba(59, 130, 246, 0.4);
+    outline: 1px solid #3b82f6;
+  }
+}

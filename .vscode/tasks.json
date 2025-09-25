@@ -1,10 +1,4 @@
 {
-        "_provenance": {
-                "restored": true,
-                "source_commit": "eb8d3c1e5",
-                "restoration_timestamp_utc": "2025-09-24T00:00:00Z",
-                "note": "Provenance metadata retained here instead of comment header to keep file pure JSON."
-        },
         "version": "2.0.0",
         "options": {
                 "shell": {
@@ -15,14 +9,13 @@
         "tasks": [
                 {
                         "label": "Start Backend Server",
-                        "type": "shell",
-                        "command": "python",
+                        "type": "process",
+                        "command": "pwsh",
                         "args": [
-                                "start_optimized.py"
+                                "-NoProfile",
+                                "-ExecutionPolicy", "Bypass",
+                                "-File", "scripts/process/start-backend.ps1"
                         ],
-                        "options": {
-                                "cwd": "${workspaceFolder}/backend"
-                        },
                         "group": {
                                 "kind": "build",
                                 "isDefault": false
@@ -49,17 +42,32 @@
                         "isBackground": true
                 },
                 {
-                        "label": "Run Backend Tests",
-                        "type": "shell",
-                        "command": "python",
+                        "label": "Stop Frontend Dev Server",
+                        "type": "process",
+                        "command": "pwsh",
                         "args": [
-                                "-m",
-                                "pytest",
-                                "-q"
+                                "-NoProfile",
+                                "-ExecutionPolicy", "Bypass",
+                                "-File", "scripts/process/stop-frontend-server.ps1"
                         ],
-                        "options": {
-                                "cwd": "${workspaceFolder}/backend"
+                        "group": "build",
+                        "presentation": {
+                                "echo": true,
+                                "reveal": "always",
+                                "focus": false,
+                                "panel": "shared"
                         },
+                        "problemMatcher": []
+                },
+                {
+                        "label": "Run Backend Tests",
+                        "type": "process",
+                        "command": "pwsh",
+                        "args": [
+                                "-NoProfile",
+                                "-ExecutionPolicy", "Bypass",
+                                "-Command", "Set-Location backend; if (Test-Path .venv_py312\\pyvenv.cfg) { & .\\.venv_py312\\Scripts\\python.exe -m pytest -q } else { python -m pytest -q }"
+                        ],
                         "group": "test",
                         "presentation": {
                                 "echo": true,
@@ -71,15 +79,13 @@
                 },
                 {
                         "label": "Start Frontend Dev Server",
-                        "type": "shell",
-                        "command": "npm",
+                        "type": "process",
+                        "command": "pwsh",
                         "args": [
-                                "run",
-                                "dev"
+                                "-NoProfile",
+                                "-ExecutionPolicy", "Bypass",
+                                "-File", "scripts/process/start-frontend.ps1"
                         ],
-                        "options": {
-                                "cwd": "${workspaceFolder}/frontend"
-                        },
                         "group": {
                                 "kind": "build",
                                 "isDefault": true
@@ -107,7 +113,7 @@
                 },
                 {
                         "label": "Build Frontend",
-                        "type": "shell",
+                        "type": "process",
                         "command": "npm",
                         "args": [
                                 "run",
@@ -125,7 +131,7 @@
                 },
                 {
                         "label": "Install Frontend Dependencies",
-                        "type": "shell",
+                        "type": "process",
                         "command": "npm",
                         "args": [
                                 "install"
@@ -142,11 +148,13 @@
                 },
                 {
                         "label": "Stop Backend Server",
-                        "type": "shell",
-                        "command": "./kill_backend_8000.ps1",
-                        "options": {
-                                "cwd": "${workspaceFolder}"
-                        },
+                        "type": "process",
+                        "command": "pwsh",
+                        "args": [
+                                "-NoProfile",
+                                "-ExecutionPolicy", "Bypass",
+                                "-File", "scripts/process/stop-backend-server.ps1"
+                        ],
                         "group": "build",
                         "presentation": {
                                 "echo": true,
@@ -157,12 +165,22 @@
                         "problemMatcher": []
                 },
                 {
+                        "label": "Stop All Servers",
+                        "dependsOrder": "sequence",
+                        "dependsOn": [
+                                "Stop Frontend Dev Server",
+                                "Stop Backend Server"
+                        ]
+                },
+                {
                         "label": "Inspect Ports",
-                        "type": "shell",
-                        "command": "./inspect_ports.ps1",
-                        "options": {
-                                "cwd": "${workspaceFolder}"
-                        },
+                        "type": "process",
+                        "command": "pwsh",
+                        "args": [
+                                "-NoProfile",
+                                "-ExecutionPolicy", "Bypass",
+                                "-File", "inspect_ports.ps1"
+                        ],
                         "presentation": {
                                 "echo": true,
                                 "reveal": "always",
@@ -173,11 +191,30 @@
                 },
                 {
                         "label": "List Backend Processes",
-                        "type": "shell",
-                        "command": "./list_8000_cmdlines.ps1",
-                        "options": {
-                                "cwd": "${workspaceFolder}"
+                        "type": "process",
+                        "command": "pwsh",
+                        "args": [
+                                "-NoProfile",
+                                "-ExecutionPolicy", "Bypass",
+                                "-File", "list_8000_cmdlines.ps1"
+                        ],
+                        "presentation": {
+                                "echo": true,
+                                "reveal": "always",
+                                "focus": false,
+                                "panel": "shared"
                         },
+                        "problemMatcher": []
+                },
+                {
+                        "label": "Validate PowerShell Scripts",
+                        "type": "process",
+                        "command": "pwsh",
+                        "args": [
+                                "-NoProfile",
+                                "-ExecutionPolicy", "Bypass",
+                                "-File", "tools/pwsh_validate.ps1"
+                        ],
                         "presentation": {
                                 "echo": true,
                                 "reveal": "always",

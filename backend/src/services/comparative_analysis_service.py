@@ -32,6 +32,7 @@ from ..models.comparative_analysis import (
 )
 from ..models.comparative_analysis import AnalysisOptions
 from ..core.feature_flags import feature_flags
+from ..core.config import settings
 
 # Import the strategy detector
 from .strategy_detector import StrategyDetector
@@ -91,8 +92,27 @@ class ComparativeAnalysisService:
                             request.analysis_options = AnalysisOptions(**ao)
                         except Exception:
                             request.analysis_options = SimpleNamespace(**ao)
+                            # Ensure analysis_options has required attributes with defaults
+                            for attr_name, default_value in [
+                                ('include_micro_spans', False),
+                                ('include_visual_salience', False),
+                                ('micro_span_mode', None),
+                                ('salience_visual_mode', None)
+                            ]:
+                                if not hasattr(request.analysis_options, attr_name):
+                                    setattr(request.analysis_options, attr_name, default_value)
                     elif ao is None:
                         request.analysis_options = AnalysisOptions()
+                    
+                    # Ensure top-level optional attributes exist with defaults
+                    for attr_name, default_value in [
+                        ('include_micro_spans', None),
+                        ('include_visual_salience', None), 
+                        ('micro_span_mode', None),
+                        ('salience_visual_mode', None)
+                    ]:
+                        if not hasattr(request, attr_name):
+                            setattr(request, attr_name, default_value)
 
             # M4: propagate top-level override flags into nested analysis_options if present
             if request.include_micro_spans is not None:
@@ -164,10 +184,42 @@ class ComparativeAnalysisService:
             response.readability_improvement = self._calculate_readability_improvement(response)
 
             # Hierarchical output (M2 partial integration)
-            # Enable when explicitly requested OR when feature flag is enabled
-            enable_hierarchical = (
-                getattr(request, "hierarchical_output", False) or
-                feature_flags.is_enabled("experimental.hierarchical_output")
+            # Determine if caller explicitly set the flag; otherwise fall back to
+            # environment defaults (service-level) and feature flag state.
+            hierarchy_override = getattr(request, "hierarchical_output", None)
+            override_provided = False
+            is_pydantic_model = False
+            try:
+                from pydantic import BaseModel
+
+                if isinstance(request, BaseModel):
+                    is_pydantic_model = True
+                    override_provided = "hierarchical_output" in request.model_fields_set
+            except Exception:
+                is_pydantic_model = False
+
+            if not override_provided:
+                if isinstance(request, dict):
+                    override_provided = "hierarchical_output" in request
+                elif not is_pydantic_model and hasattr(request, "__dict__"):
+                    override_provided = "hierarchical_output" in getattr(request, "__dict__", {})
+
+            if override_provided:
+                enable_hierarchical = bool(hierarchy_override)
+            else:
+                enable_hierarchical = (
+                    feature_flags.is_enabled("experimental.hierarchical_output")
+                    or getattr(settings, "DEFAULT_HIERARCHICAL_OUTPUT", False)
+                )
+            print(
+                "[hierarchy decision]",
+                {
+                    "override_provided": override_provided,
+                    "hierarchy_override": hierarchy_override,
+                    "settings_default": getattr(settings, "DEFAULT_HIERARCHICAL_OUTPUT", None),
+                    "feature_flag_enabled": feature_flags.is_enabled("experimental.hierarchical_output"),
+                    "enable_hierarchical": enable_hierarchical,
+                },
             )
 
             if enable_hierarchical:
@@ -175,7 +227,41 @@ class ComparativeAnalysisService:
                     response.hierarchical_analysis = await self._build_hierarchy_async(request)
                 except Exception as e:  # pragma: no cover - graceful degradation
                     logger.error(f"Failed to build hierarchical analysis: {e}")
+                    response.hierarchical_analysis = {
+                        "hierarchy_version": "unavailable",
+                        "source_paragraphs": [],
+                        "target_paragraphs": [],
+                        "metadata": {
+                            "alignment_mode": "disabled",
+                            "error": str(e),
+                        },
+                    }
             
+            if (
+                response.hierarchical_analysis is None
+                and not override_provided
+                and (
+                    feature_flags.is_enabled("experimental.hierarchical_output")
+                    or getattr(settings, "DEFAULT_HIERARCHICAL_OUTPUT", False)
+                )
+            ):
+                try:
+                    response.hierarchical_analysis = await self._build_hierarchy_async(request)
+                except Exception as e:  # pragma: no cover - double-checked fallback
+                    logger.error(
+                        "Secondary hierarchical build attempt failed", exc_info=True
+                    )
+                    response.hierarchical_analysis = {
+                        "hierarchy_version": "unavailable",
+                        "source_paragraphs": [],
+                        "target_paragraphs": [],
+                        "metadata": {
+                            "alignment_mode": "disabled",
+                            "error": str(e),
+                            "fallback_attempt": "secondary",
+                        },
+                    }
+
             # Calculate processing time
             end_time = datetime.now()
             response.processing_time = (end_time - start_time).total_seconds()
@@ -443,7 +529,9 @@ class ComparativeAnalysisService:
                     code=sigla,  # Frontend expects 'code' field
                     color=self._get_strategy_color(sigla),  # Add color information
                     targetPosition=target_position,
-                    sourcePosition=source_position
+                    sourcePosition=source_position,
+                    # Include target_offsets from strategy detection for highlighting
+                    target_offsets=getattr(strategy, 'target_offsets', None)
                 )
                 strategies.append(strategy_obj)
             

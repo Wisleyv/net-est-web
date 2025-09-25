@@ -30,6 +30,13 @@ import {
   generateStrategyCSSClasses,
   STRATEGY_METADATA
 } from '../services/strategyColorMapping.js';
+import StrategySuperscriptRenderer from './strategies/StrategySuperscriptRenderer.jsx';
+
+// Import menu system components
+import { AnnotationMenuProvider, useAnnotationMenu } from '../contexts/AnnotationMenuContext.jsx';
+import CircularContextMenu from './menus/CircularContextMenu.jsx';
+import HierarchicalStrategyMenu from './menus/HierarchicalStrategyMenu.jsx';
+import TextSelectionHandler from './text-selection/TextSelectionHandler.jsx';
 
 // Create reverse mapping from Portuguese names to strategy codes
 const NAME_TO_CODE_MAPPING = {};
@@ -58,6 +65,29 @@ const ComparativeResultsDisplay = ({
   useColorblindFriendly = false,
   onStrategyUpdate = null
 }) => {
+  return (
+    <AnnotationMenuProvider>
+      <ComparativeResultsContent
+        analysisResult={analysisResult}
+        onExport={onExport}
+        isExporting={isExporting}
+        className={className}
+        useColorblindFriendly={useColorblindFriendly}
+        onStrategyUpdate={onStrategyUpdate}
+      />
+    </AnnotationMenuProvider>
+  );
+};
+
+const ComparativeResultsContent = ({
+  analysisResult,
+  onExport = () => {},
+  isExporting = false,
+  className = "",
+  useColorblindFriendly = false,
+  onStrategyUpdate = null
+}) => {
+  const { showCircularMenu } = useAnnotationMenu();
   const [activeSection, setActiveSection] = useState('overview');
   const [isLocalExporting, setIsLocalExporting] = useState(false);
   const [expandedSections, setExpandedSections] = useState({
@@ -122,7 +152,9 @@ const ComparativeResultsDisplay = ({
         isAutomatic: true,
         // Include backend-provided position data
         targetPosition: strategy.targetPosition,
-        sourcePosition: strategy.sourcePosition
+        sourcePosition: strategy.sourcePosition,
+        // Include target_offsets for text highlighting
+        target_offsets: strategy.target_offsets
       };
     }) || [];
 
@@ -133,9 +165,13 @@ const ComparativeResultsDisplay = ({
         console.log(`Strategy ${index + 1}: ${strategy.code} - ${strategy.name}`);
         console.log(`  Position data:`, {
           targetPosition: strategy.targetPosition,
-          sourcePosition: strategy.sourcePosition
+          sourcePosition: strategy.sourcePosition,
+          target_offsets: strategy.target_offsets
         });
+        console.log(`  target_offsets format:`, typeof strategy.target_offsets, strategy.target_offsets);
       });
+    } else {
+      console.log('⚠️ No strategies detected in analysisResult:', analysisResult?.simplification_strategies);
     }
 
     return strategies;
@@ -505,6 +541,46 @@ const ComparativeResultsDisplay = ({
     );
   };
 
+  // Handler for annotation menu activation
+  const handleMarkerActivate = useCallback((strategyId, element, idx) => {
+    // Handle both calling conventions: (id, element) and (id, element, idx)
+    if (!element || !showCircularMenu) return;
+    
+    console.log('🎯 Menu activation for strategy:', strategyId, 'element:', element);
+    
+    // Find the strategy data for this marker - look in strategiesDetected, not analysisResult.strategies
+    const strategy = strategiesDetected?.find(s => s.id === strategyId);
+    if (!strategy) {
+      console.warn('Strategy not found for ID:', strategyId);
+      return;
+    }
+    
+    // Get element position for menu positioning
+    const rect = element.getBoundingClientRect();
+    const position = {
+      top: rect.top + window.scrollY,
+      left: rect.left + window.scrollX,
+      width: rect.width,
+      height: rect.height
+    };
+    
+    // Create annotation context for the menu
+    const annotation = {
+      id: strategyId,
+      tagType: strategy.code,
+      text: strategy.name || element.textContent,
+      element: element,
+      range: null, // Will be populated if needed for editing
+      confidence: strategy.confidence,
+      evidence: strategy.evidence
+    };
+    
+    // Show the circular menu
+    showCircularMenu(annotation, position, element);
+    
+    console.log('✅ Circular menu activated for:', strategy.code, strategy.name);
+  }, [strategiesDetected, showCircularMenu]);
+
   return (
     <div className={`space-y-6 ${className}`}>
       {/* Header */}
@@ -694,7 +770,7 @@ const ComparativeResultsDisplay = ({
                 </div>
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto">
                   <div className="text-sm text-gray-700 font-sans leading-relaxed">
-                    {highlightText(analysisResult.source_text || analysisResult.sourceText, false, 0)}
+                    {analysisResult.source_text || analysisResult.sourceText}
                   </div>
                 </div>
               </div>
@@ -709,12 +785,31 @@ const ComparativeResultsDisplay = ({
                   </span>
                 </div>
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4 max-h-96 overflow-y-auto">
-                  {highlightText(analysisResult.target_text || analysisResult.targetText, true, 0)}
+                  {/* Phase 2a superscript layer (handles all text rendering) */}
+                  <div className="superscript-layer-wrapper">
+                    <TextSelectionHandler disabled={false}>
+                      <StrategySuperscriptRenderer
+                        targetText={analysisResult?.target_text || analysisResult?.targetText || ''}
+                        strategies={strategiesDetected.map(s => ({
+                          strategy_id: s.strategy_id || s.id,
+                          code: s.code,
+                          status: s.status,
+                          original_code: s.original_code,
+                          origin: s.origin,
+                          target_offsets: s.target_offsets,
+                          confidence: s.confidence,
+                          evidence: s.evidence
+                        }))}
+                        onMarkerActivate={handleMarkerActivate}
+                      />
+                    </TextSelectionHandler>
+                  </div>
                 </div>
                 {strategiesDetected.length > 0 && (
-                  <div className="text-xs text-gray-600 bg-blue-50 p-2 rounded">
-                    💡 As tags coloridas [{'{'}código{'}'}] indicam onde as estratégias foram detectadas.
-                    Selecione texto para adicionar estratégias manuais.
+                  <div className="text-xs text-gray-600 bg-blue-50 p-2 rounded space-y-1">
+                    <div>💡 As tags coloridas [{'{'}código{'}'}] indicam onde as estratégias foram detectadas.</div>
+                    <div>📝 <strong>Selecione texto sem anotações</strong> para adicionar novas estratégias manuais.</div>
+                    <div className="text-amber-700">⚠️ Não é possível anotar texto que já possui estratégias existentes.</div>
                   </div>
                 )}
               </div>
@@ -903,6 +998,10 @@ const ComparativeResultsDisplay = ({
       
       {/* Tooltip for strategy hover */}
       {renderTooltip()}
+      
+      {/* Interactive Menu Components */}
+      <CircularContextMenu />
+      <HierarchicalStrategyMenu />
     </div>
   );
 };

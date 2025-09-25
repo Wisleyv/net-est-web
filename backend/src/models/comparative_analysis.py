@@ -107,6 +107,7 @@ class SimplificationStrategy(BaseModel):
     color: Optional[str] = Field(None, description="Hex color code for UI highlighting")
     targetPosition: Optional[Dict[str, Any]] = Field(None, description="Position in target text")
     sourcePosition: Optional[Dict[str, Any]] = Field(None, description="Position in source text")
+    target_offsets: Optional[List[Dict[str, int]]] = Field(None, description="Character-level boundaries for text highlighting [{'start': int, 'end': int}]")
 
 
 class ReadabilityMetric(BaseModel):

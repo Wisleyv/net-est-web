@@ -59,6 +59,15 @@ class Settings(BaseSettings):
     MAX_WORDS_LIMIT: int = 2000
     MAX_FILE_SIZE_MB: int = 10
 
+    # Persistence configuration
+    PERSISTENCE_BACKEND: str | None = None
+    ENABLE_DUAL_WRITE: bool = False
+    ENABLE_FS_FALLBACK: bool = False
+    SQLITE_DB_PATH: str = "data/annotations.sqlite3"
+
+    # Feature toggles (service-level fallbacks)
+    DEFAULT_HIERARCHICAL_OUTPUT: bool = True
+
     # Strategy Detection Configuration
     STRATEGY_DETECTION_MODE: str = "complete"  # "complete" or "performance"
     MAX_SENTENCES_FOR_PERFORMANCE: int = 5  # Only used in performance mode
