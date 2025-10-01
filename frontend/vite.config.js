@@ -7,7 +7,14 @@ export default defineConfig({
   server: {
     port: 5173,
     host: 'localhost',
-    strictPort: false
+    strictPort: true,
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+        secure: false,
+      }
+    }
   },
   define: {
     'process.env': process.env
@@ -15,6 +22,10 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsDir: 'assets'
+  },
+  test: {
+    environment: 'jsdom',
+    exclude: ['tests/e2e/**', 'node_modules/**', 'dist/**']
   }
 })
 

@@ -112,6 +112,24 @@ Se ainda houver problemas:
 - `start_server.py`: Script Python backup simples  
 - `diagnose_fixed.py`: Diagnóstico completo do ambiente
 
+### Integração com VS Code (tasks.json)
+- A tarefa **Start Backend Server** do VS Code executa `scripts/process/start-backend.ps1`, que invoca `backend/start_optimized.py`. Portanto, iniciar pelo atalho do VS Code ou pelo comando manual `python -X utf8 backend\start_optimized.py` aciona o mesmo backend consolidado.
+- Se a saída indicar `⚠️  Porta 8000 ocupada, usando 8080`, significa que um processo órfão reteve a porta principal. Use as tarefas **Stop Backend Server** ou **Stop All Servers** para encerrá-lo, e, se necessário, rode `Inspect Ports` ou `List Backend Processes` para localizar o PID antes de tentar de novo.
+- Para depuração com log persistente, execute manualmente:
+  ```powershell
+  python -X utf8 backend\start_optimized.py 2>&1 | Tee-Object -FilePath backend\upload_debug.log
+  ```
+  Esse comando é compatível com a tarefa e garante logs UTF-8 sem perdas de caracteres quando precisar anexar evidências.
+- Confirme que o backend correto respondeu procurando linhas como `Processing file upload` e `Comparative analysis completed` na saída (ou no arquivo de log). A ausência dessas linhas sugere que o fluxo HTTP não chegou ao endpoint esperado.
+
+#### Tratamento para processos "fantasmas" do Uvicorn
+- O `start_optimized.py` roda o Uvicorn com `reload=True`. Nessa configuração o WatchFiles cria **dois** processos: o *reloader* (exibe `Started reloader process [PID]`) e o *server worker* (exibe `Started server process [PID]`). Apenas o worker escuta na porta 8000; se ele for morto sozinho o reloader imediatamente cria outro worker, mantendo a porta ocupada.
+- O script `kill_backend_8000.ps1` foi atualizado para:
+  - Descobrir o worker escutando na porta 8000 e percorrer a cadeia de processos pais (`watchfiles`, `uvicorn`, `start_optimized`),
+  - Encerrar os pais primeiro (impedindo respawns) e depois o worker,
+  - Validar se a porta foi liberada; se não, avisar explicitamente para usar o Gerenciador de Tarefas.
+- Caso você tenha sessões Python adicionais (ex.: notebooks ou depuradores) que também executam `uvicorn` ou `watchfiles`, eles serão listados no processo pai. Confirme o comando exibido antes de aceitar o encerramento.
+
 ---
 
 ## ✅ Consolidação Final Aplicada
@@ -142,3 +160,13 @@ backend/
 ├── diagnose_fixed.py       # 🔍 Diagnóstico
 └── requirements.txt        # Dependências
 ```
+
+## Plano de acompanhamento
+- **Monitoramento**: após executar `Stop Backend Server` ou `Stop All Servers`, observe a saída do `kill_backend_8000.ps1`. Caso ainda haja PIDs escutando na porta, abra o Gerenciador de Tarefas (`Ctrl+Shift+Esc`) e finalize manualmente qualquer `python.exe` cujo comando exibido contenha `uvicorn`, `watchfiles` ou `src.main:app`.
+- **Automação**: se o hot reload não for imprescindível na sessão atual, considere definir `RELOAD=False` via `.env` ou `Settings`. Isso evita o processo reloader e reduz a chance de retenção da porta 8000.
+- **Telemetria leve**: planeje um hook futuro (por exemplo, log estruturado ao término do `kill_backend_8000.ps1`) para registrar quando processos órfãos forem encontrados, facilitando a identificação de padrões ou conflitos com depuradores externos.
+- **Revisão periódica**: inclua a checagem dos scripts `start-backend.ps1` e `kill_backend_8000.ps1` na governança de releases; qualquer mudança no `start_optimized.py` deve ser refletida neles para manter o comportamento sincronizado.
+
+/*
+Desenvolvido com ❤️ pelo Núcleo de Estudos de Tradução - PIPGLA/UFRJ | Contém código assistido por IA
+*/

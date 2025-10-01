@@ -16,16 +16,32 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 try:
     from core.config import Settings
     settings = Settings()
+    # Allow environment variable override for reload behavior
+    reload_env = os.getenv("UVICORN_RELOAD", "").lower()
+    if reload_env in ("true", "1", "yes"):
+        settings.RELOAD = True
+    elif reload_env in ("false", "0", "no"):
+        settings.RELOAD = False
+    # else: use settings.RELOAD from config
 except ImportError:
     # Fallback configuration if imports fail
-    print("⚠️ Não foi possível carregar configurações do .env, usando valores padrão")
+    print("⚠️ Configurações do .env não encontradas")
+
     class FallbackSettings:
-        HOST = "127.0.0.1"
-        PORT = 8000
-        FALLBACK_PORT = 8080
-        RELOAD = True
-        LOG_LEVEL = "INFO"
+        def __init__(self):
+            self.HOST = "127.0.0.1"
+            self.PORT = 8000
+            self.FALLBACK_PORT = 8080
+            self.LOG_LEVEL = "INFO"
+            # Check environment variable for reload preference
+            reload_env = os.getenv("UVICORN_RELOAD", "").lower()
+            if reload_env in ("false", "0", "no"):
+                self.RELOAD = False
+            else:
+                self.RELOAD = True  # default
+
     settings = FallbackSettings()
+
 
 def test_port(host, port):
     """Testa se uma porta está disponível"""
@@ -37,6 +53,7 @@ def test_port(host, port):
         return True
     except (socket.error, OSError):
         return False
+
 
 def get_available_port():
     """Retorna uma porta disponível com fallback inteligente"""
@@ -51,8 +68,11 @@ def get_available_port():
         print(f"⚠️  Porta {primary_port} ocupada, usando {fallback_port}")
         return fallback_port
     else:
-        print(f"❌ Ambas as portas ({primary_port}, {fallback_port}) estão ocupadas")
+        print(
+            f"❌ Portas {primary_port} e {fallback_port} ocupadas"
+        )
         return None
+
 
 def main():
     """Função principal de inicialização"""
@@ -77,8 +97,7 @@ def main():
     print("🛑 Para parar: Ctrl+C")
     print("-" * 55)
     
-    # Iniciar servidor com path absoluto
-    app_path = f"{script_dir}/src/main:app"
+    # Iniciar servidor
     uvicorn.run(
         "src.main:app",
         host=settings.HOST,
@@ -86,6 +105,7 @@ def main():
         reload=settings.RELOAD,
         log_level=settings.LOG_LEVEL.lower()
     )
+
 
 if __name__ == "__main__":
     try:
