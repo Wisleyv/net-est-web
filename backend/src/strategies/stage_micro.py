@@ -125,15 +125,8 @@ class MicroStageEvaluator:
                     confidence = min(0.9, 0.5 + float(delta))
                     if confidence >= threshold:
                         impact = "alto" if delta > 0.15 else "médio"
-                        positions = []
-                        src_sentences = self._split_into_sentences(source_text)
-                        if src_sentences:
-                            num_positions = min(2, len(src_sentences))
-                            for i in range(num_positions):
-                                sentence_idx = min(i * 2, len(src_sentences) - 1)
-                                char_start = sum(len(s) + 1 for s in src_sentences[:sentence_idx])
-                                char_end = char_start + len(src_sentences[sentence_idx])
-                                positions.append((char_start, char_end))
+                        sentence_spans = self._get_sentence_spans(target_text)
+                        positions = self._select_distributed_spans(sentence_spans, 2)
 
                         return StrategyEvidence(
                             strategy_code='SL+',
@@ -176,15 +169,8 @@ class MicroStageEvaluator:
             impact = "alto" if reduction_ratio > 0.15 else "médio"
 
             # Calculate positions using a simple distribution approach
-            positions = []
-            src_sentences = self._split_into_sentences(source_text)
-            if src_sentences:
-                num_positions = min(2, len(src_sentences))
-                for i in range(num_positions):
-                    sentence_idx = min(i * 2, len(src_sentences) - 1)
-                    char_start = sum(len(s) + 1 for s in src_sentences[:sentence_idx])
-                    char_end = char_start + len(src_sentences[sentence_idx])
-                    positions.append((char_start, char_end))
+            sentence_spans = self._get_sentence_spans(target_text)
+            positions = self._select_distributed_spans(sentence_spans, 2)
 
             return StrategyEvidence(
                 strategy_code='SL+',
@@ -273,11 +259,83 @@ class MicroStageEvaluator:
         """Split text into sentences"""
         if self.nlp:
             doc = self.nlp(text)
-            return [sent.text.strip() for sent in doc.sents if sent.text.strip()]
+            sentences = [sent.text.strip() for sent in doc.sents if sent.text.strip()]
+            if not sentences and text.strip():
+                sentences = [text.strip()]
+            return sentences
         else:
             import re
-            sentences = re.split(r'[.!?]+\s+', text)
-            return [s.strip() for s in sentences if s.strip()]
+            text = text.replace('\n\n', ' [PARA] ')
+            text = text.replace('\n', ' ')
+            sentences = re.split(r'(?<=[.!?])\s+', text)
+            sentences = [s.strip() for s in sentences if s.strip()]
+            sentences = [s.replace(' [PARA] ', '\n\n') for s in sentences]
+            if not sentences and text.strip():
+                sentences = [text.strip()]
+            return sentences
+
+    def _get_sentence_spans(self, text: str) -> List[Dict[str, Any]]:
+        """Return sentence texts with character spans for the target text."""
+        if not text:
+            return []
+
+        if self.nlp:
+            doc = self.nlp(text)
+            spans: List[Dict[str, Any]] = []
+            for sent in doc.sents:
+                content = sent.text.strip()
+                if not content:
+                    continue
+                start = sent.start_char
+                end = sent.end_char
+                while start < end and text[start].isspace():
+                    start += 1
+                while end > start and text[end - 1].isspace():
+                    end -= 1
+                spans.append({"text": content, "start": start, "end": end})
+            if not spans:
+                trimmed = text.strip()
+                if trimmed:
+                    start = text.find(trimmed)
+                    spans.append({"text": trimmed, "start": start, "end": start + len(trimmed)})
+            return spans
+
+        import re
+
+        pattern = re.compile(r'[^.!?]+(?:[.!?]+|$)', re.MULTILINE | re.DOTALL)
+        spans: List[Dict[str, Any]] = []
+        for match in pattern.finditer(text):
+            fragment = match.group(0)
+            stripped = fragment.strip()
+            if not stripped:
+                continue
+            start = match.start()
+            end = match.end()
+            while start < end and text[start].isspace():
+                start += 1
+            while end > start and text[end - 1].isspace():
+                end -= 1
+            spans.append({"text": stripped, "start": start, "end": end})
+
+        if not spans:
+            trimmed = text.strip()
+            if trimmed:
+                start = text.find(trimmed)
+                spans.append({"text": trimmed, "start": start, "end": start + len(trimmed)})
+        return spans
+
+    @staticmethod
+    def _select_distributed_spans(spans: List[Dict[str, Any]], max_segments: int) -> List[Tuple[int, int]]:
+        if not spans or max_segments <= 0:
+            return []
+        count = min(max_segments, len(spans))
+        step = max(1, len(spans) // count)
+        selected: List[Tuple[int, int]] = []
+        for i in range(count):
+            idx = min(i * step, len(spans) - 1)
+            span = spans[idx]
+            selected.append((span['start'], span['end']))
+        return selected
 
     def _tokenize_text(self, text: str) -> List[str]:
         """Tokenize text into words"""

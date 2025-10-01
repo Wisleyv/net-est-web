@@ -1,0 +1,447 @@
+/**
+ * HierarchicalStrategyMenu.css - Styles for hierarchical strategy selection menu
+ * 
+ * 6-category organized layout with search, expansion, and accessibility support.
+ * Follows material design principles with accessible color contrast and animations.
+ */
+
+/* Menu container and positioning */
+.hierarchical-strategy-menu-wrapper {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: auto;
+}
+
+.hierarchical-strategy-menu {
+  width: 320px;
+  max-height: 500px;
+  min-width: 280px; /* Minimum width for narrow screens */
+  background: var(--menu-bg, #ffffff);
+  border: 1px solid var(--menu-border, #e2e8f0);
+  border-radius: 12px;
+  box-shadow: 
+    0 10px 25px rgba(0, 0, 0, 0.15),
+    0 4px 8px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  
+  /* Responsive behavior */
+  max-width: calc(100vw - 40px); /* Ensure space from viewport edges */
+  max-height: calc(100vh - 40px); /* Ensure space from viewport edges */
+}
+
+/* Menu header with title and search */
+.menu-header {
+  flex-shrink: 0; /* Never shrink header */
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  background: var(--header-bg, #f8fafc);
+}
+
+.menu-title {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary, #1a202c);
+}
+
+.selected-text-preview {
+  margin-bottom: 12px;
+  padding: 8px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.preview-label {
+  display: block;
+  font-weight: 600;
+  color: var(--text-secondary, #64748b);
+  margin-bottom: 4px;
+}
+
+.preview-text {
+  display: block;
+  color: var(--text-primary, #1a202c);
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.search-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-secondary, #64748b);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px 12px 8px 36px;
+  border: 1px solid var(--input-border, #cbd5e1);
+  border-radius: 6px;
+  background: var(--input-bg, #ffffff);
+  color: var(--text-primary, #1a202c);
+  font-size: 14px;
+  transition: all 0.15s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--focus-color, #3b82f6);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.search-input::placeholder {
+  color: var(--text-tertiary, #94a3b8);
+}
+
+/* Menu content and scrolling */
+.menu-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+  min-height: 0; /* Allow flex child to shrink */
+  /* Remove fixed max-height - let it use available space */
+}
+
+/* Strategy category styling */
+.strategy-category {
+  margin-bottom: 4px;
+}
+
+.category-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  color: var(--text-primary, #1a202c);
+  font-weight: 500;
+}
+
+.category-header:hover {
+  background: var(--hover-bg, #f1f5f9);
+}
+
+.category-header:focus {
+  outline: 2px solid var(--focus-color, #3b82f6);
+  outline-offset: -2px;
+}
+
+.category-icon {
+  font-size: 18px;
+  min-width: 24px;
+  text-align: center;
+}
+
+.category-label {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.strategy-count {
+  font-size: 12px;
+  color: var(--text-secondary, #64748b);
+  font-weight: normal;
+}
+
+.expand-icon {
+  color: var(--text-secondary, #64748b);
+  transition: transform 0.2s ease;
+}
+
+.category-header[aria-expanded="true"] .expand-icon {
+  transform: rotate(0deg);
+}
+
+/* Category strategies container */
+.category-strategies {
+  padding-left: 16px;
+  background: var(--category-bg, #fafafa);
+  border-left: 2px solid var(--category-border, #e2e8f0);
+  margin-left: 16px;
+}
+
+/* Individual strategy item */
+.strategy-item {
+  width: 100%;
+  display: block;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border-radius: 6px;
+  margin: 2px 8px;
+}
+
+.strategy-item:hover {
+  background: var(--strategy-hover-bg, #f0f4f8);
+}
+
+.strategy-item:focus {
+  outline: 2px solid var(--focus-color, #3b82f6);
+  outline-offset: 2px;
+}
+
+.strategy-item.selected {
+  background: var(--selected-bg, #dbeafe);
+  border: 1px solid var(--selected-border, #3b82f6);
+}
+
+.strategy-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.strategy-color-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+}
+
+.strategy-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.strategy-full-label {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  line-height: 1.3;
+}
+
+.strategy-code {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary-color, #3b82f6);
+  flex-shrink: 0;
+}
+
+.strategy-separator {
+  /* Visual separator between code and name - using space */
+  flex-shrink: 0;
+}
+
+.strategy-name {
+  font-size: 13px;
+  color: var(--text-primary, #1a202c);
+  font-weight: 500;
+  flex: 1;
+}
+
+.selection-indicator {
+  color: var(--success-color, #10b981);
+  flex-shrink: 0;
+}
+
+.strategy-description {
+  font-size: 11px;
+  color: var(--text-secondary, #64748b);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+/* No strategies message */
+.no-strategies {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-secondary, #64748b);
+  font-size: 13px;
+  font-style: italic;
+}
+
+/* Menu actions footer */
+.menu-actions {
+  flex-shrink: 0; /* Never shrink footer */
+  border-top: 1px solid var(--border-color, #e2e8f0);
+  background: var(--footer-bg, #f8fafc);
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+}
+
+.action-button {
+  flex: 1;
+  padding: 8px 16px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.action-button.secondary {
+  background: transparent;
+  color: var(--text-secondary, #64748b);
+  border-color: var(--border-color, #e2e8f0);
+}
+
+.action-button.secondary:hover {
+  background: var(--hover-bg, #f1f5f9);
+  color: var(--text-primary, #1a202c);
+}
+
+.action-button.primary {
+  background: var(--primary-color, #3b82f6);
+  color: white;
+}
+
+.action-button.primary:hover:not(:disabled) {
+  background: var(--primary-hover, #2563eb);
+}
+
+.action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-button:focus {
+  outline: 2px solid var(--focus-color, #3b82f6);
+  outline-offset: 2px;
+}
+
+/* Scrollbar styling */
+.menu-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.menu-content::-webkit-scrollbar-track {
+  background: var(--scrollbar-track, #f1f5f9);
+  border-radius: 3px;
+}
+
+.menu-content::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb, #cbd5e1);
+  border-radius: 3px;
+}
+
+.menu-content::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover, #94a3b8);
+}
+
+/* Dark theme support */
+@media (prefers-color-scheme: dark) {
+  .hierarchical-strategy-menu {
+    --menu-bg: #1f2937;
+    --menu-border: #374151;
+    --header-bg: #111827;
+    --text-primary: #f9fafb;
+    --text-secondary: #d1d5db;
+    --text-tertiary: #9ca3af;
+    --border-color: #374151;
+    --input-bg: #374151;
+    --input-border: #4b5563;
+    --hover-bg: #374151;
+    --category-bg: #111827;
+    --category-border: #4b5563;
+    --strategy-hover-bg: #374151;
+    --selected-bg: #1e40af;
+    --selected-border: #3b82f6;
+    --footer-bg: #111827;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .hierarchical-strategy-menu {
+    border-width: 2px;
+    box-shadow: none;
+  }
+  
+  .strategy-item.selected {
+    border-width: 2px;
+  }
+  
+  .action-button {
+    border-width: 2px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .hierarchical-strategy-menu *,
+  .hierarchical-strategy-menu *::before,
+  .hierarchical-strategy-menu *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 768px) {
+  .hierarchical-strategy-menu {
+    width: 280px;
+    max-height: 400px;
+  }
+  
+  .menu-header {
+    padding: 12px;
+  }
+  
+  .strategy-item {
+    padding: 8px 12px;
+  }
+  
+  .action-buttons {
+    padding: 10px 12px;
+  }
+}
+
+/* Animation for menu appearance */
+@keyframes hierarchicalMenuAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.hierarchical-strategy-menu {
+  animation: hierarchicalMenuAppear 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Screen reader only content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

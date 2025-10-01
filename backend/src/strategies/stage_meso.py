@@ -137,7 +137,9 @@ class MesoStageEvaluator:
     def _evaluate_sentence_fragmentation(self, features: StrategyFeatures, source_text: str, target_text: str, threshold: float = 0.60) -> Optional[StrategyEvidence]:
         """RP+ - Sentence Fragmentation - Enhanced semantic sentence fragmentation detection"""
         src_sentences = self._split_into_sentences(source_text)
-        tgt_sentences = self._split_into_sentences(target_text)
+        tgt_sentence_spans = self._get_sentence_spans(target_text)
+        tgt_sentences = [span['text'] for span in tgt_sentence_spans]
+        span_lookup = self._build_span_lookup(tgt_sentence_spans)
 
         if not src_sentences or not tgt_sentences:
             return None
@@ -152,6 +154,7 @@ class MesoStageEvaluator:
             return None
 
         fragmentation_evidence = []
+        fragment_positions: List[Tuple[int, int]] = []
 
         # Look for source sentences that were broken into multiple target sentences
         # Process ALL sentences of reasonable length for complete analysis
@@ -200,6 +203,11 @@ class MesoStageEvaluator:
                 # Sort by similarity and combine top matches
                 related_targets.sort(key=lambda x: x[1], reverse=True)
                 top_fragments = [rt[0] for rt in related_targets[:3]]
+
+                for frag in top_fragments:
+                    span = self._consume_span(span_lookup, frag)
+                    if span:
+                        fragment_positions.append(span)
 
                 fragmentation_evidence.append({
                     "original": src_sent[:100] + "..." if len(src_sent) > 100 else src_sent,
@@ -258,24 +266,7 @@ class MesoStageEvaluator:
 
                 # Calculate positions using a simple distribution approach
                 # This ensures strategies are spread across the text instead of clustering at position 0
-                positions = []
-                src_sentences = self._split_into_sentences(source_text)
-
-                # Distribute positions across different sentences based on evidence count
-                num_evidences = len(fragmentation_evidence[:3])
-                if num_evidences > 0 and src_sentences:
-                    # Calculate step size to distribute across available sentences
-                    step = max(1, len(src_sentences) // num_evidences)
-
-                    for i in range(num_evidences):
-                        # Calculate sentence index with distribution
-                        sentence_idx = min(i * step, len(src_sentences) - 1)
-
-                        # Convert to character positions
-                        if sentence_idx < len(src_sentences):
-                            char_start = sum(len(s) + 1 for s in src_sentences[:sentence_idx])
-                            char_end = char_start + len(src_sentences[sentence_idx])
-                            positions.append((char_start, char_end))
+                positions = fragment_positions[:3]
 
                 return StrategyEvidence(
                     strategy_code='RP+',
@@ -295,7 +286,9 @@ class MesoStageEvaluator:
 
         # Pattern 1: Sentence-level word order changes
         src_sentences = self._split_into_sentences(source_text)
-        tgt_sentences = self._split_into_sentences(target_text)
+        tgt_sentence_spans = self._get_sentence_spans(target_text)
+        tgt_sentences = [span['text'] for span in tgt_sentence_spans]
+        span_lookup = self._build_span_lookup(tgt_sentence_spans)
 
         if len(src_sentences) != len(tgt_sentences):
             return None  # DL+ requires same number of sentences with different order
@@ -332,7 +325,8 @@ class MesoStageEvaluator:
                     "original": src_sent[:80] + ("..." if len(src_sent) > 80 else ""),
                     "simplified": tgt_sent[:80] + ("..." if len(tgt_sent) > 80 else ""),
                     "word_order_diff": word_order_diff,
-                    "similarity": similarity
+                    "similarity": similarity,
+                    "target_sentence": tgt_sent
                 })
 
         if sentence_reorderings > 0:
@@ -365,18 +359,16 @@ class MesoStageEvaluator:
                 impact = "alto" if len(reorganization_evidence) > 2 else "médio"
 
                 # Calculate positions for reorganization detections
-                positions = []
-                src_sentences = self._split_into_sentences(source_text)
-                tgt_sentences = self._split_into_sentences(target_text)
-
-                # Add positions for sentence-level reorganizations
+                positions: List[Tuple[int, int]] = []
                 for evidence in reorganization_evidence[:3]:
-                    if evidence.get("type") == "sentence_reordering":
-                        # Find the sentence position
-                        for i, src_sent in enumerate(src_sentences):
-                            if evidence["original"].replace("...", "").strip() in src_sent:
-                                positions.append((i * 100, (i + 1) * 100))  # Approximate character range
-                                break
+                    if evidence.get("type") != "sentence_reordering":
+                        continue
+                    candidate = evidence.get("target_sentence") or evidence.get("simplified")
+                    span = self._consume_span(span_lookup, candidate) if candidate else None
+                    if not span and candidate:
+                        span = self._find_substring_span(target_text, candidate)
+                    if span:
+                        positions.append(span)
 
                 return StrategyEvidence(
                     strategy_code='DL+',
@@ -410,7 +402,9 @@ class MesoStageEvaluator:
 
         # Pattern 2: Sentence-level perspective reinterpretation
         src_sentences = self._split_into_sentences(source_text)
-        tgt_sentences = self._split_into_sentences(target_text)
+        tgt_sentence_spans = self._get_sentence_spans(target_text)
+        tgt_sentences = [span['text'] for span in tgt_sentence_spans]
+        span_lookup = self._build_span_lookup(tgt_sentence_spans)
 
         if len(src_sentences) == len(tgt_sentences):  # MOD+ typically maintains sentence count
             sentence_reinterpretations = self._detect_perspective_shifts(src_sentences, tgt_sentences)
@@ -421,7 +415,8 @@ class MesoStageEvaluator:
                         "original": reinterpretation['source'],
                         "simplified": reinterpretation['target'],
                         "similarity": reinterpretation['semantic_similarity'],
-                        "word_overlap": reinterpretation['word_overlap']
+                        "word_overlap": reinterpretation['word_overlap'],
+                        "target_sentence": reinterpretation['target']
                     })
                 confidence_factors.append(0.8)
 
@@ -439,18 +434,16 @@ class MesoStageEvaluator:
                 impact = "alto" if len(perspective_evidence) > 1 else "médio"
 
                 # Calculate positions for perspective shifts
-                positions = []
-                src_sentences = self._split_into_sentences(source_text)
-                tgt_sentences = self._split_into_sentences(target_text)
-
-                # Add positions for sentence-level perspective shifts
+                positions: List[Tuple[int, int]] = []
                 for evidence in perspective_evidence[:3]:
-                    if evidence.get("type") == "sentence_perspective_shift":
-                        # Find the sentence position
-                        for i, src_sent in enumerate(src_sentences):
-                            if evidence["original"].replace("...", "").strip() in src_sent:
-                                positions.append((i * 100, (i + 1) * 100))  # Approximate character range
-                                break
+                    candidate = evidence.get("target_sentence") or evidence.get("simplified")
+                    span = self._consume_span(span_lookup, candidate) if candidate else None
+                    if not span and candidate:
+                        span = self._find_substring_span(target_text, candidate)
+                    if span:
+                        positions.append(span)
+                if not positions and target_text:
+                    positions.append((0, len(target_text)))
 
                 return StrategyEvidence(
                     strategy_code='MOD+',
@@ -643,6 +636,92 @@ class MesoStageEvaluator:
 
             self.logger.debug(f"Regex sentence splitting: {len(sentences)} sentences detected")
             return sentences
+
+    def _get_sentence_spans(self, text: str) -> List[Dict[str, Any]]:
+        """Return sentence texts with their character spans in the original text."""
+        if not text:
+            return []
+
+        if self.nlp:
+            doc = self.nlp(text)
+            spans = []
+            for sent in doc.sents:
+                sentence_text = sent.text.strip()
+                if not sentence_text:
+                    continue
+                start = sent.start_char
+                end = sent.end_char
+                # Trim whitespace to align with displayed text
+                while start < end and text[start].isspace():
+                    start += 1
+                while end > start and text[end - 1].isspace():
+                    end -= 1
+                spans.append({"text": sentence_text, "start": start, "end": end})
+            if not spans:
+                trimmed = text.strip()
+                if trimmed:
+                    start = text.find(trimmed)
+                    spans.append({"text": trimmed, "start": start, "end": start + len(trimmed)})
+            return spans
+
+        import re
+
+        pattern = re.compile(r'[^.!?]+(?:[.!?]+|$)', re.MULTILINE | re.DOTALL)
+        spans: List[Dict[str, Any]] = []
+        for match in pattern.finditer(text):
+            segment = match.group(0)
+            stripped = segment.strip()
+            if not stripped:
+                continue
+            start = match.start()
+            end = match.end()
+            # Adjust to remove leading/trailing whitespace
+            while start < end and text[start].isspace():
+                start += 1
+            while end > start and text[end - 1].isspace():
+                end -= 1
+            spans.append({"text": stripped, "start": start, "end": end})
+
+        if not spans:
+            trimmed = text.strip()
+            if trimmed:
+                start = text.find(trimmed)
+                spans.append({"text": trimmed, "start": start, "end": start + len(trimmed)})
+        return spans
+
+    @staticmethod
+    def _build_span_lookup(spans: List[Dict[str, Any]]) -> Dict[str, List[Tuple[int, int]]]:
+        lookup: Dict[str, List[Tuple[int, int]]] = {}
+        for span in spans:
+            key = span["text"]
+            lookup.setdefault(key, []).append((span["start"], span["end"]))
+        return lookup
+
+    @staticmethod
+    def _consume_span(lookup: Dict[str, List[Tuple[int, int]]], text: str) -> Optional[Tuple[int, int]]:
+        if not text:
+            return None
+        key = text.strip()
+        if key not in lookup:
+            return None
+        if not lookup[key]:
+            return None
+        return lookup[key].pop(0)
+
+    @staticmethod
+    def _find_substring_span(text: str, snippet: str) -> Optional[Tuple[int, int]]:
+        if not text or not snippet:
+            return None
+        snippet_clean = snippet.strip()
+        if not snippet_clean:
+            return None
+        lower_text = text.lower()
+        lower_snippet = snippet_clean.lower()
+        start = lower_text.find(lower_snippet)
+        if start == -1:
+            return None
+        end = start + len(lower_snippet)
+        return (start, end)
 
     def _tokenize_text(self, text: str) -> List[str]:
         """Tokenize text into words"""

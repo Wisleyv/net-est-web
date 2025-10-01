@@ -116,6 +116,16 @@ export const comparativeAnalysisAPI = {
   }),
 };
 
+// Annotations API
+export const annotationsAPI = {
+  list: (sessionId) => api.get(`/api/v1/annotations/?session_id=${encodeURIComponent(sessionId)}`),
+  search: (sessionId, params) => api.get(`/api/v1/annotations/search`, { params: { session_id: sessionId, ...params } }),
+  patch: (annotationId, payload) => api.patch(`/api/v1/annotations/${annotationId}`, payload),
+  create: (payload) => api.post('/api/v1/annotations/', payload),
+  export: (sessionId, format = 'jsonl') => api.get(`/api/v1/annotations/export`, { params: { session_id: sessionId, format } }),
+  audit: (sessionId) => api.get(`/api/v1/annotations/audit`, { params: { session_id: sessionId } }),
+};
+
 export default api;
 
 /*

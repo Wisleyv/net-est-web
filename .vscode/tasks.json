@@ -1,0 +1,271 @@
+{
+	"version": "2.0.0",
+	"options": {
+		"shell": {
+			"executable": "pwsh",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-NoProfile"
+			]
+		}
+	},
+	"tasks": [
+		{
+			"label": "Start Backend Server",
+			"type": "process",
+			"command": "pwsh",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"scripts/process/start-backend.ps1"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": false
+			},
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "new"
+			},
+			"problemMatcher": {
+				"owner": "net-est-backend",
+				"fileLocation": "absolute",
+				"pattern": {
+					"regexp": "^(.*)$",
+					"file": 1
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "^INFO:\\s+Started reloader process|^INFO:\\s+Uvicorn running on",
+					"endsPattern": "Application startup complete"
+				}
+			},
+			"isBackground": true,
+			"detail": "Starts the backend server using start_optimized.py. See docs_dev/backend_windows_troubleshooting.md for process management details."
+		},
+		{
+			"label": "Stop Frontend Dev Server",
+			"type": "process",
+			"command": "pwsh",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"scripts/process/stop-frontend-server.ps1"
+			],
+			"group": "build",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Run Backend Tests",
+			"type": "process",
+			"command": "pwsh",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"Set-Location backend; if (Test-Path .venv_py312\\pyvenv.cfg) { & .\\.venv_py312\\Scripts\\python.exe -m pytest -q } else { python -m pytest -q }"
+			],
+			"group": "test",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared"
+			},
+			"problemMatcher": "$python"
+		},
+		{
+			"label": "Start Frontend Dev Server",
+			"type": "process",
+			"command": "pwsh",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"scripts/process/start-frontend.ps1"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "new"
+			},
+			"problemMatcher": {
+				"owner": "net-est-frontend",
+				"fileLocation": "absolute",
+				"pattern": {
+					"regexp": "^(.*)$",
+					"file": 1
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "VITE v|vite v",
+					"endsPattern": "Local:|ready in|Network:"
+				}
+			},
+			"isBackground": true
+		},
+		{
+			"label": "Build Frontend",
+			"type": "process",
+			"command": "npm",
+			"args": [
+				"run",
+				"build"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}/frontend"
+			},
+			"group": "build",
+			"presentation": {
+				"echo": true,
+				"reveal": "always"
+			},
+			"problemMatcher": [
+				"$tsc",
+				"$eslint-stylish"
+			]
+		},
+		{
+			"label": "Install Frontend Dependencies",
+			"type": "process",
+			"command": "npm",
+			"args": [
+				"install"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}/frontend"
+			},
+			"group": "build",
+			"presentation": {
+				"echo": true,
+				"reveal": "always"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Stop Backend Server",
+			"type": "process",
+			"command": "pwsh",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"scripts/process/stop-backend-server.ps1"
+			],
+			"group": "build",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared"
+			},
+			"problemMatcher": [],
+			"detail": "Stops the backend server by terminating the uvicorn process tree. See docs_dev/backend_windows_troubleshooting.md and docs_dev/kill_script_validation_report.md for details."
+		},
+		{
+			"label": "Stop All Servers",
+			"dependsOrder": "sequence",
+			"dependsOn": [
+				"Stop Frontend Dev Server",
+				"Stop Backend Server"
+			]
+		},
+		{
+			"label": "Inspect Ports",
+			"type": "process",
+			"command": "pwsh",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"inspect_ports.ps1"
+			],
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "List Backend Processes",
+			"type": "process",
+			"command": "pwsh",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"list_8000_cmdlines.ps1"
+			],
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Validate PowerShell Scripts",
+			"type": "process",
+			"command": "pwsh",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"tools/pwsh_validate.ps1"
+			],
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Run Frontend Tests",
+			"type": "process",
+			"command": "pwsh",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"scripts/process/run-frontend-tests.ps1"
+			],
+			"group": "test",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared"
+			}
+		}
+	]
+}

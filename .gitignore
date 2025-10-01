@@ -248,7 +248,9 @@ profile_default/
 ipython_config.py
 
 # VS Code
-.vscode/
+# Keep general VS Code artifacts ignored but explicitly track the authoritative tasks.json
+.vscode/*
+!/.vscode/tasks.json
 *.code-workspace
 
 # Arquivos do sistema

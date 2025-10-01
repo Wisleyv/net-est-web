@@ -307,7 +307,9 @@ class CascadeOrchestrator:
             evidence_quality=confidence_explanation.evidence_quality,
             # Add position information for frontend compatibility
             targetPosition=target_position,
-            sourcePosition=source_position
+            sourcePosition=source_position,
+            # Convert evidence positions to target_offsets for frontend highlighting
+            target_offsets=[{"start": pos[0], "end": pos[1]} for pos in evidence.positions] if evidence.positions else None
         )
 
     def _split_text_into_sentences(self, text: str) -> List[str]:

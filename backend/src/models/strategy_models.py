@@ -44,6 +44,11 @@ class SimplificationStrategy(BaseModel):
         None,
         description="Quality of evidence supporting this strategy detection"
     )
+    # Character-level position data for frontend highlighting
+    target_offsets: Optional[List[Dict[str, int]]] = Field(
+        None,
+        description="Character-level boundaries for text highlighting [{'start': int, 'end': int}]"
+    )
 
     # Backwards-compatible English aliases (read/write) used across tests and other modules.
     @property

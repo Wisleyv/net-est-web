@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // Components
 import EnhancedTextInput from './components/EnhancedTextInput';
 import AboutCredits from './components/AboutCredits';
+import AnnotationTimeline from './components/dashboard/AnnotationTimeline.jsx';
 
 // React Query client
 const queryClient = new QueryClient({
@@ -89,6 +90,8 @@ function MainApp() {
     switch (currentView) {
       case 'about':
         return <AboutCredits onBack={() => setCurrentView('input')} />;
+      case 'annotations':
+        return <AnnotationTimeline />;
       default:
         return (
           <EnhancedTextInput
@@ -148,7 +151,23 @@ function MainApp() {
                 transition: 'all 0.2s ease'
               }}
             >
-              � Análise de Textos
+              📄 Análise de Textos
+            </button>
+            <button
+              onClick={() => setCurrentView('annotations')}
+              style={{
+                padding: '0.625rem 1.25rem',
+                backgroundColor: currentView === 'annotations' ? '#3182ce' : '#e2e8f0',
+                color: currentView === 'annotations' ? 'white' : '#4a5568',
+                border: 'none',
+                borderRadius: '0.5rem',
+                cursor: 'pointer',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              📝 Anotações
             </button>
             <button
               onClick={() => setCurrentView('about')}

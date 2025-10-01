@@ -1,0 +1,321 @@
+/**
+ * CircularContextMenu.css - Styles for circular annotation context menu
+ * 
+ * 4-button circular layout with hover effects, animations, and accessibility
+ * support. Coordinates with pointer corridor for stable interactions.
+ */
+
+/* Menu container positioning and layout */
+.circular-context-menu-wrapper {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: auto;
+}
+
+.circular-context-menu {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: var(--menu-bg, #ffffff);
+  border: 2px solid var(--menu-border, #e2e8f0);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.15),
+    0 2px 4px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(8px);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: center;
+}
+
+.circular-context-menu.entering {
+  transform: scale(0.8);
+  opacity: 0;
+}
+
+.circular-context-menu.stable {
+  transform: scale(1);
+  opacity: 1;
+}
+
+/* Central tag indicator */
+.menu-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--tag-bg, #f1f5f9);
+  border: 1px solid var(--tag-border, #cbd5e1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--tag-text, #475569);
+  z-index: 2;
+}
+
+.menu-center-tag {
+  max-width: 24px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Action button positioning - circular layout */
+.menu-action {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menu-action-top {
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.menu-action-right {
+  right: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.menu-action-bottom {
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.menu-action-left {
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Circular menu buttons */
+.circular-menu-button {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid var(--button-border, #e2e8f0);
+  background: var(--button-bg, #ffffff);
+  color: var(--button-text, #374151);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.circular-menu-button:hover {
+  transform: scale(1.1);
+  background: var(--button-hover-bg, #f8fafc);
+  border-color: var(--button-hover-border, #cbd5e1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.circular-menu-button:focus {
+  outline: 2px solid var(--focus-color, #3b82f6);
+  outline-offset: 2px;
+  transform: scale(1.1);
+}
+
+.circular-menu-button:active {
+  transform: scale(0.95);
+}
+
+.circular-menu-button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* Button icons and text */
+.menu-button-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.menu-button-text {
+  font-size: 8px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  margin-top: 1px;
+}
+
+/* Action-specific button colors */
+.circular-menu-button.top {
+  /* Validate - Success colors */
+  --button-bg: #f0fdf4;
+  --button-border: #bbf7d0;
+  --button-text: #166534;
+  --button-hover-bg: #dcfce7;
+  --button-hover-border: #86efac;
+}
+
+.circular-menu-button.right {
+  /* Replace - Info colors */
+  --button-bg: #eff6ff;
+  --button-border: #bfdbfe;
+  --button-text: #1e40af;
+  --button-hover-bg: #dbeafe;
+  --button-hover-border: #93c5fd;
+}
+
+.circular-menu-button.bottom {
+  /* Delete - Danger colors */
+  --button-bg: #fef2f2;
+  --button-border: #fecaca;
+  --button-text: #dc2626;
+  --button-hover-bg: #fee2e2;
+  --button-hover-border: #f87171;
+}
+
+.circular-menu-button.left {
+  /* Edit Range - Warning colors */
+  --button-bg: #fffbeb;
+  --button-border: #fed7aa;
+  --button-text: #d97706;
+  --button-hover-bg: #fef3c7;
+  --button-hover-border: #fdba74;
+}
+
+/* Visual connection lines */
+.menu-connections {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Pointer corridor for hover stability */
+.menu-pointer-corridor {
+  background: transparent;
+  cursor: default;
+}
+
+/* Screen reader only content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .circular-context-menu {
+    border-width: 3px;
+    box-shadow: none;
+  }
+  
+  .circular-menu-button {
+    border-width: 3px;
+    box-shadow: none;
+  }
+  
+  .circular-menu-button:hover {
+    box-shadow: none;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .circular-context-menu,
+  .circular-menu-button {
+    transition: none;
+  }
+  
+  .circular-context-menu.entering {
+    transform: none;
+    opacity: 1;
+  }
+  
+  .circular-menu-button:hover {
+    transform: none;
+  }
+}
+
+/* Dark theme support */
+@media (prefers-color-scheme: dark) {
+  .circular-context-menu {
+    --menu-bg: #1f2937;
+    --menu-border: #374151;
+  }
+  
+  .menu-center {
+    --tag-bg: #374151;
+    --tag-border: #4b5563;
+    --tag-text: #d1d5db;
+  }
+  
+  .circular-menu-button {
+    --button-bg: #374151;
+    --button-border: #4b5563;
+    --button-text: #d1d5db;
+    --button-hover-bg: #4b5563;
+    --button-hover-border: #6b7280;
+  }
+}
+
+/* Focus indicator improvements for accessibility */
+.circular-menu-button:focus-visible {
+  outline: 3px solid var(--focus-color, #3b82f6);
+  outline-offset: 3px;
+}
+
+/* Animation for menu appearance */
+@keyframes menuAppear {
+  from {
+    transform: scale(0.8) translate(-50%, -50%);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translate(-50%, -50%);
+    opacity: 1;
+  }
+}
+
+.circular-context-menu.entering {
+  animation: menuAppear 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 768px) {
+  .circular-context-menu {
+    width: 100px;
+    height: 100px;
+  }
+  
+  .circular-menu-button {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .menu-button-icon {
+    width: 12px;
+    height: 12px;
+  }
+  
+  .menu-button-text {
+    font-size: 7px;
+  }
+}

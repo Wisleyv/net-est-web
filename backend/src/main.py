@@ -26,6 +26,7 @@ from .api.text_input import router as text_input_router
 from .api.analytics import router as analytics_router
 from .api.comparative_analysis import router as comparative_analysis_router
 from .api.v1.feature_extraction import router as feature_extraction_router
+from .api.v1.endpoints.annotations import router as annotations_router
 
 
 # Configurar logging
@@ -87,6 +88,7 @@ app.include_router(semantic_alignment_router)
 app.include_router(analytics_router)
 app.include_router(comparative_analysis_router)
 app.include_router(feature_extraction_router, prefix="/api/v1")
+app.include_router(annotations_router)
 
 # Backwards-compatible mounts under /api/v1 to avoid breaking existing clients/tests
 # These duplicate mounts call the same handlers and are temporary; remove once clients
