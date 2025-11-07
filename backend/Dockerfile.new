@@ -29,7 +29,8 @@ RUN pip install poetry==1.8.3
 COPY pyproject.toml poetry.lock* ./
 
 # Install dependencies (including dev dependencies)
-RUN poetry config virtualenvs.create false \
+# Use --local to avoid "Cannot overwrite a value" error in Codespaces
+RUN poetry config --local virtualenvs.create false \
     && poetry install --no-interaction --no-ansi
 
 # Preload ML models to avoid cold start
@@ -65,7 +66,8 @@ RUN pip install poetry==1.8.3
 COPY pyproject.toml poetry.lock* ./
 
 # Install only production dependencies
-RUN poetry config virtualenvs.create false \
+# Use --local to avoid "Cannot overwrite a value" error in Codespaces
+RUN poetry config --local virtualenvs.create false \
     && poetry install --no-interaction --no-ansi --only main
 
 # Preload ML models
