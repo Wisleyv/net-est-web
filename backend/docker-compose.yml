@@ -1,0 +1,133 @@
+# Docker Compose for NET-EST Backend Development
+# Includes: Backend API, PostgreSQL, Redis
+
+version: '3.9'
+
+services:
+  # Backend API Service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.new
+      target: development
+    container_name: netest-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount source code for hot reload
+      - ./src:/app/src:delegated
+      - ./config:/app/config:delegated
+      - ./tests:/app/tests:delegated
+      # Persistent data
+      - backend-data:/app/data
+      - backend-logs:/app/logs
+      # Prevent overwriting installed packages
+      - /app/.venv
+    environment:
+      # Application settings
+      - DEBUG=True
+      - LOG_LEVEL=INFO
+      - HOST=0.0.0.0
+      - PORT=8000
+      - RELOAD=True
+      
+      # Database
+      - DATABASE_URL=postgresql+asyncpg://netest:netest_dev_password@postgres:5432/netest_dev
+      - DATABASE_ECHO=False
+      
+      # Redis cache
+      - REDIS_URL=redis://redis:6379/0
+      - ENABLE_REDIS_CACHE=True
+      
+      # CORS (for local frontend)
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:5174
+      
+      # ML Model settings
+      - BERTIMBAU_MODEL=sentence-transformers/paraphrase-multilingual-mpnet-base-v2
+      - SIMILARITY_THRESHOLD=0.5
+      - STRATEGY_DETECTION_MODE=complete
+      
+      # Feature flags
+      - DEFAULT_HIERARCHICAL_OUTPUT=True
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - netest-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: netest-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=netest
+      - POSTGRES_PASSWORD=netest_dev_password
+      - POSTGRES_DB=netest_dev
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - netest-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U netest -d netest_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: netest-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks:
+      - netest-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Database Admin UI (optional, for development)
+  adminer:
+    image: adminer:latest
+    container_name: netest-adminer
+    ports:
+      - "8080:8080"
+    environment:
+      - ADMINER_DEFAULT_SERVER=postgres
+    networks:
+      - netest-network
+    restart: unless-stopped
+    profiles:
+      - tools  # Only start with: docker-compose --profile tools up
+
+networks:
+  netest-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  backend-data:
+    driver: local
+  backend-logs:
+    driver: local

@@ -1,0 +1,84 @@
+{
+  "name": "NET-EST Development",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "backend",
+  "workspaceFolder": "/app",
+  
+  // Features to install
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  
+  // Set container-specific settings
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.linting.enabled": true,
+        "python.linting.pylintEnabled": false,
+        "python.linting.ruffEnabled": true,
+        "python.formatting.provider": "black",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.organizeImports": "explicit"
+        },
+        "[python]": {
+          "editor.defaultFormatter": "ms-python.black-formatter",
+          "editor.formatOnSave": true,
+          "editor.tabSize": 4
+        }
+      },
+      
+      // Extensions to install
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.black-formatter",
+        "charliermarsh.ruff",
+        "ms-azuretools.vscode-docker",
+        "eamodio.gitlens",
+        "streetsidesoftware.code-spell-checker",
+        "GitHub.copilot"
+      ]
+    }
+  },
+  
+  // Forward ports for easy access
+  "forwardPorts": [
+    8000,  // Backend API
+    3000,  // Frontend
+    5432,  // PostgreSQL
+    6379,  // Redis
+    8080   // Adminer
+  ],
+  
+  "portsAttributes": {
+    "8000": {
+      "label": "Backend API",
+      "onAutoForward": "notify"
+    },
+    "3000": {
+      "label": "Frontend",
+      "onAutoForward": "openBrowser"
+    },
+    "5432": {
+      "label": "PostgreSQL"
+    },
+    "6379": {
+      "label": "Redis"
+    },
+    "8080": {
+      "label": "Adminer (DB Admin)"
+    }
+  },
+  
+  // Run commands after container creation
+  "postCreateCommand": "echo 'NET-EST Development Environment Ready! 🚀' && echo 'Backend: http://localhost:8000' && echo 'Frontend: http://localhost:3000' && echo 'API Docs: http://localhost:8000/docs'",
+  
+  // Start services on container start
+  "postStartCommand": "docker-compose up -d",
+  
+  // Use 'forwardPorts' to make a list of ports inside the container available locally
+  "remoteUser": "root"
+}

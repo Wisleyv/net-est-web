@@ -1,0 +1,94 @@
+# Multi-stage Dockerfile for NET-EST Backend
+# Optimized for development and production with ML model preloading
+
+# Stage 1: Base Python image with system dependencies
+FROM python:3.12-slim as base
+
+# Prevent Python from writing pyc files and buffering stdout/stderr
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Stage 2: Development dependencies
+FROM base as development
+
+# Install Poetry
+RUN pip install poetry==1.8.3
+
+# Copy dependency files
+COPY pyproject.toml poetry.lock* ./
+
+# Install dependencies (including dev dependencies)
+RUN poetry config virtualenvs.create false \
+    && poetry install --no-interaction --no-ansi
+
+# Preload ML models to avoid cold start
+# This downloads models during build, not at runtime
+RUN python -c "from sentence_transformers import SentenceTransformer; \
+    print('Downloading mpnet model...'); \
+    SentenceTransformer('sentence-transformers/paraphrase-multilingual-mpnet-base-v2'); \
+    print('Model cached successfully')"
+
+# Copy application code
+COPY . .
+
+# Create necessary directories
+RUN mkdir -p data/feedback data/cache logs
+
+# Expose port (configurable via env)
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Development command with hot reload
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+# Stage 3: Production build
+FROM base as production
+
+# Install Poetry
+RUN pip install poetry==1.8.3
+
+# Copy dependency files
+COPY pyproject.toml poetry.lock* ./
+
+# Install only production dependencies
+RUN poetry config virtualenvs.create false \
+    && poetry install --no-interaction --no-ansi --only main
+
+# Preload ML models
+RUN python -c "from sentence_transformers import SentenceTransformer; \
+    print('Downloading mpnet model for production...'); \
+    SentenceTransformer('sentence-transformers/paraphrase-multilingual-mpnet-base-v2'); \
+    print('Production model cached successfully')"
+
+# Copy application code
+COPY src ./src
+COPY config ./config
+
+# Create directories
+RUN mkdir -p data/feedback data/cache logs
+
+# Create non-root user for security
+RUN useradd -m -u 1000 netest && chown -R netest:netest /app
+USER netest
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Production command (no reload, optimized workers)
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]

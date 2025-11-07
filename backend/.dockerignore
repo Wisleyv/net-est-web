@@ -1,0 +1,68 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+.venv_py312/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+tmp/
+
+# Data directories
+data/
+*.db
+*.sqlite3
+
+# Environment files
+.env
+.env.local
+
+# Documentation
+docs/
+docs_dev/
+
+# Tests (uncomment if you want to exclude tests from image)
+# tests/
+
+# Git
+.git/
+.gitignore
+
+# Docker
+docker-compose.yml
+Dockerfile*
+
+# Scripts
+scripts/
+*.ps1
+*.bat
+*.sh
