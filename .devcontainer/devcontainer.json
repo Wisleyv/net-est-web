@@ -1,6 +1,6 @@
 {
   "name": "NET-EST Development",
-  "dockerComposeFile": "../docker-compose.yml",
+  "dockerComposeFile": "../backend/docker-compose.yml",
   "service": "backend",
   "workspaceFolder": "/app",
   
