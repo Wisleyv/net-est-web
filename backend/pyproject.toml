@@ -8,7 +8,7 @@ readme = "README.md"
 packages = [{include = "src"}]
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = ">=3.12,<3.13"
 fastapi = "0.115.5"
 uvicorn = {extras = ["standard"], version = "0.34.0"}
 pydantic = "2.10.5"
@@ -69,7 +69,6 @@ extend-exclude = '''
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-line-length = 100
 indent-width = 4
 
 [tool.ruff.lint]
@@ -127,27 +126,6 @@ quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
-
-[tool.black]
-# Black code formatter configuration
-line-length = 100
-target-version = ['py311', 'py312', 'py313']
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-    \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | venv
-  | _build
-  | buck-out
-  | build
-  | dist
-)/
-'''
 
 [tool.isort]
 # Import sorting configuration
